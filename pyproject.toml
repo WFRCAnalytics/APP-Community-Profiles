@@ -1,5 +1,5 @@
 [project]
-name = "wfrcanalytics.github.io"
+name = "wfrcanalytics-github-io"
 version = "0.1.0"
 description = "Python tooling for wfrcanalytics.github.io (community profiles data pipeline)"
 requires-python = ">=3.12"

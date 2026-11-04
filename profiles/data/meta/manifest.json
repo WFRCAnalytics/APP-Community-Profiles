@@ -1,0 +1,88 @@
+{
+  "boundaries": {
+    "layers": {
+      "aog": {
+        "feature_count": 2,
+        "ids": [
+          "aog-wfrc"
+        ],
+        "kept_features": 1,
+        "last_edit": "2026-06-16",
+        "layer": 0,
+        "name": "BND_AOG",
+        "sha256": "4db1f8436af1c3480ac5355b83c6becc83d59fc7bc7777cb4f1fc26a7deee482",
+        "source_features": 2
+      },
+      "fws": {
+        "feature_count": 9,
+        "ids": [
+          "fws-box-elder",
+          "fws-northern-davis",
+          "fws-northern-salt-lake",
+          "fws-northern-weber",
+          "fws-southeast-salt-lake",
+          "fws-southern-davis",
+          "fws-southern-weber",
+          "fws-southwest-salt-lake"
+        ],
+        "kept_features": 8,
+        "last_edit": "2026-06-16",
+        "layer": 5,
+        "name": "BND_FWS",
+        "sha256": "e1ebe48933ee4ea4c24a6dda57db4568e7d536b7e42780d3cbe32ac64aa71640",
+        "source_features": 9
+      },
+      "mpo": {
+        "feature_count": 2,
+        "ids": [
+          "mpo-wfrc"
+        ],
+        "kept_features": 1,
+        "last_edit": "2026-06-16",
+        "layer": 1,
+        "name": "BND_MPO",
+        "sha256": "cf838e87e7c63f694faa089bb786751ef19e1921ba74a3d5d47443d25d53d49e",
+        "source_features": 2
+      },
+      "rpo": {
+        "feature_count": 3,
+        "ids": [
+          "rpo-morgan",
+          "rpo-tooele"
+        ],
+        "kept_features": 2,
+        "last_edit": "2026-06-16",
+        "layer": 2,
+        "name": "BND_RPO",
+        "sha256": "d5b7ac71e97bef6f1294b0b9b8b008a19e8d91adec14f72b43de6ef2b0ac50c4",
+        "source_features": 3
+      }
+    },
+    "organizations": [
+      "WFRC"
+    ],
+    "service": "https://services1.arcgis.com/taguadKoI1XFwivx/arcgis/rest/services/WFRC_Administrative_and_Planning_Area_Boundaries/FeatureServer"
+  },
+  "boundary_equivalence": {
+    "aog": {
+      "aog-wfrc": null
+    },
+    "fws": {
+      "fws-box-elder": null,
+      "fws-northern-davis": null,
+      "fws-northern-salt-lake": null,
+      "fws-northern-weber": null,
+      "fws-southeast-salt-lake": null,
+      "fws-southern-davis": null,
+      "fws-southern-weber": null,
+      "fws-southwest-salt-lake": null
+    },
+    "mpo": {
+      "mpo-wfrc": null
+    },
+    "rpo": {
+      "rpo-morgan": "Morgan",
+      "rpo-tooele": null
+    }
+  }
+}

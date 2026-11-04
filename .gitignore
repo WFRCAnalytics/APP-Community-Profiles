@@ -5,3 +5,6 @@
 __pycache__/
 node_modules/
 scripts/tools/qa-report.md
+.env
+.venv/
+/profiles/raw/

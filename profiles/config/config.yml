@@ -1,0 +1,23 @@
+# Single source of truth for the profiles pipeline. Nothing below is hardcoded in code.
+
+arcgis:
+  service: https://services1.arcgis.com/taguadKoI1XFwivx/arcgis/rest/services/WFRC_Administrative_and_Planning_Area_Boundaries/FeatureServer
+  # Only features from these organizations are used (MAG is deferred to a later phase).
+  organizations: [WFRC]
+  # geo_type -> layer. name_strip removes words from BoundaryName when building the geo_id slug.
+  layers:
+    aog: { layer: 0, label: Association of Governments, name_strip: [AOG] }
+    mpo: { layer: 1, label: Metropolitan Planning Organization, name_strip: [MPO, Planning, Area] }
+    rpo: { layer: 2, label: Rural Planning Organization, name_strip: [RPO] }
+    fws: { layer: 5, label: Workshop Area, name_strip: ["Co."] }
+
+tiger:
+  # Vintage of the county polygons used to audit the custom boundaries.
+  audit_year: 2023
+  state: UT
+
+audit:
+  crs: "EPSG:32612"            # UTM 12N, metric, for area math
+  equivalent_iou: 0.98         # a boundary this close to one county is treated as that county
+  overlap_tolerance_m2: 10000  # ignore slivers smaller than this when checking overlaps
+  min_county_overlap_km2: 1    # ignore county slivers smaller than this in the audit table

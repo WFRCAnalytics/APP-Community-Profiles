@@ -71,28 +71,34 @@ def assign(con: duckdb.DuckDBPyConnection, blocks: str, areas_sql: str, out: str
     return out
 
 
+UNITS = {"bg": 12, "tract": 11}   # leading digits of a block id that name its block group / tract
+
+
 def shares(con: duckdb.DuckDBPyConnection, blocks: str, block_area: str, out: str) -> str:
-    """Table `out` (geo_id, bg, weight, share, basis, w_in, n_in, n): the share of each block group, per
-    weight kind, that lies inside each area; `basis` is the count actually used after any fallback."""
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE {out}_bg AS
-        SELECT bg, count(*) AS n, sum(pop) AS pop, sum(hu) AS hu, sum(hh) AS hh, sum(aland) AS aland
-        FROM {blocks} GROUP BY bg
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE {out}_in AS
-        SELECT a.geo_id, b.bg, count(*) AS n_in, sum(b.pop) AS pop, sum(b.hu) AS hu, sum(b.hh) AS hh,
-               sum(b.aland) AS aland
-        FROM {block_area} a JOIN {blocks} b USING (block) GROUP BY a.geo_id, b.bg
-    """)
+    """Table `out` (geo_id, unit, unit_id, weight, share, basis, w_in, n_in, n): the share of each Census unit
+    (block group, or tract for tables the Census does not publish at block group), per weight kind, that lies
+    inside each area; `basis` is the count actually used after any fallback."""
     selects = []
-    for weight, chain in WEIGHTS.items():
-        share = " ".join(f"WHEN t.{c} > 0 THEN i.{c}::DOUBLE / t.{c}" for c in chain)
-        basis = " ".join(f"WHEN t.{c} > 0 THEN '{c}'" for c in chain)
-        selects.append(f"""
-            SELECT i.geo_id, i.bg, '{weight}' AS weight, CASE {share} ELSE 0 END AS share,
-                   CASE {basis} ELSE 'none' END AS basis, i.{weight} AS w_in, i.n_in, t.n
-            FROM {out}_in i JOIN {out}_bg t USING (bg)""")
+    for unit, digits in UNITS.items():
+        con.execute(f"""
+            CREATE OR REPLACE TEMP TABLE {out}_{unit}_tot AS
+            SELECT left(block, {digits}) AS unit_id, count(*) AS n, sum(pop) AS pop, sum(hu) AS hu, sum(hh) AS hh,
+                   sum(aland) AS aland
+            FROM {blocks} GROUP BY 1
+        """)
+        con.execute(f"""
+            CREATE OR REPLACE TEMP TABLE {out}_{unit}_in AS
+            SELECT a.geo_id, left(b.block, {digits}) AS unit_id, count(*) AS n_in, sum(b.pop) AS pop, sum(b.hu) AS hu,
+                   sum(b.hh) AS hh, sum(b.aland) AS aland
+            FROM {block_area} a JOIN {blocks} b USING (block) GROUP BY a.geo_id, 2
+        """)
+        for weight, chain in WEIGHTS.items():
+            share = " ".join(f"WHEN t.{c} > 0 THEN i.{c}::DOUBLE / t.{c}" for c in chain)
+            basis = " ".join(f"WHEN t.{c} > 0 THEN '{c}'" for c in chain)
+            selects.append(f"""
+                SELECT i.geo_id, '{unit}' AS unit, i.unit_id, '{weight}' AS weight, CASE {share} ELSE 0 END AS share,
+                       CASE {basis} ELSE 'none' END AS basis, i.{weight} AS w_in, i.n_in, t.n
+                FROM {out}_{unit}_in i JOIN {out}_{unit}_tot t USING (unit_id)""")
     con.execute(f"CREATE OR REPLACE TABLE {out} AS " + " UNION ALL ".join(selects))
     return out
 
@@ -121,7 +127,7 @@ def quality(con: duckdb.DuckDBPyConnection, share_table: str, relation_table: st
     equivalent_to is the county whose polygon the area matches (IoU at least equivalent_iou)."""
     con.execute(f"""
         CREATE OR REPLACE TABLE {out} AS
-        SELECT s.geo_id, s.weight, sum(s.w_in) AS total,
+        SELECT s.geo_id, s.unit, s.weight, sum(s.w_in) AS total,
                coalesce(sum(s.w_in) FILTER (WHERE s.share >= {whole}), 0) AS whole_total,
                coalesce(sum(s.w_in) FILTER (WHERE s.share >= {whole}), 0) / nullif(sum(s.w_in), 0) AS alignment,
                count(*) AS n_bg, count(*) FILTER (WHERE s.share < {whole}) AS n_split,
@@ -129,7 +135,7 @@ def quality(con: duckdb.DuckDBPyConnection, share_table: str, relation_table: st
                any_value(r.county) AS equivalent_to
         FROM {share_table} s
         LEFT JOIN (SELECT geo_id, county FROM {relation_table} WHERE iou >= {equivalent_iou}) r USING (geo_id)
-        GROUP BY s.geo_id, s.weight
+        GROUP BY s.geo_id, s.unit, s.weight
     """)
     return out
 
@@ -194,8 +200,8 @@ def run(refresh: bool = False) -> duckdb.DuckDBPyConnection:
     quality_parts = []
     for era in eras_needed():
         t = build(con, era, refresh)
-        write_parquet(con, f"SELECT * FROM {t['shares']}", DATA / "crosswalk" / f"bg_share_{era}.parquet",
-                      "geo_id, bg, weight")
+        write_parquet(con, f"SELECT * FROM {t['shares']}", DATA / "crosswalk" / f"unit_share_{era}.parquet",
+                      "geo_id, unit, unit_id, weight")
         quality_parts.append(f"SELECT {era} AS era, * FROM {t['quality']}")
         # block -> area assignment, reused by the LODES stage (county-union areas already take whole counties)
         dest = DERIVED / f"block_area_{era}.parquet"
@@ -206,7 +212,7 @@ def run(refresh: bool = False) -> duckdb.DuckDBPyConnection:
             f"SELECT (SELECT count(*) FROM {t['blocks']}), (SELECT count(DISTINCT block) FROM {t['block_area']})").fetchone()
         manifest[str(era)] = {"blocks": n_blocks, "blocks_in_any_area": n_assigned}
         print(f"era {era}: {n_blocks} blocks, {n_assigned} inside a WFRC area")
-    write_parquet(con, " UNION ALL ".join(quality_parts), META / "boundary_quality.parquet", "era, geo_id, weight")
+    write_parquet(con, " UNION ALL ".join(quality_parts), META / "boundary_quality.parquet", "era, geo_id, unit, weight")
     # whole-county unions are decided on polygons, so they are the same in every era
     write_parquet(con, f"SELECT * FROM area_counties_{max(eras_needed())}", META / "area_counties.parquet", "geo_id, county")
     update_manifest("crosswalk", manifest)

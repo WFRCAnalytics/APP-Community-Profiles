@@ -43,3 +43,15 @@ def blocks(state: str, year: int, counties_fips: list[str], refresh: bool = Fals
         cache.parent.mkdir(parents=True, exist_ok=True)
         gpd.GeoDataFrame(pd.concat(parts, ignore_index=True), crs=parts[0].crs).to_parquet(cache, compression="zstd")
     return cache
+
+
+def cartographic(kind: str, state: str, year: int, refresh: bool = False) -> Path:
+    """Path to a cached cartographic-boundary GeoParquet (500k, clipped to the shoreline) of `kind`
+    (counties, places or tracts) for the state, which draws better on a web map than full TIGER."""
+    cache = RAW / "tiger" / f"cb_{kind}_{state}_{year}.parquet"
+    if not cache.exists() or refresh:
+        fetch = {"counties": pygris.counties, "places": pygris.places, "tracts": pygris.tracts}[kind]
+        gdf = fetch(state=state, cb=True, year=year)
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        gdf.to_parquet(cache, compression="zstd")
+    return cache

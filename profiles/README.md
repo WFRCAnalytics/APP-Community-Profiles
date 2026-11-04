@@ -33,7 +33,7 @@ download again.
 | `validate` | Check every configured ACS table and geography against each vintage | `data/meta/variables.parquet`, `data/meta/acs-availability.md` |
 | `acs` | Download whole ACS 5-year tables (2009 to latest) for state, county, place, tract and block group | `data/acs/<topic>/<geo_type>.parquet` |
 | `geographies` | Build the list of selectable areas | `data/meta/geographies.parquet` |
-| `crosswalk` | Decennial block counts + TIGER block points -> share of each ACS block group inside each WFRC area | `data/crosswalk/bg_share_<era>.parquet`, `data/meta/boundary_quality.parquet` |
+| `crosswalk` | Decennial block counts + TIGER block points -> share of each ACS block group inside each WFRC area | `data/crosswalk/unit_share_<era>.parquet`, `data/meta/boundary_quality.parquet` |
 | `aggregate` | Apply the shares to ACS block groups to build the WFRC areas' tables | `data/acs/<topic>/{aog,mpo,rpo,fws}.parquet` |
 | `pep` | Annual population estimates for state, counties, places, and whole-county WFRC areas | `data/pep/{state,county,place,areas}.parquet` |
 | `lodes` | LEHD jobs by workplace (WAC), workers by residence (RAC) and commute flows (OD), 2002 to latest, summed from blocks | `data/lodes/{wac,rac,od}/<geo_type>.parquet`, `data/meta/lodes_variables.parquet` |
@@ -102,6 +102,30 @@ county code, which makes them exact in every era, and get annual population from
   `profiles/raw/derived/acs` and feeds the WFRC area tables.
 - PEP 2010-2019 is based on the 2010 Census and 2020-2024 on the 2020 Census, so the series has a break
   between 2019 and 2020.
+
+## Dashboard
+
+`index.qmd` is a Quarto dashboard (`format: wfrc-brand-dashboard`) built from Observable JS cells and the ES
+modules in `assets/`; `methodology.qmd` explains sources and methods. Nothing is computed on a server: the
+browser reads the tracked parquet files with DuckDB-WASM over HTTP range requests, draws charts with
+Observable Plot and the map with MapLibre GL. The URL hash keeps the chosen area, comparison and period, so a
+view can be shared.
+
+| File | Role |
+|---|---|
+| `assets/data.js` | Opens DuckDB-WASM and holds every query (ACS, PEP, LODES, QCEW, map geometry) |
+| `assets/indicators.js` | The headline indicators and geography types; drives value boxes, map metrics and the Indicators tab |
+| `assets/specs.js` | Distribution charts (age, race, tenure, income, commute, jobs by industry...) as variable codes |
+| `assets/charts.js`, `assets/map.js`, `assets/format.js` | Plot charts, the MapLibre map, number formatting |
+
+Run `uv run profiles export` to refresh the simplified map geometry in `data/web/`, then
+`quarto preview profiles/index.qmd`. The data files are read from `profiles/data/` by relative path, so the page
+must be served over HTTP with range support (`quarto preview` does this). Runtime libraries load from jsDelivr
+at pinned versions (DuckDB-WASM 1.29.0, Observable Plot 0.6.16, MapLibre 4.7.1) and the basemap from
+OpenFreeMap. Each Quarto code cell holds one statement, so definitions are separate cells.
+
+To test in a real browser, `scripts/tools` already carries `puppeteer-core`: open the rendered page, wait for
+`.pf-value-number`, and look for console errors and `.observablehq--error` elements.
 
 ## Notes
 

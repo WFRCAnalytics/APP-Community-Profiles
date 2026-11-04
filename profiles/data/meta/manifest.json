@@ -231,19 +231,19 @@
       "rows": 1462
     },
     "education/aog": {
-      "bytes": 3916,
+      "bytes": 4733,
       "rows": 420
     },
     "education/fws": {
-      "bytes": 19386,
+      "bytes": 27302,
       "rows": 3360
     },
     "education/mpo": {
-      "bytes": 4527,
+      "bytes": 5620,
       "rows": 420
     },
     "education/rpo": {
-      "bytes": 6157,
+      "bytes": 7092,
       "rows": 905
     },
     "employment/aog": {
@@ -295,52 +295,52 @@
       "rows": 3172
     },
     "income/aog": {
-      "bytes": 3910,
+      "bytes": 8418,
       "rows": 924
     },
     "income/fws": {
-      "bytes": 15003,
+      "bytes": 57821,
       "rows": 7392
     },
     "income/mpo": {
-      "bytes": 4373,
+      "bytes": 10191,
       "rows": 924
     },
     "income/rpo": {
-      "bytes": 9990,
+      "bytes": 14836,
       "rows": 2156
     },
     "population/aog": {
-      "bytes": 7403,
+      "bytes": 7449,
       "rows": 792
     },
     "population/fws": {
-      "bytes": 48061,
+      "bytes": 48765,
       "rows": 6336
     },
     "population/mpo": {
-      "bytes": 8725,
+      "bytes": 8785,
       "rows": 792
     },
     "population/rpo": {
-      "bytes": 12751,
+      "bytes": 12832,
       "rows": 1848
     },
     "social/aog": {
-      "bytes": 3815,
-      "rows": 2081
+      "bytes": 5890,
+      "rows": 572
     },
     "social/fws": {
-      "bytes": 13349,
-      "rows": 16648
+      "bytes": 37580,
+      "rows": 4576
     },
     "social/mpo": {
-      "bytes": 4105,
-      "rows": 2081
+      "bytes": 7038,
+      "rows": 572
     },
     "social/rpo": {
-      "bytes": 9214,
-      "rows": 4677
+      "bytes": 10903,
+      "rows": 3168
     }
   },
   "boundaries": {
@@ -545,6 +545,32 @@
     },
     "state": {
       "bytes": 249
+    }
+  },
+  "web_export": {
+    "aog": {
+      "bytes": 27221
+    },
+    "county": {
+      "bytes": 277723
+    },
+    "fws": {
+      "bytes": 49044
+    },
+    "mpo": {
+      "bytes": 15646
+    },
+    "place": {
+      "bytes": 439040
+    },
+    "rpo": {
+      "bytes": 24214
+    },
+    "state": {
+      "bytes": 1153
+    },
+    "tract": {
+      "bytes": 1044156
     }
   }
 }

@@ -40,7 +40,7 @@ def test_shares_weight_and_fallback(con):
     crosswalk.assign(con, "blocks", _areas(("mpo-left", LEFT)), "ba")
     crosswalk.shares(con, "blocks", "ba", "sh")
     rows = {(bg, w): (share, basis) for bg, w, share, basis in
-            con.execute("SELECT bg, weight, share, basis FROM sh").fetchall()}
+            con.execute("SELECT unit_id, weight, share, basis FROM sh WHERE unit = 'bg'").fetchall()}
     assert rows[(BG_A, "pop")] == (0.25, "pop")        # 10 of 40 people
     assert rows[(BG_A, "hh")] == (4 / 14, "hh")        # 4 of 14 households
     assert rows[(BG_A, "hu")] == (0.25, "hu")          # 4 of 16 housing units
@@ -62,7 +62,7 @@ def test_quality_alignment_and_equivalence(con):
     _relations(con, areas)
     crosswalk.quality(con, "sh", "rel", "q", whole=0.9999, equivalent_iou=0.995)
     q = {(g, w): (a, n_split, eq) for g, w, a, n_split, eq in
-         con.execute("SELECT geo_id, weight, alignment, n_split, equivalent_to FROM q").fetchall()}
+         con.execute("SELECT geo_id, weight, alignment, n_split, equivalent_to FROM q WHERE unit = 'bg'").fetchall()}
     assert q[("rpo-all", "pop")] == (1.0, 0, "49001")      # the whole county
     assert q[("mpo-left", "pop")][0] == 0.0 and q[("mpo-left", "pop")][1] == 2 and q[("mpo-left", "pop")][2] is None
 
@@ -74,7 +74,7 @@ def test_allocation_scales_estimate_and_moe(con):
     crosswalk.quality(con, "sh", "rel", "q", whole=0.9999, equivalent_iou=0.995)
     con.execute("CREATE TEMP TABLE shares AS SELECT 2020 AS era, * FROM sh")
     con.execute("CREATE TEMP TABLE quality AS SELECT 2020 AS era, * FROM q")
-    con.register("v_df", pd.DataFrame([{"vintage": 2024, "variable": "B01001_001", "agg": "sum", "weight": "pop", "custom": True}]))
+    con.register("v_df", pd.DataFrame([{"vintage": 2024, "variable": "B01001_001", "agg": "sum", "weight": "pop", "custom": True, "unit": "bg"}]))
     con.execute("CREATE TEMP TABLE variables AS SELECT * FROM v_df")
     con.register("bg_df", pd.DataFrame([
         {"geo_id": BG_A, "vintage": 2024, "variable": "B01001_001", "estimate": 100.0, "moe": 20.0},
@@ -102,3 +102,10 @@ def test_county_unions_take_blocks_by_county_code_not_polygon(con):
     con.execute("CREATE TABLE wc AS SELECT 'rpo-all' AS geo_id, '49001' AS county")
     crosswalk.assign_county_unions(con, "blocks", "ba", "wc")
     assert con.execute("SELECT count(*) FROM ba WHERE geo_id = 'rpo-all'").fetchone()[0] == 4
+
+
+def test_tract_unit_shares_use_the_first_eleven_digits(con):
+    crosswalk.assign(con, "blocks", _areas(("mpo-left", LEFT)), "ba")
+    crosswalk.shares(con, "blocks", "ba", "sh")
+    rows = con.execute("SELECT unit_id, share FROM sh WHERE unit = 'tract' AND weight = 'pop'").fetchall()
+    assert rows == [("49001000000", 0.25)]     # both block groups sit in one tract; 10 of its 40 people are inside

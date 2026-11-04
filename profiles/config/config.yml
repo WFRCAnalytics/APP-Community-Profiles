@@ -44,13 +44,15 @@ acs:
   # summing areas later: sum (counts, the default) or median (must be re-derived, never summed).
   # weight is the 2020/2010 Decennial block count used to split a block group between areas: pop
   # (people), hh (occupied housing units = households) or hu (housing units). custom: false keeps a
-  # table out of allocation (workplace-based tables cannot be split by where people live).
+  # table out of allocation (workplace-based tables cannot be split by where people live). unit: tract is for
+  # tables the Census does not publish at block group (poverty, group quarters, enrollment, disability):
+  # they are split from tracts instead.
   tables:
     B01001: { topic: population, label: Sex by age, weight: pop }
     B01002: { topic: population, label: Median age, agg: median }
     B02001: { topic: population, label: Race, weight: pop }
     B03003: { topic: population, label: Hispanic or Latino origin, weight: pop }
-    B26001: { topic: population, label: Group quarters population, weight: pop }
+    B26001: { topic: population, label: Group quarters population, weight: pop, unit: tract }
     B11012: { topic: households, label: Households by type, weight: hh }
     B25003: { topic: households, label: Tenure, weight: hh }
     B25044: { topic: households, label: Tenure by vehicles available, weight: hh }
@@ -65,16 +67,16 @@ acs:
     B25091: { topic: housing, label: Owner costs as a share of income, weight: hh }
     B19001: { topic: income, label: Household income brackets, weight: hh }
     B19013: { topic: income, label: Median household income, agg: median }
-    B17001: { topic: income, label: Poverty status, weight: pop }
+    B17001: { topic: income, label: Poverty status, weight: pop, unit: tract }
     B15003: { topic: education, label: Educational attainment, weight: pop }
-    B14001: { topic: education, label: School enrollment, weight: pop }
+    B14001: { topic: education, label: School enrollment, weight: pop, unit: tract }
     B23025: { topic: employment, label: Employment status, weight: pop }
     B08301: { topic: commute, label: Means of transportation to work (by residence), weight: pop }
     B08303: { topic: commute, label: Travel time to work (by residence), weight: pop }
     B08601: { topic: commute, label: Means of transportation to work (by workplace), custom: false }
     B08603: { topic: commute, label: Travel time to work (by workplace), custom: false }
-    B16001: { topic: social, label: Language spoken at home, weight: pop }
-    B18101: { topic: social, label: Disability status, weight: pop }
+    B16001: { topic: social, label: Language spoken at home, weight: pop, custom: false }
+    B18101: { topic: social, label: Disability status, weight: pop, unit: tract }
     B28002: { topic: social, label: Internet subscriptions, weight: hh }
 
 # Decennial block counts used as allocation weights. A 5-year ACS vintage uses the block group

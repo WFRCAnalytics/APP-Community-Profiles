@@ -125,7 +125,7 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
             gap, n = con.execute(f"""
                 WITH built AS (
                     SELECT s.geo_id, sum(a.estimate * s.share) AS est FROM {_bg(variable)} a
-                    JOIN qa_county_shares_{era} s ON s.bg = a.geo_id AND s.weight = '{weight}'
+                    JOIN qa_county_shares_{era} s ON s.unit = 'bg' AND s.unit_id = a.geo_id AND s.weight = '{weight}'
                     WHERE a.variable = '{variable}' AND a.vintage = {vintage} GROUP BY s.geo_id),
                 direct AS (SELECT geo_id, estimate FROM {_county(variable)} WHERE variable = '{variable}' AND vintage = {vintage})
                 SELECT max(abs(b.est - d.estimate) / nullif(d.estimate, 0)), count(*) FROM built b JOIN direct d USING (geo_id)
@@ -135,7 +135,7 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
                 failures.append(f"{vintage}: counties rebuilt from polygons differ for {variable}: {gap:.4%} over {n} counties")
             aog = con.execute(f"""
                 SELECT sum(a.estimate * s.share) FROM {_bg(variable)} a
-                JOIN {t['shares']} s ON s.bg = a.geo_id AND s.weight = '{weight}' AND s.geo_id = 'aog-wfrc'
+                JOIN {t['shares']} s ON s.unit = 'bg' AND s.unit_id = a.geo_id AND s.weight = '{weight}' AND s.geo_id = 'aog-wfrc'
                 WHERE a.variable = '{variable}' AND a.vintage = {vintage}""").fetchone()[0]
             pub = con.execute(f"SELECT sum(estimate) FROM {_county(variable)} WHERE variable = '{variable}' "
                               f"AND vintage = {vintage} AND geo_id IN ({id_list})").fetchone()[0]
@@ -195,7 +195,7 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
     lines.append("")
 
     fb = con.execute(f"""
-        SELECT s.geo_id, s.bg, s.basis FROM {t['shares']} s WHERE s.basis <> s.weight AND s.weight = 'pop'
+        SELECT s.geo_id, s.unit_id, s.basis FROM {t['shares']} s WHERE s.unit = 'bg' AND s.basis <> s.weight AND s.weight = 'pop'
         ORDER BY 1, 2""").fetchall()
     lines += [f"## Block groups with no population count in the Decennial (era {latest})", "",
               "These used the next available count (housing units, then land area):", ""]

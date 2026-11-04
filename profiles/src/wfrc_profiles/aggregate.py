@@ -28,27 +28,29 @@ from .util import load_config, update_manifest
 def load_inputs(con: duckdb.DuckDBPyConnection) -> None:
     """Register temp tables: shares (all eras), quality, variables."""
     shares = " UNION ALL ".join(
-        f"SELECT {era} AS era, * FROM read_parquet('{sql_path(DATA / 'crosswalk' / f'bg_share_{era}.parquet')}')"
+        f"SELECT {era} AS era, * FROM read_parquet('{sql_path(DATA / 'crosswalk' / f'unit_share_{era}.parquet')}')"
         for era in eras_needed())
     con.execute(f"CREATE OR REPLACE TEMP TABLE shares AS {shares}")
     con.execute(f"CREATE OR REPLACE TEMP TABLE quality AS SELECT * FROM read_parquet('{sql_path(META / 'boundary_quality.parquet')}')")
     con.execute(f"CREATE OR REPLACE TEMP TABLE variables AS SELECT * FROM read_parquet('{sql_path(META / 'variables.parquet')}')")
 
 
-def allocation_sql(acs_bg: str, era_boundary: int, whole: float) -> str:
-    """Query that allocates block group rows (columns geo_id, vintage, variable, estimate, moe) to areas."""
+def allocation_sql(acs_src: str, era_boundary: int, whole: float, unit: str = "bg", min_vintage: int = 0) -> str:
+    """Query that allocates rows of Census units (columns geo_id, vintage, variable, estimate, moe) to areas.
+    `unit` is bg or tract: tables the Census does not publish at block group are split from tracts. Vintages
+    before `min_vintage` are skipped so every table of an area starts in the same year."""
     return f"""
         SELECT s.geo_id, split_part(s.geo_id, '-', 1) AS geo_type, a.vintage, a.variable,
                round(CASE WHEN count(a.estimate) = 0 THEN NULL ELSE sum(a.estimate * s.share) END, 2) AS estimate,
                round(CASE WHEN count(a.moe) = 0 THEN NULL ELSE sqrt(sum(power(a.moe * s.share, 2))) END, 2) AS moe,
                NULL::VARCHAR AS flag,
                CASE WHEN q.alignment >= {whole} THEN 'aggregated' ELSE 'allocated' END AS method
-        FROM {acs_bg} a
-        JOIN variables v ON v.variable = a.variable AND v.vintage = a.vintage
-        JOIN shares s ON s.bg = a.geo_id AND s.weight = v.weight
+        FROM {acs_src} a
+        JOIN variables v ON v.variable = a.variable AND v.vintage = a.vintage AND v.unit = '{unit}'
+        JOIN shares s ON s.unit = '{unit}' AND s.unit_id = a.geo_id AND s.weight = v.weight
                      AND s.era = CASE WHEN a.vintage >= {era_boundary} THEN 2020 ELSE 2010 END
-        JOIN quality q ON q.geo_id = s.geo_id AND q.weight = v.weight AND q.era = s.era
-        WHERE v.agg = 'sum' AND v.custom AND s.share > 0 AND q.equivalent_to IS NULL
+        JOIN quality q ON q.geo_id = s.geo_id AND q.unit = s.unit AND q.weight = v.weight AND q.era = s.era
+        WHERE v.agg = 'sum' AND v.custom AND s.share > 0 AND q.equivalent_to IS NULL AND a.vintage >= {min_vintage}
         GROUP BY s.geo_id, a.vintage, a.variable, q.alignment
     """
 
@@ -68,18 +70,25 @@ def equivalent_sql(acs_county: str, era_boundary: int) -> str:
 def run(refresh: bool = False) -> None:
     cfg = load_config()
     xw = cfg["crosswalk"]
+    min_vintage = cfg["acs"]["geographies"]["block_group"]["since"]
     con = connect()
     load_inputs(con)
     topics = sorted({t["topic"] for t in cfg["acs"]["tables"].values()})
     manifest = {}
     topic_tables = {t: {k for k, v in cfg["acs"]["tables"].items() if v["topic"] == t} for t in topics}
     for topic in topics:
-        bg = part_dir(topic, "block_group") / "*.parquet"  # full history, not the latest-only tracked file
         county = DATA / "acs" / topic / "county.parquet"
-        con.execute(f"CREATE OR REPLACE TEMP VIEW acs_bg AS SELECT * FROM read_parquet('{sql_path(bg)}')")
         con.execute(f"CREATE OR REPLACE TEMP VIEW acs_county AS SELECT * FROM read_parquet('{sql_path(county)}')")
-        con.execute("CREATE OR REPLACE TEMP TABLE built AS "
-                    + allocation_sql("acs_bg", xw["era_boundary"], xw["whole_unit_share"])
+        parts = []
+        for unit, geo in (("bg", "block_group"), ("tract", "tract")):
+            if not con.execute("SELECT count(*) FROM variables WHERE topic = ? AND unit = ? AND agg = 'sum' AND custom",
+                               [topic, unit]).fetchone()[0]:
+                continue
+            # full history from the part files, not the latest-only tracked file
+            src = part_dir(topic, geo) / "*.parquet"
+            con.execute(f"CREATE OR REPLACE TEMP VIEW acs_{unit} AS SELECT * FROM read_parquet('{sql_path(src)}')")
+            parts.append(allocation_sql(f"acs_{unit}", xw["era_boundary"], xw["whole_unit_share"], unit, min_vintage))
+        con.execute("CREATE OR REPLACE TEMP TABLE built AS " + " UNION ALL ".join(parts)
                     + " UNION ALL " + equivalent_sql("acs_county", xw["era_boundary"]))
         derived = medians.derive(con, "built", [m for m in cfg["medians"] if m["table"] in topic_tables[topic]])
         if len(derived):

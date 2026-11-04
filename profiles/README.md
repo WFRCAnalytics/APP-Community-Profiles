@@ -36,7 +36,9 @@ download again.
 | `crosswalk` | Decennial block counts + TIGER block points -> share of each ACS block group inside each WFRC area | `data/crosswalk/bg_share_<era>.parquet`, `data/meta/boundary_quality.parquet` |
 | `aggregate` | Apply the shares to ACS block groups to build the WFRC areas' tables | `data/acs/<topic>/{aog,mpo,rpo,fws}.parquet` |
 | `pep` | Annual population estimates for state, counties, places, and whole-county WFRC areas | `data/pep/{state,county,place,areas}.parquet` |
-| `qa` | Check the crosswalk reproduces published county totals in every vintage | `data/meta/crosswalk-qa.md` |
+| `lodes` | LEHD jobs by workplace (WAC), workers by residence (RAC) and commute flows (OD), 2002 to latest, summed from blocks | `data/lodes/{wac,rac,od}/<geo_type>.parquet`, `data/meta/lodes_variables.parquet` |
+| `qcew` | BLS establishments, employment and wages by county, ownership and industry, 2014 to latest | `data/qcew/{state,county,areas}.parquet`, `data/meta/qcew_codes.parquet` |
+| `qa` | Check the crosswalk reproduces published county totals in every vintage, and that jobs data adds up | `data/meta/crosswalk-qa.md` |
 
 `uv run profiles all` runs them in that order. ACS files are long format (`geo_id, geo_type, vintage,
 variable, estimate, moe, flag, method`) and every row from this stage has `method = direct`, meaning
@@ -68,6 +70,24 @@ An area is treated as a county (`direct`) or a union of whole counties when its 
 TIGER counties that closely (config `crosswalk`). Such areas take every block of those counties by
 county code, which makes them exact in every era, and get annual population from the PEP county series.
 
+## Jobs and employment
+
+- **LODES** (LEHD) counts jobs at the block, so the state, counties, places, tracts and every WFRC area
+  are exact sums of whole blocks (`method = aggregated`); nothing is allocated. LODES8 uses 2020 blocks
+  for every year, so the 2020-era block assignment serves the whole 2002 to latest series. WAC is jobs by
+  workplace, RAC is workers by residence. Each has jobs by industry (the 20 NAICS sectors), age, earnings,
+  race, ethnicity, education and sex, and WAC adds firm age and size. The Census Bureau adds noise to
+  block counts, so small areas are rough. Place and tract files leave out rows of zero jobs (a missing row
+  is zero); tracts are published for the latest year only.
+- **OD** commute flows are summed between areas of the same geography type (WFRC areas, counties and
+  places) and include workers who live outside Utah (the LODES aux files). In an OD file `other-ut` is a
+  Utah block outside every area of that type and `out-of-state` is a worker living outside Utah. This
+  gives the inflow and outflow of an area such as the MPO.
+- **QCEW** is county-level covered employment and wages by industry and ownership, so only the state,
+  counties and the WFRC areas that are whole counties (the AOG, Morgan RPO) are published. BLS withholds
+  some cells (`flag = suppressed`, value empty); an area sum missing such a county is flagged `partial` and
+  is a lower bound. QCEW and LODES count different things and will not match exactly.
+
 ## History
 
 - ACS 5-year vintages run 2009 to the latest. Block groups exist in the API from 2013, so counties,
@@ -91,4 +111,4 @@ county code, which makes them exact in every era, and get annual population from
 - MAG boundaries are filtered out through `arcgis.organizations` in the config.
 - Only the era needed by the configured ACS vintages is built (2020 blocks for 2020 and later vintages,
   2010 blocks for earlier ones), so adding historical vintages adds the 2010 crosswalk automatically.
-- Planned next: LODES (jobs by industry, commute flows) and QCEW.
+- Planned next: the dashboard (Quarto, Observable Plot, DuckDB-WASM, MapLibre) and the web-ready exports.

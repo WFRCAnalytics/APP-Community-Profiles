@@ -35,6 +35,59 @@ def _county(variable: str) -> str:
     return f"read_parquet('{sql_path(DATA / 'acs' / TOPIC[variable] / 'county.parquet')}')"
 
 
+def _employment(con: duckdb.DuckDBPyConnection, tol: float, failures: list[str]) -> list[str]:
+    """Checks on the LODES and QCEW outputs: parts add up to wholes, and the two sources are in the same range."""
+    wac = lambda t: f"read_parquet('{sql_path(DATA / 'lodes' / 'wac' / (t + '.parquet'))}')"
+    qcew = lambda t: f"read_parquet('{sql_path(DATA / 'qcew' / (t + '.parquet'))}')"
+    members = f"read_parquet('{sql_path(META / 'area_counties.parquet')}')"
+    needed = [DATA / "lodes" / "wac" / "county.parquet", DATA / "qcew" / "county.parquet", META / "area_counties.parquet"]
+    if not all(p.exists() for p in needed):
+        return ["## Employment data", "", "LODES or QCEW has not been built.", ""]
+    lines = ["## Employment data (LODES and QCEW)", "",
+             "Largest relative gap across all years between a total and the sum of its parts.", "",
+             "| Check | Gap |", "|---|---:|"]
+
+    def gap(label: str, sql: str) -> None:
+        g = con.execute(sql).fetchone()[0] or 0.0
+        lines.append(f"| {label} | {g:.4%} |")
+        if g > tol:
+            failures.append(f"{label}: {g:.4%}")
+
+    gap("LODES jobs: counties sum to the state", f"""
+        WITH c AS (SELECT year, sum(jobs) AS j FROM {wac('county')} WHERE variable = 'C000' GROUP BY year),
+             s AS (SELECT year, jobs AS j FROM {wac('state')} WHERE variable = 'C000')
+        SELECT max(abs(c.j - s.j) / s.j) FROM c JOIN s USING (year)""")
+    gap("LODES jobs: WFRC AOG equals its counties", f"""
+        WITH a AS (SELECT year, jobs AS j FROM {wac('aog')} WHERE variable = 'C000' AND geo_id = 'aog-wfrc'),
+             c AS (SELECT year, sum(jobs) AS j FROM {wac('county')} w
+                   WHERE variable = 'C000' AND geo_id IN (SELECT county FROM {members} WHERE geo_id = 'aog-wfrc') GROUP BY year)
+        SELECT max(abs(a.j - c.j) / c.j) FROM a JOIN c USING (year)""")
+    gap("QCEW employment: WFRC AOG equals its counties", f"""
+        WITH a AS (SELECT year, value AS v FROM {qcew('areas')}
+                   WHERE geo_id = 'aog-wfrc' AND variable = 'employment' AND ownership = '0' AND industry = '10' AND flag IS NULL),
+             c AS (SELECT year, sum(value) AS v FROM {qcew('county')}
+                   WHERE variable = 'employment' AND ownership = '0' AND industry = '10'
+                     AND geo_id IN (SELECT county FROM {members} WHERE geo_id = 'aog-wfrc') GROUP BY year)
+        SELECT max(abs(a.v - c.v) / c.v) FROM a JOIN c USING (year)""")
+    lines.append("")
+
+    year = con.execute(f"""
+        SELECT max(w.year) FROM {wac('county')} w JOIN (SELECT DISTINCT year FROM {qcew('county')}) q USING (year)""").fetchone()[0]
+    lines += [f"LODES jobs (all job types, by workplace) against QCEW covered employment in {year}. They differ by "
+              "design (LODES counts jobs on a point in the year, QCEW an annual average, and each covers a "
+              "different mix of workers), so this is a reasonableness check, not a test.", "",
+              "| County | LODES jobs | QCEW employment | LODES / QCEW |", "|---|---:|---:|---:|"]
+    rows = con.execute(f"""
+        SELECT w.geo_id, w.jobs, q.value FROM {wac('county')} w
+        JOIN {qcew('county')} q ON q.geo_id = w.geo_id AND q.year = w.year
+        WHERE w.year = {year} AND w.variable = 'C000' AND q.variable = 'employment' AND q.ownership = '0'
+          AND q.industry = '10' AND w.geo_id IN (SELECT county FROM {members} WHERE geo_id = 'aog-wfrc')
+        ORDER BY w.jobs DESC""").fetchall()
+    lines += [f"| `{g}` | {j:,} | {q:,.0f} | {j / q:.2f} |" for g, j, q in rows]
+    lines.append("")
+    return lines
+
+
 def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> None:
     cfg = load_config()
     tol = cfg["crosswalk"]["qa_tolerance"]
@@ -148,6 +201,8 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
               "These used the next available count (housing units, then land area):", ""]
     lines += [f"- `{g}` block group {bg}: used {basis}" for g, bg, basis in fb] or ["- None."]
     lines.append("")
+
+    lines += _employment(con, tol, failures)
 
     write_if_changed(META / "crosswalk-qa.md", ("\n".join(lines) + "\n").encode("utf-8"))
     update_manifest("crosswalk_qa", {"vintages": vintages, "failures": failures})

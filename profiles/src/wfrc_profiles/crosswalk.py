@@ -12,8 +12,10 @@ import pandas as pd
 
 from . import decennial, tiger
 from .db import connect, sql_path, write_parquet
-from .paths import BOUNDARIES, DATA, META
+from .paths import BOUNDARIES, DATA, META, RAW
 from .util import load_config, update_manifest
+
+DERIVED = RAW / "derived"
 
 # For each weight, the columns tried in order when a block group has none of the preferred count
 # (for example a block group with new housing since the Decennial). Land area is the last resort.
@@ -195,6 +197,11 @@ def run(refresh: bool = False) -> duckdb.DuckDBPyConnection:
         write_parquet(con, f"SELECT * FROM {t['shares']}", DATA / "crosswalk" / f"bg_share_{era}.parquet",
                       "geo_id, bg, weight")
         quality_parts.append(f"SELECT {era} AS era, * FROM {t['quality']}")
+        # block -> area assignment, reused by the LODES stage (county-union areas already take whole counties)
+        dest = DERIVED / f"block_area_{era}.parquet"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        con.execute(f"COPY (SELECT * FROM {t['block_area']} ORDER BY geo_id, block) TO '{sql_path(dest)}' "
+                    "(FORMAT parquet, COMPRESSION zstd)")
         n_blocks, n_assigned = con.execute(
             f"SELECT (SELECT count(*) FROM {t['blocks']}), (SELECT count(DISTINCT block) FROM {t['block_area']})").fetchone()
         manifest[str(era)] = {"blocks": n_blocks, "blocks_in_any_area": n_assigned}

@@ -45,3 +45,23 @@ These used the next available count (housing units, then land area):
 - `aog-wfrc` block group 490459800001: used aland
 - `rpo-tooele` block group 490459800001: used aland
 
+## Employment data (LODES and QCEW)
+
+Largest relative gap across all years between a total and the sum of its parts.
+
+| Check | Gap |
+|---|---:|
+| LODES jobs: counties sum to the state | 0.0000% |
+| LODES jobs: WFRC AOG equals its counties | 0.0000% |
+| QCEW employment: WFRC AOG equals its counties | 0.0000% |
+
+LODES jobs (all job types, by workplace) against QCEW covered employment in 2023. They differ by design (LODES counts jobs on a point in the year, QCEW an annual average, and each covers a different mix of workers), so this is a reasonableness check, not a test.
+
+| County | LODES jobs | QCEW employment | LODES / QCEW |
+|---|---:|---:|---:|
+| `49035` | 775,993 | 787,881 | 0.98 |
+| `49011` | 130,842 | 144,110 | 0.91 |
+| `49057` | 122,390 | 120,101 | 1.02 |
+| `49045` | 18,741 | 19,363 | 0.97 |
+| `49029` | 3,089 | 3,020 | 1.02 |
+

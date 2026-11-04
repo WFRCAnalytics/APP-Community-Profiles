@@ -1,8 +1,8 @@
 """Pull WFRC planning boundaries from the ArcGIS FeatureServer and write tracked snapshots.
 
-Raw layer responses are cached in profiles/raw/arcgis. The processed snapshot (one GeoJSON per geo_type
-plus meta/geographies.parquet) is what the rest of the pipeline and the dashboard use, so results stay
-reproducible even if the live service changes.
+Raw layer responses are cached in profiles/raw/arcgis as GeoParquet. The processed snapshot (one
+GeoParquet per geo_type plus meta/geographies.parquet) is what the rest of the pipeline uses, so results
+stay reproducible even if the live service changes. Web-ready GeoJSON is derived later, at export time.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import geopandas as gpd
 import pandas as pd
 import requests
+import shapely
 from shapely.validation import make_valid
 
 from .paths import BOUNDARIES, META, RAW
@@ -32,9 +33,9 @@ def _get(url: str, params: dict) -> dict:
 def fetch_layer(service: str, layer: int, refresh: bool = False) -> tuple[gpd.GeoDataFrame, dict]:
     """Return (raw features, layer metadata), cached in profiles/raw/arcgis."""
     folder = RAW / "arcgis"
-    geo_path, meta_path = folder / f"layer{layer}.geojson", folder / f"layer{layer}.meta.json"
+    geo_path, meta_path = folder / f"layer{layer}.parquet", folder / f"layer{layer}.meta.json"
     if geo_path.exists() and meta_path.exists() and not refresh:
-        return gpd.read_file(geo_path), json.loads(meta_path.read_text(encoding="utf-8"))
+        return gpd.read_parquet(geo_path), json.loads(meta_path.read_text(encoding="utf-8"))
 
     info = _get(f"{service}/{layer}", {})
     features: list[dict] = []
@@ -56,9 +57,10 @@ def fetch_layer(service: str, layer: int, refresh: bool = False) -> tuple[gpd.Ge
         "feature_count": len(features),
     }
     folder.mkdir(parents=True, exist_ok=True)
-    geo_path.write_text(json.dumps({"type": "FeatureCollection", "features": features}), encoding="utf-8")
+    gdf = gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
+    gdf.to_parquet(geo_path, compression="zstd")
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    return gpd.read_file(geo_path), meta
+    return gdf, meta
 
 
 def make_id(geo_type: str, name: str, strip: list[str]) -> str:
@@ -84,12 +86,15 @@ def process_layer(raw: gpd.GeoDataFrame, geo_type: str, cfg: dict, orgs: list[st
     return out.sort_values("geo_id").reset_index(drop=True)
 
 
-def write_geojson(gdf: gpd.GeoDataFrame, geo_type: str) -> tuple[bool, str]:
-    tmp = RAW / "arcgis" / f"_{geo_type}.geojson"
-    gdf.to_file(tmp, driver="GeoJSON", COORDINATE_PRECISION=6)
+def write_snapshot(gdf: gpd.GeoDataFrame, geo_type: str) -> tuple[bool, str]:
+    """Tracked GeoParquet snapshot, coordinates snapped to 1e-6 degrees (about 10 cm)."""
+    gdf = gdf.copy()
+    gdf["geometry"] = shapely.set_precision(gdf.geometry.values, 1e-6)
+    tmp = RAW / "arcgis" / f"_{geo_type}.parquet"
+    gdf.to_parquet(tmp, index=False, compression="zstd")
     data = tmp.read_bytes()
     tmp.unlink()
-    return write_if_changed(BOUNDARIES / f"{geo_type}.geojson", data), sha256(data)
+    return write_if_changed(BOUNDARIES / f"{geo_type}.parquet", data), sha256(data)
 
 
 def write_registry(frames: list[gpd.GeoDataFrame]) -> None:
@@ -109,7 +114,7 @@ def run(refresh: bool = False) -> dict[str, gpd.GeoDataFrame]:
     for geo_type, lc in cfg["layers"].items():
         raw, meta = fetch_layer(cfg["service"], lc["layer"], refresh)
         gdf = process_layer(raw, geo_type, lc, cfg["organizations"])
-        written, digest = write_geojson(gdf, geo_type)
+        written, digest = write_snapshot(gdf, geo_type)
         frames[geo_type] = gdf
         manifest[geo_type] = {**meta, "source_features": len(raw), "kept_features": len(gdf),
                               "ids": gdf["geo_id"].tolist(), "sha256": digest}

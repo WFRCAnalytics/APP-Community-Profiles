@@ -35,9 +35,8 @@ Layer `BND_RPO`, last edited 2026-06-16, 2 area(s).
 
 ## FWS: Workshop Area
 
-Layer `BND_FWS`, last edited 2026-06-16, 8 area(s).
+Layer `BND_FWS`, last edited 2026-11-04, 8 area(s).
 
-- `Northern Salt Lake Co.`: 2 rows (touching/adjacent, overlap 0.0000 km2) dissolved into one area.
 - OVERLAP within layer: `fws-northern-salt-lake` and `fws-southern-davis` share 0.06 km2.
 
 | Area | km2 | Equal to county | Counties touched (share of area / share of county) |

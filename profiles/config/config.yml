@@ -26,15 +26,20 @@ census:
   state_fips: "49"
 
 acs:
-  # 5-year end years. The latest is 2024 (2020-2024); trend vintages are added in a later phase.
-  vintages: [2024]
-  # Census geography -> the `for`/`in` clause used to pull the whole state at that level.
+  # 5-year end years. Counties, places and tracts go back to 2009; block groups exist in the API from
+  # 2013, so the WFRC areas (built from block groups) start there.
+  vintages: [2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+  # Census geography -> the `for`/`in` clause used to pull the whole state at that level, and the first
+  # vintage the API serves it for.
   geographies:
-    state: { for: "state:49" }
-    county: { for: "county:*", in: "state:49" }
-    place: { for: "place:*", in: "state:49" }
-    tract: { for: "tract:*", in: "state:49 county:*" }
-    block_group: { for: "block group:*", in: "state:49 county:*" }
+    state: { for: "state:49", since: 2009 }
+    county: { for: "county:*", in: "state:49", since: 2009 }
+    place: { for: "place:*", in: "state:49", since: 2009 }
+    tract: { for: "tract:*", in: "state:49 county:*", since: 2009 }
+    block_group: { for: "block group:*", in: "state:49 county:*", since: 2013 }
+  # Tracts and block groups are only published for the latest vintage (maps). Their history is kept in
+  # profiles/raw and feeds the WFRC area tables, so the repository stays small.
+  latest_only: [tract, block_group]
   # Whole tables are pulled (every estimate and margin of error). agg says how a table combines when
   # summing areas later: sum (counts, the default) or median (must be re-derived, never summed).
   # weight is the 2020/2010 Decennial block count used to split a block group between areas: pop
@@ -54,6 +59,8 @@ acs:
     B25034: { topic: housing, label: Year structure built, weight: hu }
     B25064: { topic: housing, label: Median gross rent, agg: median }
     B25077: { topic: housing, label: Median home value, agg: median }
+    B25063: { topic: housing, label: Gross rent brackets, weight: hh }
+    B25075: { topic: housing, label: Home value brackets, weight: hh }
     B25070: { topic: housing, label: Gross rent as a share of income, weight: hh }
     B25091: { topic: housing, label: Owner costs as a share of income, weight: hh }
     B19001: { topic: income, label: Household income brackets, weight: hh }
@@ -79,5 +86,27 @@ decennial:
 crosswalk:
   era_boundary: 2020           # ACS vintages >= this use the 2020 era, earlier ones the 2010 era
   whole_unit_share: 0.9999     # a block group at least this inside an area counts as whole
-  equivalent_block_iou: 0.995  # an area whose blocks match one county's this closely is that county
+  equivalent_area_iou: 0.995   # an area whose polygon overlaps one county's this closely (IoU) is that county
+  whole_county_share: 0.995    # a county is whole inside an area above this; an area is a county union above it
   qa_tolerance: 0.005          # allowed relative gap in the crosswalk QA checks
+  median_tolerance: 0.05       # allowed gap between an interpolated and a published county median
+  median_qa_min_pop: 50000     # ...checked for counties at least this large (brackets are coarse below)
+
+# Medians for WFRC areas cannot be summed or allocated; they are interpolated from bracket counts
+# (rows of the `table` whose label parses to a range, optionally only those containing label_contains).
+medians:
+  - { target: B19013_001, table: B19001 }
+  - { target: B25064_001, table: B25063 }
+  - { target: B25077_001, table: B25075 }
+  - { target: B01002_001, table: B01001 }
+  - { target: B01002_002, table: B01001, label_contains: Male }
+  - { target: B01002_003, table: B01001, label_contains: Female }
+
+# Population Estimates Program: annual population for the state, counties and places, from the Census
+# bulk files. The 2010s series is based on the 2010 Census and the 2020s series on the 2020 Census, so
+# the two are not strictly continuous across 2019/2020.
+pep:
+  base: https://www2.census.gov/programs-surveys/popest/datasets
+  files:
+    - { vintage: 2019, years: [2010, 2019], counties: 2010-2019/counties/totals/co-est2019-alldata.csv, places: 2010-2019/cities/totals/sub-est2019_49.csv }
+    - { vintage: 2024, years: [2020, 2024], counties: 2020-2024/counties/totals/co-est2024-alldata.csv, places: 2020-2024/cities/totals/sub-est2024_49.csv }

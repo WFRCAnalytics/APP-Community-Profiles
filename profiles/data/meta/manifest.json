@@ -6,16 +6,16 @@
         "rows": 137360
       },
       "commute/county": {
-        "bytes": 10232,
-        "rows": 1972
+        "bytes": 114020,
+        "rows": 30566
       },
       "commute/place": {
-        "bytes": 54380,
-        "rows": 22712
+        "bytes": 680140,
+        "rows": 344998
       },
       "commute/state": {
-        "bytes": 1971,
-        "rows": 68
+        "bytes": 6379,
+        "rows": 1054
       },
       "commute/tract": {
         "bytes": 70277,
@@ -26,16 +26,16 @@
         "rows": 70700
       },
       "education/county": {
-        "bytes": 6220,
-        "rows": 1015
+        "bytes": 54450,
+        "rows": 14065
       },
       "education/place": {
-        "bytes": 39832,
-        "rows": 11690
+        "bytes": 430732,
+        "rows": 159075
       },
       "education/state": {
-        "bytes": 1784,
-        "rows": 35
+        "bytes": 4252,
+        "rows": 485
       },
       "education/tract": {
         "bytes": 72783,
@@ -46,16 +46,16 @@
         "rows": 14140
       },
       "employment/county": {
-        "bytes": 2824,
-        "rows": 203
+        "bytes": 13016,
+        "rows": 2842
       },
       "employment/place": {
-        "bytes": 11427,
-        "rows": 2338
+        "bytes": 107225,
+        "rows": 32207
       },
       "employment/state": {
-        "bytes": 1511,
-        "rows": 7
+        "bytes": 2280,
+        "rows": 98
       },
       "employment/tract": {
         "bytes": 21672,
@@ -66,56 +66,56 @@
         "rows": 70700
       },
       "households/county": {
-        "bytes": 5892,
-        "rows": 1015
+        "bytes": 53428,
+        "rows": 13920
       },
       "households/place": {
-        "bytes": 40198,
-        "rows": 11690
+        "bytes": 431787,
+        "rows": 156688
       },
       "households/state": {
-        "bytes": 1801,
-        "rows": 35
+        "bytes": 4324,
+        "rows": 480
       },
       "households/tract": {
         "bytes": 76100,
         "rows": 25060
       },
       "housing/block_group": {
-        "bytes": 268764,
-        "rows": 123220
+        "bytes": 383712,
+        "rows": 232300
       },
       "housing/county": {
-        "bytes": 8905,
-        "rows": 1769
+        "bytes": 198773,
+        "rows": 52316
       },
       "housing/place": {
-        "bytes": 63692,
-        "rows": 20374
+        "bytes": 1331415,
+        "rows": 588768
       },
       "housing/state": {
-        "bytes": 1995,
-        "rows": 61
+        "bytes": 11464,
+        "rows": 1804
       },
       "housing/tract": {
-        "bytes": 126057,
-        "rows": 43676
+        "bytes": 181519,
+        "rows": 82340
       },
       "income/block_group": {
         "bytes": 135220,
         "rows": 155540
       },
       "income/county": {
-        "bytes": 10541,
-        "rows": 2233
+        "bytes": 136125,
+        "rows": 35728
       },
       "income/place": {
-        "bytes": 78904,
-        "rows": 25718
+        "bytes": 1109234,
+        "rows": 401940
       },
       "income/state": {
-        "bytes": 1997,
-        "rows": 77
+        "bytes": 7968,
+        "rows": 1232
       },
       "income/tract": {
         "bytes": 167329,
@@ -126,16 +126,16 @@
         "rows": 133320
       },
       "population/county": {
-        "bytes": 10572,
-        "rows": 1914
+        "bytes": 117337,
+        "rows": 30624
       },
       "population/place": {
-        "bytes": 75850,
-        "rows": 22044
+        "bytes": 1004456,
+        "rows": 344520
       },
       "population/state": {
-        "bytes": 2021,
-        "rows": 66
+        "bytes": 7483,
+        "rows": 1056
       },
       "population/tract": {
         "bytes": 154641,
@@ -146,16 +146,16 @@
         "rows": 363600
       },
       "social/county": {
-        "bytes": 10051,
-        "rows": 5220
+        "bytes": 136793,
+        "rows": 75284
       },
       "social/place": {
-        "bytes": 58344,
-        "rows": 60120
+        "bytes": 861235,
+        "rows": 849073
       },
       "social/state": {
-        "bytes": 2615,
-        "rows": 180
+        "bytes": 14414,
+        "rows": 2596
       },
       "social/tract": {
         "bytes": 120918,
@@ -185,145 +185,162 @@
       "B25024",
       "B25034",
       "B25044",
+      "B25063",
       "B25064",
       "B25070",
+      "B25075",
       "B25077",
       "B25091",
       "B26001",
       "B28002"
     ],
     "vintages": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
       2024
     ]
   },
   "aggregate": {
     "commute/aog": {
-      "bytes": 1927,
-      "rows": 34
+      "bytes": 4677,
+      "rows": 408
     },
     "commute/fws": {
-      "bytes": 4182,
-      "rows": 272
+      "bytes": 26707,
+      "rows": 3264
     },
     "commute/mpo": {
-      "bytes": 2006,
-      "rows": 34
+      "bytes": 5420,
+      "rows": 408
     },
     "commute/rpo": {
-      "bytes": 2373,
-      "rows": 102
+      "bytes": 9432,
+      "rows": 1462
     },
     "education/aog": {
-      "bytes": 1842,
-      "rows": 35
+      "bytes": 3916,
+      "rows": 420
     },
     "education/fws": {
-      "bytes": 3571,
-      "rows": 280
+      "bytes": 19386,
+      "rows": 3360
     },
     "education/mpo": {
-      "bytes": 1900,
-      "rows": 35
+      "bytes": 4527,
+      "rows": 420
     },
     "education/rpo": {
-      "bytes": 2130,
-      "rows": 70
+      "bytes": 6157,
+      "rows": 905
     },
     "employment/aog": {
-      "bytes": 1570,
-      "rows": 7
+      "bytes": 2418,
+      "rows": 84
     },
     "employment/fws": {
-      "bytes": 2435,
-      "rows": 56
+      "bytes": 7565,
+      "rows": 672
     },
     "employment/mpo": {
-      "bytes": 1579,
-      "rows": 7
+      "bytes": 2669,
+      "rows": 84
     },
     "employment/rpo": {
-      "bytes": 1697,
-      "rows": 14
+      "bytes": 3119,
+      "rows": 182
     },
     "households/aog": {
-      "bytes": 1940,
-      "rows": 35
+      "bytes": 4363,
+      "rows": 348
     },
     "households/fws": {
-      "bytes": 4053,
-      "rows": 280
+      "bytes": 20971,
+      "rows": 2784
     },
     "households/mpo": {
-      "bytes": 2017,
-      "rows": 35
+      "bytes": 4892,
+      "rows": 348
     },
     "households/rpo": {
-      "bytes": 2255,
-      "rows": 70
+      "bytes": 6653,
+      "rows": 828
     },
     "housing/aog": {
-      "bytes": 2155,
-      "rows": 59
+      "bytes": 11776,
+      "rows": 1368
     },
     "housing/fws": {
-      "bytes": 5658,
-      "rows": 472
+      "bytes": 79085,
+      "rows": 10944
     },
     "housing/mpo": {
-      "bytes": 2286,
-      "rows": 59
+      "bytes": 13701,
+      "rows": 1368
     },
     "housing/rpo": {
-      "bytes": 2585,
-      "rows": 120
+      "bytes": 19307,
+      "rows": 3172
     },
     "income/aog": {
-      "bytes": 1799,
-      "rows": 76
+      "bytes": 3910,
+      "rows": 924
     },
     "income/fws": {
-      "bytes": 3285,
-      "rows": 608
+      "bytes": 15003,
+      "rows": 7392
     },
     "income/mpo": {
-      "bytes": 1850,
-      "rows": 76
+      "bytes": 4373,
+      "rows": 924
     },
     "income/rpo": {
-      "bytes": 2232,
-      "rows": 153
+      "bytes": 9990,
+      "rows": 2156
     },
     "population/aog": {
-      "bytes": 2209,
-      "rows": 63
+      "bytes": 7403,
+      "rows": 792
     },
     "population/fws": {
-      "bytes": 5970,
-      "rows": 504
+      "bytes": 48061,
+      "rows": 6336
     },
     "population/mpo": {
-      "bytes": 2339,
-      "rows": 63
+      "bytes": 8725,
+      "rows": 792
     },
     "population/rpo": {
-      "bytes": 2676,
-      "rows": 129
+      "bytes": 12751,
+      "rows": 1848
     },
     "social/aog": {
-      "bytes": 2074,
-      "rows": 180
+      "bytes": 3815,
+      "rows": 2081
     },
     "social/fws": {
-      "bytes": 4044,
-      "rows": 1440
+      "bytes": 13349,
+      "rows": 16648
     },
     "social/mpo": {
-      "bytes": 2089,
-      "rows": 180
+      "bytes": 4105,
+      "rows": 2081
     },
     "social/rpo": {
-      "bytes": 2741,
-      "rows": 360
+      "bytes": 9214,
+      "rows": 4677
     }
   },
   "boundaries": {
@@ -413,14 +430,36 @@
     }
   },
   "crosswalk": {
+    "2010": {
+      "blocks": 115406,
+      "blocks_in_any_area": 33544
+    },
     "2020": {
       "blocks": 71207,
       "blocks_in_any_area": 25409
     }
   },
   "crosswalk_qa": {
-    "era": 2020,
     "failures": [],
-    "vintage": 2024
+    "vintages": [
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024
+    ]
+  },
+  "pep": {
+    "areas": 30,
+    "county": 435,
+    "place": 3805,
+    "state": 15
   }
 }

@@ -30,7 +30,8 @@ def sql_path(path: Path) -> str:
     return str(path).replace("\\", "/").replace("'", "''")
 
 
-def write_parquet(con: duckdb.DuckDBPyConnection, query: str, dest: Path, order_by: str, **options) -> bool:
+def write_parquet(con: duckdb.DuckDBPyConnection, query: str, dest: Path, order_by: str, guard: bool = True,
+                  **options) -> bool:
     """COPY a query to parquet (GeoParquet when it has geometry columns), but only touch `dest` if the
     bytes change, so unchanged data leaves no git diff. Returns True if the file was written."""
     tmp = RAW / "_tmp" / dest.name
@@ -40,8 +41,8 @@ def write_parquet(con: duckdb.DuckDBPyConnection, query: str, dest: Path, order_
                 f"(FORMAT parquet, COMPRESSION zstd{opts})")
     data = tmp.read_bytes()
     tmp.unlink()
-    if len(data) > FAIL_BYTES:
+    if guard and len(data) > FAIL_BYTES:
         raise RuntimeError(f"{dest.name} is {len(data) / 1e6:.1f} MB, over the {FAIL_BYTES / 1e6:.0f} MB limit; split it")
-    if len(data) > WARN_BYTES:
+    if guard and len(data) > WARN_BYTES:
         print(f"warning: {dest.name} is {len(data) / 1e6:.1f} MB; consider splitting it")
     return write_if_changed(dest, data)

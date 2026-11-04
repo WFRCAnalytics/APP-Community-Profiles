@@ -6,15 +6,19 @@ mpo, rpo or fws) with the same columns and a `method`:
 - direct: the area equals a county, so the county's published value is used as is;
 - aggregated: every block group lies wholly inside the area (alignment of 1), so the sum is exact;
 - allocated: some block groups are split, so their values are apportioned by Decennial block counts
-  and the result is a WFRC estimate.
+  and the result is a WFRC estimate;
+- derived: a median interpolated from allocated or aggregated bracket counts (also a WFRC estimate).
 
-Only additive tables are built here (agg = sum, custom = true). Medians are derived separately and
+Only additive tables are built from block groups (agg = sum, custom = true); medians are then
+interpolated from the allocated bracket counts (method = derived, see medians.py), and
 workplace-based tables come from LODES.
 """
 from __future__ import annotations
 
 import duckdb
 
+from . import medians
+from .acs import part_dir
 from .crosswalk import eras_needed
 from .db import connect, sql_path, write_parquet
 from .paths import DATA, META
@@ -68,14 +72,20 @@ def run(refresh: bool = False) -> None:
     load_inputs(con)
     topics = sorted({t["topic"] for t in cfg["acs"]["tables"].values()})
     manifest = {}
+    topic_tables = {t: {k for k, v in cfg["acs"]["tables"].items() if v["topic"] == t} for t in topics}
     for topic in topics:
-        bg = DATA / "acs" / topic / "block_group.parquet"
+        bg = part_dir(topic, "block_group") / "*.parquet"  # full history, not the latest-only tracked file
         county = DATA / "acs" / topic / "county.parquet"
         con.execute(f"CREATE OR REPLACE TEMP VIEW acs_bg AS SELECT * FROM read_parquet('{sql_path(bg)}')")
         con.execute(f"CREATE OR REPLACE TEMP VIEW acs_county AS SELECT * FROM read_parquet('{sql_path(county)}')")
         con.execute("CREATE OR REPLACE TEMP TABLE built AS "
                     + allocation_sql("acs_bg", xw["era_boundary"], xw["whole_unit_share"])
                     + " UNION ALL " + equivalent_sql("acs_county", xw["era_boundary"]))
+        derived = medians.derive(con, "built", [m for m in cfg["medians"] if m["table"] in topic_tables[topic]])
+        if len(derived):
+            con.register("derived_df", derived)
+            con.execute("INSERT INTO built SELECT * FROM derived_df")
+            con.unregister("derived_df")
         for geo_type in cfg["arcgis"]["layers"]:
             dest = DATA / "acs" / topic / f"{geo_type}.parquet"
             write_parquet(con, f"SELECT geo_id, geo_type, vintage, variable, estimate, moe, flag, method "

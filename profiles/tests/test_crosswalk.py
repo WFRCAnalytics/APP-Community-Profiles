@@ -47,21 +47,31 @@ def test_shares_weight_and_fallback(con):
     assert rows[(BG_B, "pop")] == (0.75, "aland")      # nothing counted, so land area: 300 of 400
 
 
+COUNTY = "POLYGON((-1 -1, 3 -1, 3 7, -1 7, -1 -1))"  # the one county of the toy geography
+
+
+def _relations(con, areas):
+    county = f"SELECT '49001' AS geo_id, ST_GeomFromText('{COUNTY}') AS geometry"
+    return crosswalk.relations(con, areas, county, "rel")
+
+
 def test_quality_alignment_and_equivalence(con):
     areas = _areas(("mpo-left", LEFT), ("rpo-all", ALL))
     crosswalk.assign(con, "blocks", areas, "ba")
     crosswalk.shares(con, "blocks", "ba", "sh")
-    crosswalk.quality(con, "sh", "blocks", "ba", "q", whole=0.9999, equivalent_iou=0.995)
+    _relations(con, areas)
+    crosswalk.quality(con, "sh", "rel", "q", whole=0.9999, equivalent_iou=0.995)
     q = {(g, w): (a, n_split, eq) for g, w, a, n_split, eq in
          con.execute("SELECT geo_id, weight, alignment, n_split, equivalent_to FROM q").fetchall()}
-    assert q[("rpo-all", "pop")] == (1.0, 0, "49001")      # every block of the county
+    assert q[("rpo-all", "pop")] == (1.0, 0, "49001")      # the whole county
     assert q[("mpo-left", "pop")][0] == 0.0 and q[("mpo-left", "pop")][1] == 2 and q[("mpo-left", "pop")][2] is None
 
 
 def test_allocation_scales_estimate_and_moe(con):
     crosswalk.assign(con, "blocks", _areas(("mpo-left", LEFT)), "ba")
     crosswalk.shares(con, "blocks", "ba", "sh")
-    crosswalk.quality(con, "sh", "blocks", "ba", "q", whole=0.9999, equivalent_iou=0.995)
+    _relations(con, _areas(("mpo-left", LEFT)))
+    crosswalk.quality(con, "sh", "rel", "q", whole=0.9999, equivalent_iou=0.995)
     con.execute("CREATE TEMP TABLE shares AS SELECT 2020 AS era, * FROM sh")
     con.execute("CREATE TEMP TABLE quality AS SELECT 2020 AS era, * FROM q")
     con.register("v_df", pd.DataFrame([{"vintage": 2024, "variable": "B01001_001", "agg": "sum", "weight": "pop", "custom": True}]))
@@ -75,3 +85,20 @@ def test_allocation_scales_estimate_and_moe(con):
     assert est == 100 * 0.25 + 40 * 0.75                         # 55
     assert moe == round((((20 * 0.25) ** 2) + ((10 * 0.75) ** 2)) ** 0.5, 2)
     assert method == "allocated"
+
+
+def test_whole_counties_only_for_exact_unions(con):
+    areas = _areas(("mpo-left", LEFT), ("rpo-all", ALL))
+    _relations(con, areas)
+    crosswalk.whole_counties(con, "rel", "wc", 0.995)
+    assert con.execute("SELECT geo_id, county FROM wc ORDER BY 1").fetchall() == [("rpo-all", "49001")]
+
+
+def test_county_unions_take_blocks_by_county_code_not_polygon(con):
+    # the polygon misses block B2 (point at 1.5, 5.5), but the area is the whole county, so it gets all four
+    tight = "POLYGON((0 0, 1 0, 1 6, 0 6, 0 0))"
+    crosswalk.assign(con, "blocks", _areas(("rpo-all", tight)), "ba")
+    assert con.execute("SELECT count(*) FROM ba").fetchone()[0] == 2
+    con.execute("CREATE TABLE wc AS SELECT 'rpo-all' AS geo_id, '49001' AS county")
+    crosswalk.assign_county_unions(con, "blocks", "ba", "wc")
+    assert con.execute("SELECT count(*) FROM ba WHERE geo_id = 'rpo-all'").fetchone()[0] == 4

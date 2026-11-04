@@ -1,11 +1,15 @@
-"""Crosswalk QA: does the machinery reproduce published Census totals?
+"""Crosswalk QA: does the machinery reproduce published Census totals, in every vintage?
 
+For each ACS vintage that has block groups:
 1. Counties as areas: run the same polygon assignment and block group allocation with the TIGER county
    polygons and compare people, households and housing units with the directly published county values.
    Blocks nest inside counties, so these should match to rounding.
 2. The WFRC AOG is whole counties, so its allocated total should equal the sum of those counties.
-3. Overlaps: blocks that fall in more than one area of the same layer (they would be double counted).
-4. Fallbacks: block groups that had no Decennial count of the preferred kind.
+3. Coverage: every ACS block group with people must exist in that era's block table.
+Then, once:
+4. Medians: interpolate county medians from bracket counts and compare with the published medians.
+5. Overlaps: blocks that fall in more than one area of the same layer (they would be double counted).
+6. Fallbacks: block groups that had no Decennial count of the preferred kind.
 
 Writes profiles/data/meta/crosswalk-qa.md and raises if a check exceeds the configured tolerance.
 """
@@ -13,16 +17,22 @@ from __future__ import annotations
 
 import duckdb
 
-from . import crosswalk, tiger
+from . import crosswalk, medians, tiger
+from .acs import geographies_for, part_dir
 from .db import connect, sql_path
 from .paths import DATA, META
 from .util import load_config, update_manifest, write_if_changed
 
 CHECKS = {"B01001_001": "pop", "B25003_001": "hh", "B25002_001": "hu"}  # variable -> weight
+TOPIC = {"B01001_001": "population", "B25003_001": "households", "B25002_001": "housing"}
 
 
-def _topic_of(con: duckdb.DuckDBPyConnection, variable: str) -> str:
-    return con.execute("SELECT topic FROM variables WHERE variable = ? LIMIT 1", [variable]).fetchone()[0]
+def _bg(variable: str) -> str:
+    return f"read_parquet('{sql_path(part_dir(TOPIC[variable], 'block_group') / '*.parquet')}')"
+
+
+def _county(variable: str) -> str:
+    return f"read_parquet('{sql_path(DATA / 'acs' / TOPIC[variable] / 'county.parquet')}')"
 
 
 def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> None:
@@ -31,88 +41,116 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
     con = con or connect()
     from .aggregate import load_inputs
     load_inputs(con)
-    vintage = max(cfg["acs"]["vintages"])
-    era = crosswalk.era_of(vintage, cfg)
-    blocks = crosswalk.load_blocks(con, era, refresh)
-    lines = ["# Crosswalk QA", "",
-             f"ACS {vintage} 5-year allocated with era {era} blocks. Tolerance {tol:.2%} of the direct value.", ""]
     failures: list[str] = []
+    lines = ["# Crosswalk QA", "", f"Tolerance {tol:.2%} of the published value.", ""]
 
-    def acs_rows(level: str, variable: str, weight_ids: str = "") -> str:
-        topic = _topic_of(con, variable)
-        return (f"SELECT geo_id, estimate FROM read_parquet('{sql_path(DATA / 'acs' / topic / (level + '.parquet'))}') "
-                f"WHERE variable = '{variable}' AND vintage = {vintage}")
-
-    # 1. counties as areas, assigned by polygon
     counties = tiger.counties(cfg["tiger"]["state"], cfg["tiger"]["audit_year"])
     areas = (f"SELECT STATEFP || COUNTYFP AS geo_id, geometry::GEOMETRY AS geometry "
              f"FROM read_parquet('{sql_path(counties)}')")
-    crosswalk.assign(con, blocks, areas, "qa_county_area")
-    crosswalk.shares(con, blocks, "qa_county_area", "qa_county_shares")
-    lines += ["## Counties rebuilt from polygons vs published", "",
-              "| Variable | Counties | Largest gap | Total allocated | Total published |", "|---|---:|---:|---:|---:|"]
-    for variable, weight in CHECKS.items():
-        gap, n, tot_a, tot_p = con.execute(f"""
-            WITH built AS (
-                SELECT s.geo_id, sum(a.estimate * s.share) AS est
-                FROM read_parquet('{sql_path(DATA / 'acs' / _topic_of(con, variable) / 'block_group.parquet')}') a
-                JOIN qa_county_shares s ON s.bg = a.geo_id AND s.weight = '{weight}'
-                WHERE a.variable = '{variable}' AND a.vintage = {vintage} GROUP BY s.geo_id),
-            direct AS ({acs_rows('county', variable)})
-            SELECT max(abs(b.est - d.estimate) / nullif(d.estimate, 0)), count(*), sum(b.est), sum(d.estimate)
-            FROM built b JOIN direct d USING (geo_id)
-        """).fetchone()
-        lines.append(f"| `{variable}` ({weight}) | {n} | {gap:.4%} | {tot_a:,.0f} | {tot_p:,.0f} |")
-        if n != 29 or gap > tol:
-            failures.append(f"counties rebuilt from polygons differ for {variable}: {gap:.4%} over {n} counties")
+    vintages = [v for v in cfg["acs"]["vintages"] if "block_group" in geographies_for(cfg["acs"], v)]
+
+    tables: dict[int, dict] = {}   # era -> crosswalk tables
+    for era in sorted({crosswalk.era_of(v, cfg) for v in vintages}):
+        t = crosswalk.build(con, era, refresh)
+        crosswalk.assign(con, t["blocks"], areas, f"qa_county_area_{era}")
+        crosswalk.shares(con, t["blocks"], f"qa_county_area_{era}", f"qa_county_shares_{era}")
+        members = [r[0] for r in con.execute(f"SELECT county FROM {t['area_counties']} WHERE geo_id = 'aog-wfrc' ORDER BY 1").fetchall()]
+        tables[era] = {**t, "members": members}
+
+    lines += ["## By vintage", "",
+              "Largest relative gap across the 29 counties when rebuilt from polygons (counties), the WFRC AOG "
+              "against the sum of its counties (AOG), and people in ACS block groups missing from the block "
+              "table (unmatched).", "",
+              "| Vintage | Era | Counties: pop / hh / hu | AOG: pop / hh / hu | Unmatched people |",
+              "|---:|---:|---|---|---:|"]
+    for vintage in vintages:
+        era = crosswalk.era_of(vintage, cfg)
+        t = tables[era]
+        id_list = ", ".join(f"'{m}'" for m in t["members"])
+        cgap, agap = [], []
+        for variable, weight in CHECKS.items():
+            gap, n = con.execute(f"""
+                WITH built AS (
+                    SELECT s.geo_id, sum(a.estimate * s.share) AS est FROM {_bg(variable)} a
+                    JOIN qa_county_shares_{era} s ON s.bg = a.geo_id AND s.weight = '{weight}'
+                    WHERE a.variable = '{variable}' AND a.vintage = {vintage} GROUP BY s.geo_id),
+                direct AS (SELECT geo_id, estimate FROM {_county(variable)} WHERE variable = '{variable}' AND vintage = {vintage})
+                SELECT max(abs(b.est - d.estimate) / nullif(d.estimate, 0)), count(*) FROM built b JOIN direct d USING (geo_id)
+            """).fetchone()
+            cgap.append(gap)
+            if n != 29 or gap > tol:
+                failures.append(f"{vintage}: counties rebuilt from polygons differ for {variable}: {gap:.4%} over {n} counties")
+            aog = con.execute(f"""
+                SELECT sum(a.estimate * s.share) FROM {_bg(variable)} a
+                JOIN {t['shares']} s ON s.bg = a.geo_id AND s.weight = '{weight}' AND s.geo_id = 'aog-wfrc'
+                WHERE a.variable = '{variable}' AND a.vintage = {vintage}""").fetchone()[0]
+            pub = con.execute(f"SELECT sum(estimate) FROM {_county(variable)} WHERE variable = '{variable}' "
+                              f"AND vintage = {vintage} AND geo_id IN ({id_list})").fetchone()[0]
+            agap.append(abs(aog - pub) / pub)
+            if agap[-1] > tol:
+                failures.append(f"{vintage}: AOG differs from its counties for {variable}: {agap[-1]:.4%}")
+        unmatched = con.execute(f"""
+            SELECT coalesce(sum(estimate), 0) FROM {_bg('B01001_001')}
+            WHERE variable = 'B01001_001' AND vintage = {vintage} AND geo_id NOT IN (SELECT bg FROM {t['blocks']})""").fetchone()[0]
+        if unmatched > 0:
+            failures.append(f"{vintage}: {unmatched:,.0f} people live in ACS block groups missing from the {era} blocks")
+        lines.append(f"| {vintage} | {era} | " + " / ".join(f"{g:.3%}" for g in cgap) + " | "
+                     + " / ".join(f"{g:.3%}" for g in agap) + f" | {unmatched:,.0f} |")
     lines.append("")
 
-    # 2. AOG vs the counties it contains
-    t = crosswalk.build(con, era, refresh)
-    members = [r[0] for r in con.execute(f"""
-        SELECT equivalent FROM (
-            SELECT left(a.block, 5) AS equivalent, count(*) AS n_in
-            FROM {t['block_area']} a WHERE a.geo_id = 'aog-wfrc' GROUP BY 1) m
-        JOIN (SELECT left(block, 5) AS county, count(*) AS n FROM {blocks} GROUP BY 1) c
-          ON c.county = m.equivalent AND m.n_in = c.n ORDER BY 1""").fetchall()]
-    lines += ["## WFRC AOG vs the counties inside it", "",
-              f"Whole counties found inside the AOG: {', '.join(members) or 'none'}.", "",
-              "| Variable | AOG allocated | Counties published | Gap |", "|---|---:|---:|---:|"]
-    id_list = ", ".join(f"'{m}'" for m in members)
-    for variable, weight in CHECKS.items():
-        topic = _topic_of(con, variable)
-        aog = con.execute(f"""
-            SELECT sum(a.estimate * s.share)
-            FROM read_parquet('{sql_path(DATA / 'acs' / topic / 'block_group.parquet')}') a
-            JOIN {t['shares']} s ON s.bg = a.geo_id AND s.weight = '{weight}' AND s.geo_id = 'aog-wfrc'
-            WHERE a.variable = '{variable}' AND a.vintage = {vintage}""").fetchone()[0]
-        pub = con.execute(f"SELECT sum(estimate) FROM ({acs_rows('county', variable)}) WHERE geo_id IN ({id_list})").fetchone()[0]
-        gap = abs(aog - pub) / pub
-        lines.append(f"| `{variable}` ({weight}) | {aog:,.0f} | {pub:,.0f} | {gap:.4%} |")
-        if gap > tol:
-            failures.append(f"AOG differs from its counties for {variable}: {gap:.4%}")
+    # medians: interpolate county medians from bracket counts and compare with the published ones
+    parts = []
+    for topic in ("income", "housing", "population"):
+        parts.append(f"SELECT geo_id, 'county' AS geo_type, vintage, variable, estimate, moe, flag, 'aggregated' AS method "
+                     f"FROM read_parquet('{sql_path(DATA / 'acs' / topic / 'county.parquet')}')")
+    con.execute("CREATE OR REPLACE TEMP TABLE county_counts AS " + " UNION ALL ".join(parts))
+    derived = medians.derive(con, "county_counts", cfg["medians"])
+    con.register("derived_df", derived)
+    min_pop = cfg["crosswalk"]["median_qa_min_pop"]
+    lines += ["## Interpolated medians vs published county medians", "",
+              "Medians interpolated from county bracket counts, compared with the Census-published county median "
+              "(all counties and vintages, excluding open-ended results). Brackets are coarse for very small "
+              f"counties, so the check is applied to counties of at least {min_pop:,} people, which is the "
+              "scale of the WFRC areas; the worst case over all counties is shown for information.", "",
+              f"| Median | Rows | Mean gap | Worst gap | Worst gap, counties of {min_pop:,}+ |", "|---|---:|---:|---:|---:|"]
+    for spec in cfg["medians"]:
+        topic = next(v["topic"] for k, v in cfg["acs"]["tables"].items() if k == spec["table"])
+        rows, mean, worst, worst_large = con.execute(f"""
+            WITH g AS (
+                SELECT abs(d.estimate - p.estimate) / p.estimate AS gap, pp.estimate AS pop
+                FROM derived_df d
+                JOIN read_parquet('{sql_path(DATA / 'acs' / topic / 'county.parquet')}') p
+                  ON p.geo_id = d.geo_id AND p.vintage = d.vintage AND p.variable = d.variable
+                JOIN read_parquet('{sql_path(DATA / 'acs' / 'population' / 'county.parquet')}') pp
+                  ON pp.geo_id = d.geo_id AND pp.vintage = d.vintage AND pp.variable = 'B01001_001'
+                WHERE d.variable = '{spec['target']}' AND d.flag IS NULL AND p.estimate > 0 AND p.flag IS NULL)
+            SELECT count(*), avg(gap), max(gap), max(gap) FILTER (WHERE pop >= {min_pop}) FROM g""").fetchone()
+        lines.append(f"| `{spec['target']}` | {rows} | {mean:.2%} | {worst:.2%} | {worst_large:.2%} |")
+        if worst_large is not None and worst_large > cfg["crosswalk"]["median_tolerance"]:
+            failures.append(f"interpolated median {spec['target']} differs from published by {worst_large:.2%} "
+                            f"in counties of {min_pop:,}+")
     lines.append("")
 
-    # 3. overlaps within a layer
+    latest = max(tables)
+    t = tables[latest]
     overlaps = con.execute(f"""
         SELECT layer, count(*) FROM (
             SELECT block, split_part(geo_id, '-', 1) AS layer FROM {t['block_area']}
             GROUP BY 1, 2 HAVING count(*) > 1) GROUP BY layer ORDER BY layer""").fetchall()
-    lines += ["## Blocks inside more than one area of the same layer", ""]
+    lines += [f"## Blocks inside more than one area of the same layer (era {latest})", ""]
     lines += [f"- `{layer}`: {n} block(s)" for layer, n in overlaps] or ["- None."]
     lines.append("")
 
-    # 4. fallbacks
     fb = con.execute(f"""
-        SELECT s.geo_id, s.bg, s.weight, s.basis FROM {t['shares']} s WHERE s.basis <> s.weight AND s.weight = 'pop'
+        SELECT s.geo_id, s.bg, s.basis FROM {t['shares']} s WHERE s.basis <> s.weight AND s.weight = 'pop'
         ORDER BY 1, 2""").fetchall()
-    lines += ["## Block groups with no population count in the Decennial", "",
+    lines += [f"## Block groups with no population count in the Decennial (era {latest})", "",
               "These used the next available count (housing units, then land area):", ""]
-    lines += [f"- `{g}` block group {bg}: used {basis}" for g, bg, _, basis in fb] or ["- None."]
+    lines += [f"- `{g}` block group {bg}: used {basis}" for g, bg, basis in fb] or ["- None."]
     lines.append("")
 
     write_if_changed(META / "crosswalk-qa.md", ("\n".join(lines) + "\n").encode("utf-8"))
-    update_manifest("crosswalk_qa", {"era": era, "vintage": vintage, "failures": failures})
+    update_manifest("crosswalk_qa", {"vintages": vintages, "failures": failures})
     print(f"wrote {META / 'crosswalk-qa.md'}")
     if failures:
         raise SystemExit("Crosswalk QA failed:\n  " + "\n  ".join(failures))

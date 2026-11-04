@@ -95,45 +95,95 @@ def shares(con: duckdb.DuckDBPyConnection, blocks: str, block_area: str, out: st
     return out
 
 
-def quality(con: duckdb.DuckDBPyConnection, share_table: str, blocks: str, block_area: str, out: str,
-            whole: float, equivalent_iou: float) -> str:
-    """Table `out` (geo_id, weight, total, whole_total, alignment, n_bg, n_split, n_fallback,
-    equivalent_to). alignment is the share of the area's weight that sits in whole block groups."""
+def relations(con: duckdb.DuckDBPyConnection, areas_sql: str, counties_sql: str, out: str) -> str:
+    """Table `out` (geo_id, county, iou, of_county, of_area): how each area's polygon overlaps each county's.
+    Both queries must give (geo_id, geometry) in a metric CRS. Judging equivalence on polygons keeps it
+    independent of which census year's blocks are used."""
     con.execute(f"""
         CREATE OR REPLACE TABLE {out} AS
-        SELECT geo_id, weight, sum(w_in) AS total,
-               coalesce(sum(w_in) FILTER (WHERE share >= {whole}), 0) AS whole_total,
-               coalesce(sum(w_in) FILTER (WHERE share >= {whole}), 0) / nullif(sum(w_in), 0) AS alignment,
-               count(*) AS n_bg, count(*) FILTER (WHERE share < {whole}) AS n_split,
-               count(*) FILTER (WHERE basis <> weight) AS n_fallback
-        FROM {share_table} GROUP BY geo_id, weight
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE {out}_eq AS
-        WITH area_n AS (SELECT geo_id, count(*) AS n_a FROM {block_area} GROUP BY geo_id),
-             county_n AS (SELECT left(block, 5) AS county, count(*) AS n_c FROM {blocks} GROUP BY 1),
-             inter AS (SELECT a.geo_id, left(a.block, 5) AS county, count(*) AS n_i
-                       FROM {block_area} a GROUP BY 1, 2)
-        SELECT i.geo_id, i.county AS equivalent_to
-        FROM inter i JOIN area_n USING (geo_id) JOIN county_n c ON c.county = i.county
-        WHERE i.n_i::DOUBLE / (area_n.n_a + c.n_c - i.n_i) >= {equivalent_iou}
-    """)
-    con.execute(f"""
-        CREATE OR REPLACE TABLE {out} AS
-        SELECT q.*, e.equivalent_to FROM {out} q LEFT JOIN {out}_eq e USING (geo_id)
+        WITH a AS ({areas_sql}), c AS ({counties_sql}),
+             x AS (SELECT a.geo_id, c.geo_id AS county, ST_Area(a.geometry) AS area_a, ST_Area(c.geometry) AS area_c,
+                          ST_Area(ST_Intersection(a.geometry, c.geometry)) AS inter
+                   FROM a JOIN c ON ST_Intersects(a.geometry, c.geometry))
+        SELECT geo_id, county, inter / (area_a + area_c - inter) AS iou, inter / area_c AS of_county,
+               inter / area_a AS of_area
+        FROM x WHERE inter > 0
     """)
     return out
 
 
+def quality(con: duckdb.DuckDBPyConnection, share_table: str, relation_table: str, out: str, whole: float,
+            equivalent_iou: float) -> str:
+    """Table `out` (geo_id, weight, total, whole_total, alignment, n_bg, n_split, n_fallback,
+    equivalent_to). alignment is the share of the area's weight that sits in whole block groups;
+    equivalent_to is the county whose polygon the area matches (IoU at least equivalent_iou)."""
+    con.execute(f"""
+        CREATE OR REPLACE TABLE {out} AS
+        SELECT s.geo_id, s.weight, sum(s.w_in) AS total,
+               coalesce(sum(s.w_in) FILTER (WHERE s.share >= {whole}), 0) AS whole_total,
+               coalesce(sum(s.w_in) FILTER (WHERE s.share >= {whole}), 0) / nullif(sum(s.w_in), 0) AS alignment,
+               count(*) AS n_bg, count(*) FILTER (WHERE s.share < {whole}) AS n_split,
+               count(*) FILTER (WHERE s.basis <> s.weight) AS n_fallback,
+               any_value(r.county) AS equivalent_to
+        FROM {share_table} s
+        LEFT JOIN (SELECT geo_id, county FROM {relation_table} WHERE iou >= {equivalent_iou}) r USING (geo_id)
+        GROUP BY s.geo_id, s.weight
+    """)
+    return out
+
+
+def whole_counties(con: duckdb.DuckDBPyConnection, relation_table: str, out: str, threshold: float) -> str:
+    """Table `out` (geo_id, county): the whole counties inside each area, only for areas that are exactly a
+    union of whole counties (at least `threshold` of the area lies in counties it covers fully). These
+    areas can take county-level series, such as annual population estimates, as sums."""
+    con.execute(f"""
+        CREATE OR REPLACE TABLE {out} AS
+        WITH whole AS (SELECT geo_id, county, of_area FROM {relation_table} WHERE of_county >= {threshold})
+        SELECT geo_id, county FROM whole
+        WHERE geo_id IN (SELECT geo_id FROM whole GROUP BY geo_id HAVING sum(of_area) >= {threshold})
+    """)
+    return out
+
+
+def county_relations(con: duckdb.DuckDBPyConnection, out: str = "area_county_relations") -> str:
+    """Relations between the WFRC area polygons and the TIGER county polygons, in a metric CRS."""
+    cfg = load_config()
+    crs = cfg["audit"]["crs"]
+    counties = tiger.counties(cfg["tiger"]["state"], cfg["tiger"]["audit_year"])
+    areas = custom_areas_sql().replace(
+        "geometry::GEOMETRY AS geometry",
+        f"ST_Transform(geometry, 'EPSG:4326', '{crs}', always_xy := true) AS geometry")
+    county_sql = (f"SELECT STATEFP || COUNTYFP AS geo_id, ST_Transform(geometry::GEOMETRY, 'EPSG:4269', '{crs}', "
+                  f"always_xy := true) AS geometry FROM read_parquet('{sql_path(counties)}')")
+    return relations(con, areas, county_sql, out)
+
+
+def assign_county_unions(con: duckdb.DuckDBPyConnection, blocks: str, block_area: str, area_counties: str) -> None:
+    """Areas that are exactly whole counties take every block of those counties, by county code. Where
+    the area polygon and the census year's county lines differ slightly, block points near the edge
+    would otherwise fall outside the polygon and drop people from an area that is, by definition,
+    complete."""
+    con.execute(f"DELETE FROM {block_area} WHERE geo_id IN (SELECT DISTINCT geo_id FROM {area_counties})")
+    con.execute(f"""
+        INSERT INTO {block_area}
+        SELECT b.block, w.geo_id FROM {blocks} b JOIN {area_counties} w ON left(b.block, 5) = w.county
+    """)
+
+
 def build(con: duckdb.DuckDBPyConnection, era: int, refresh: bool = False) -> dict[str, str]:
-    """Run the crosswalk for one era; returns the table names (blocks, block_area, shares, quality)."""
+    """Run the crosswalk for one era; returns the table names (blocks, block_area, shares, quality,
+    area_counties)."""
     cfg = load_config()["crosswalk"]
     blocks = load_blocks(con, era, refresh)
     block_area = assign(con, blocks, custom_areas_sql(), f"block_area_{era}")
+    rel = county_relations(con)
+    counties = whole_counties(con, rel, f"area_counties_{era}", cfg["whole_county_share"])
+    assign_county_unions(con, blocks, block_area, counties)
     share_table = shares(con, blocks, block_area, f"shares_{era}")
-    quality_table = quality(con, share_table, blocks, block_area, f"quality_{era}",
-                            cfg["whole_unit_share"], cfg["equivalent_block_iou"])
-    return {"blocks": blocks, "block_area": block_area, "shares": share_table, "quality": quality_table}
+    quality_table = quality(con, share_table, rel, f"quality_{era}", cfg["whole_unit_share"],
+                            cfg["equivalent_area_iou"])
+    return {"blocks": blocks, "block_area": block_area, "shares": share_table, "quality": quality_table,
+            "area_counties": counties}
 
 
 def run(refresh: bool = False) -> duckdb.DuckDBPyConnection:
@@ -150,5 +200,7 @@ def run(refresh: bool = False) -> duckdb.DuckDBPyConnection:
         manifest[str(era)] = {"blocks": n_blocks, "blocks_in_any_area": n_assigned}
         print(f"era {era}: {n_blocks} blocks, {n_assigned} inside a WFRC area")
     write_parquet(con, " UNION ALL ".join(quality_parts), META / "boundary_quality.parquet", "era, geo_id, weight")
+    # whole-county unions are decided on polygons, so they are the same in every era
+    write_parquet(con, f"SELECT * FROM area_counties_{max(eras_needed())}", META / "area_counties.parquet", "geo_id, county")
     update_manifest("crosswalk", manifest)
     return con

@@ -1,4 +1,201 @@
 {
+  "acs": {
+    "files": {
+      "commute/block_group": {
+        "bytes": 163258,
+        "rows": 137360
+      },
+      "commute/county": {
+        "bytes": 10232,
+        "rows": 1972
+      },
+      "commute/place": {
+        "bytes": 54380,
+        "rows": 22712
+      },
+      "commute/state": {
+        "bytes": 1971,
+        "rows": 68
+      },
+      "commute/tract": {
+        "bytes": 70277,
+        "rows": 48688
+      },
+      "education/block_group": {
+        "bytes": 98258,
+        "rows": 70700
+      },
+      "education/county": {
+        "bytes": 6220,
+        "rows": 1015
+      },
+      "education/place": {
+        "bytes": 39832,
+        "rows": 11690
+      },
+      "education/state": {
+        "bytes": 1784,
+        "rows": 35
+      },
+      "education/tract": {
+        "bytes": 72783,
+        "rows": 25060
+      },
+      "employment/block_group": {
+        "bytes": 57516,
+        "rows": 14140
+      },
+      "employment/county": {
+        "bytes": 2824,
+        "rows": 203
+      },
+      "employment/place": {
+        "bytes": 11427,
+        "rows": 2338
+      },
+      "employment/state": {
+        "bytes": 1511,
+        "rows": 7
+      },
+      "employment/tract": {
+        "bytes": 21672,
+        "rows": 5012
+      },
+      "households/block_group": {
+        "bytes": 176305,
+        "rows": 70700
+      },
+      "households/county": {
+        "bytes": 5892,
+        "rows": 1015
+      },
+      "households/place": {
+        "bytes": 40198,
+        "rows": 11690
+      },
+      "households/state": {
+        "bytes": 1801,
+        "rows": 35
+      },
+      "households/tract": {
+        "bytes": 76100,
+        "rows": 25060
+      },
+      "housing/block_group": {
+        "bytes": 268764,
+        "rows": 123220
+      },
+      "housing/county": {
+        "bytes": 8905,
+        "rows": 1769
+      },
+      "housing/place": {
+        "bytes": 63692,
+        "rows": 20374
+      },
+      "housing/state": {
+        "bytes": 1995,
+        "rows": 61
+      },
+      "housing/tract": {
+        "bytes": 126057,
+        "rows": 43676
+      },
+      "income/block_group": {
+        "bytes": 135220,
+        "rows": 155540
+      },
+      "income/county": {
+        "bytes": 10541,
+        "rows": 2233
+      },
+      "income/place": {
+        "bytes": 78904,
+        "rows": 25718
+      },
+      "income/state": {
+        "bytes": 1997,
+        "rows": 77
+      },
+      "income/tract": {
+        "bytes": 167329,
+        "rows": 55132
+      },
+      "population/block_group": {
+        "bytes": 367867,
+        "rows": 133320
+      },
+      "population/county": {
+        "bytes": 10572,
+        "rows": 1914
+      },
+      "population/place": {
+        "bytes": 75850,
+        "rows": 22044
+      },
+      "population/state": {
+        "bytes": 2021,
+        "rows": 66
+      },
+      "population/tract": {
+        "bytes": 154641,
+        "rows": 47256
+      },
+      "social/block_group": {
+        "bytes": 114324,
+        "rows": 363600
+      },
+      "social/county": {
+        "bytes": 10051,
+        "rows": 5220
+      },
+      "social/place": {
+        "bytes": 58344,
+        "rows": 60120
+      },
+      "social/state": {
+        "bytes": 2615,
+        "rows": 180
+      },
+      "social/tract": {
+        "bytes": 120918,
+        "rows": 128880
+      }
+    },
+    "tables": [
+      "B01001",
+      "B01002",
+      "B02001",
+      "B03003",
+      "B08301",
+      "B08303",
+      "B08601",
+      "B08603",
+      "B11012",
+      "B14001",
+      "B15003",
+      "B16001",
+      "B17001",
+      "B18101",
+      "B19001",
+      "B19013",
+      "B23025",
+      "B25002",
+      "B25003",
+      "B25024",
+      "B25034",
+      "B25044",
+      "B25064",
+      "B25070",
+      "B25077",
+      "B25091",
+      "B26001",
+      "B28002"
+    ],
+    "vintages": [
+      2024
+    ]
+  },
   "boundaries": {
     "layers": {
       "aog": {

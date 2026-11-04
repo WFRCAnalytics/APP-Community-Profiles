@@ -5,8 +5,11 @@ from pathlib import Path
 
 import duckdb
 
-from .util import write_if_changed
 from .paths import RAW
+from .util import write_if_changed
+
+WARN_BYTES = 10 * 1024 * 1024   # keep every tracked file well under GitHub's 50 MB warning
+FAIL_BYTES = 40 * 1024 * 1024
 
 
 def connect() -> duckdb.DuckDBPyConnection:
@@ -37,4 +40,8 @@ def write_parquet(con: duckdb.DuckDBPyConnection, query: str, dest: Path, order_
                 f"(FORMAT parquet, COMPRESSION zstd{opts})")
     data = tmp.read_bytes()
     tmp.unlink()
+    if len(data) > FAIL_BYTES:
+        raise RuntimeError(f"{dest.name} is {len(data) / 1e6:.1f} MB, over the {FAIL_BYTES / 1e6:.0f} MB limit; split it")
+    if len(data) > WARN_BYTES:
+        print(f"warning: {dest.name} is {len(data) / 1e6:.1f} MB; consider splitting it")
     return write_if_changed(dest, data)

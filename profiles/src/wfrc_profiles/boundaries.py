@@ -16,7 +16,7 @@ import geopandas as gpd
 import requests
 
 from .db import connect, sql_path, write_parquet
-from .paths import BOUNDARIES, META, RAW
+from .paths import BOUNDARIES, RAW
 from .util import load_config, sha256, slugify, update_manifest
 
 PAGE = 1000
@@ -108,12 +108,6 @@ def write_snapshot(con: duckdb.DuckDBPyConnection, table: str, geo_type: str) ->
     return written, sha256(dest.read_bytes())
 
 
-def write_registry(con: duckdb.DuckDBPyConnection, tables: list[str]) -> None:
-    query = " UNION ALL ".join(
-        f"SELECT geo_id, geo_type, geo_name, organization, acronym, notes FROM {t}" for t in tables)
-    write_parquet(con, query, META / "geographies.parquet", "geo_type, geo_id")
-
-
 def run(refresh: bool = False) -> duckdb.DuckDBPyConnection:
     cfg = load_config()["arcgis"]
     con = connect()
@@ -128,6 +122,5 @@ def run(refresh: bool = False) -> duckdb.DuckDBPyConnection:
         manifest[geo_type] = {**meta, "source_features": source_rows, "kept_features": len(ids),
                               "ids": ids, "sha256": digest}
         print(f"{geo_type}: {source_rows} source rows -> {len(ids)} areas ({'written' if written else 'unchanged'})")
-    write_registry(con, tables)
     update_manifest("boundaries", {"service": cfg["service"], "organizations": cfg["organizations"], "layers": manifest})
     return con

@@ -21,3 +21,48 @@ audit:
   equivalent_iou: 0.98         # a boundary this close to one county is treated as that county
   overlap_tolerance_m2: 10000  # ignore slivers smaller than this when checking overlaps
   min_county_overlap_km2: 1    # ignore county slivers smaller than this in the audit table
+
+census:
+  state_fips: "49"
+
+acs:
+  # 5-year end years. The latest is 2024 (2020-2024); trend vintages are added in a later phase.
+  vintages: [2024]
+  # Census geography -> the `for`/`in` clause used to pull the whole state at that level.
+  geographies:
+    state: { for: "state:49" }
+    county: { for: "county:*", in: "state:49" }
+    place: { for: "place:*", in: "state:49" }
+    tract: { for: "tract:*", in: "state:49 county:*" }
+    block_group: { for: "block group:*", in: "state:49 county:*" }
+  # Whole tables are pulled (every estimate and margin of error). agg says how a table combines when
+  # summing areas later: sum (counts, the default) or median (must be re-derived, never summed).
+  tables:
+    B01001: { topic: population, label: Sex by age }
+    B01002: { topic: population, label: Median age, agg: median }
+    B02001: { topic: population, label: Race }
+    B03003: { topic: population, label: Hispanic or Latino origin }
+    B26001: { topic: population, label: Group quarters population }
+    B11012: { topic: households, label: Households by type }
+    B25003: { topic: households, label: Tenure }
+    B25044: { topic: households, label: Tenure by vehicles available }
+    B25002: { topic: housing, label: Occupancy status }
+    B25024: { topic: housing, label: Units in structure }
+    B25034: { topic: housing, label: Year structure built }
+    B25064: { topic: housing, label: Median gross rent, agg: median }
+    B25077: { topic: housing, label: Median home value, agg: median }
+    B25070: { topic: housing, label: Gross rent as a share of income }
+    B25091: { topic: housing, label: Owner costs as a share of income }
+    B19001: { topic: income, label: Household income brackets }
+    B19013: { topic: income, label: Median household income, agg: median }
+    B17001: { topic: income, label: Poverty status }
+    B15003: { topic: education, label: Educational attainment }
+    B14001: { topic: education, label: School enrollment }
+    B23025: { topic: employment, label: Employment status }
+    B08301: { topic: commute, label: Means of transportation to work (by residence) }
+    B08303: { topic: commute, label: Travel time to work (by residence) }
+    B08601: { topic: commute, label: Means of transportation to work (by workplace) }
+    B08603: { topic: commute, label: Travel time to work (by workplace) }
+    B16001: { topic: social, label: Language spoken at home }
+    B18101: { topic: social, label: Disability status }
+    B28002: { topic: social, label: Internet subscriptions }

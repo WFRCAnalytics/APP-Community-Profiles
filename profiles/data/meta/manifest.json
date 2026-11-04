@@ -196,6 +196,136 @@
       2024
     ]
   },
+  "aggregate": {
+    "commute/aog": {
+      "bytes": 1927,
+      "rows": 34
+    },
+    "commute/fws": {
+      "bytes": 4182,
+      "rows": 272
+    },
+    "commute/mpo": {
+      "bytes": 2006,
+      "rows": 34
+    },
+    "commute/rpo": {
+      "bytes": 2373,
+      "rows": 102
+    },
+    "education/aog": {
+      "bytes": 1842,
+      "rows": 35
+    },
+    "education/fws": {
+      "bytes": 3571,
+      "rows": 280
+    },
+    "education/mpo": {
+      "bytes": 1900,
+      "rows": 35
+    },
+    "education/rpo": {
+      "bytes": 2130,
+      "rows": 70
+    },
+    "employment/aog": {
+      "bytes": 1570,
+      "rows": 7
+    },
+    "employment/fws": {
+      "bytes": 2435,
+      "rows": 56
+    },
+    "employment/mpo": {
+      "bytes": 1579,
+      "rows": 7
+    },
+    "employment/rpo": {
+      "bytes": 1697,
+      "rows": 14
+    },
+    "households/aog": {
+      "bytes": 1940,
+      "rows": 35
+    },
+    "households/fws": {
+      "bytes": 4053,
+      "rows": 280
+    },
+    "households/mpo": {
+      "bytes": 2017,
+      "rows": 35
+    },
+    "households/rpo": {
+      "bytes": 2255,
+      "rows": 70
+    },
+    "housing/aog": {
+      "bytes": 2155,
+      "rows": 59
+    },
+    "housing/fws": {
+      "bytes": 5658,
+      "rows": 472
+    },
+    "housing/mpo": {
+      "bytes": 2286,
+      "rows": 59
+    },
+    "housing/rpo": {
+      "bytes": 2585,
+      "rows": 120
+    },
+    "income/aog": {
+      "bytes": 1799,
+      "rows": 76
+    },
+    "income/fws": {
+      "bytes": 3285,
+      "rows": 608
+    },
+    "income/mpo": {
+      "bytes": 1850,
+      "rows": 76
+    },
+    "income/rpo": {
+      "bytes": 2232,
+      "rows": 153
+    },
+    "population/aog": {
+      "bytes": 2209,
+      "rows": 63
+    },
+    "population/fws": {
+      "bytes": 5970,
+      "rows": 504
+    },
+    "population/mpo": {
+      "bytes": 2339,
+      "rows": 63
+    },
+    "population/rpo": {
+      "bytes": 2676,
+      "rows": 129
+    },
+    "social/aog": {
+      "bytes": 2074,
+      "rows": 180
+    },
+    "social/fws": {
+      "bytes": 4044,
+      "rows": 1440
+    },
+    "social/mpo": {
+      "bytes": 2089,
+      "rows": 180
+    },
+    "social/rpo": {
+      "bytes": 2741,
+      "rows": 360
+    }
+  },
   "boundaries": {
     "layers": {
       "aog": {
@@ -281,5 +411,16 @@
       "rpo-morgan": "Morgan",
       "rpo-tooele": null
     }
+  },
+  "crosswalk": {
+    "2020": {
+      "blocks": 71207,
+      "blocks_in_any_area": 25409
+    }
+  },
+  "crosswalk_qa": {
+    "era": 2020,
+    "failures": [],
+    "vintage": 2024
   }
 }

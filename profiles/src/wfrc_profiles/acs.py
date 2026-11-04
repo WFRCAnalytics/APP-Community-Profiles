@@ -55,7 +55,8 @@ def validate(refresh: bool = False) -> pd.DataFrame:
                 problems.append(f"{vintage}: table {table} has no estimate variables")
             for code, v in found:
                 rows.append({"vintage": vintage, "table": table, "topic": tc["topic"],
-                             "agg": tc.get("agg", "sum"), "variable": code[:-1],
+                             "agg": tc.get("agg", "sum"), "weight": tc.get("weight"),
+                             "custom": tc.get("custom", True), "variable": code[:-1],
                              "label": clean_label(v["label"]), "concept": v.get("concept", "")})
     if problems:
         raise RuntimeError("ACS validation failed:\n  " + "\n  ".join(problems))

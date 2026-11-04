@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import geopandas as gpd
+import pandas as pd
+import pyarrow.parquet as pq
 import pygris
 
 from .paths import RAW
@@ -15,4 +18,28 @@ def counties(state: str, year: int, refresh: bool = False) -> Path:
         gdf = pygris.counties(state=state, year=year, cb=False)
         cache.parent.mkdir(parents=True, exist_ok=True)
         gdf.to_parquet(cache, compression="zstd")
+    return cache
+
+
+def county_fips(state: str, year: int, refresh: bool = False) -> list[str]:
+    """Three-digit county FIPS codes of the state."""
+    col = pq.read_table(counties(state, year, refresh), columns=["COUNTYFP"]).column("COUNTYFP")
+    return sorted(col.to_pylist())
+
+
+def blocks(state: str, year: int, counties_fips: list[str], refresh: bool = False) -> Path:
+    """Path to a GeoParquet of block internal points (block, aland) for the census year, cached in raw.
+    Only the internal point and land area are kept; the crosswalk assigns blocks to areas by that point."""
+    cache = RAW / "tiger" / f"blocks_{state}_{year}.parquet"
+    if not cache.exists() or refresh:
+        suffix = str(year)[-2:]
+        parts = []
+        for county in counties_fips:
+            g = pygris.blocks(state=state, county=county, year=year)
+            parts.append(gpd.GeoDataFrame(
+                {"block": g[f"GEOID{suffix}"].to_numpy(), "aland": g[f"ALAND{suffix}"].astype("int64").to_numpy()},
+                geometry=gpd.points_from_xy(g[f"INTPTLON{suffix}"].astype(float), g[f"INTPTLAT{suffix}"].astype(float)),
+                crs=g.crs))
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        gpd.GeoDataFrame(pd.concat(parts, ignore_index=True), crs=parts[0].crs).to_parquet(cache, compression="zstd")
     return cache

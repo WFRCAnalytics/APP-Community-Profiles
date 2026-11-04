@@ -21,10 +21,11 @@ def main(argv: list[str] | None = None) -> int:
     # Imported here so `--help` stays fast and a missing key only matters for stages that need it.
     from . import audit, boundaries
 
+    con = None
     if args.command in ("boundaries", "all"):
-        boundaries.run(args.refresh)
+        con = boundaries.run(args.refresh)
     if args.command in ("audit", "all"):
-        audit.run(args.refresh)
+        audit.run(args.refresh, con)
     return 0
 
 

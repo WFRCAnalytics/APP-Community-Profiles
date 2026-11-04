@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Python tooling for wfrcanalytics.github.io (community profiles data pipeline)"
 requires-python = ">=3.12"
 dependencies = [
-    "duckdb",
+    # Pinned: this is the version whose spatial extension loads under the Windows Application Control policy
+    # on WFRC machines (1.5.6 and 2.0.0 binaries were blocked). Bump deliberately and test LOAD spatial.
+    "duckdb==1.5.4",
     "geopandas",
     "pandas",
     "pyarrow",

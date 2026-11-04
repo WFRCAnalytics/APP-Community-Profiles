@@ -29,3 +29,6 @@ packages = ["profiles/src/wfrc_profiles"]
 
 [tool.pytest.ini_options]
 testpaths = ["profiles/tests"]
+
+[tool.uv]
+link-mode = "copy"

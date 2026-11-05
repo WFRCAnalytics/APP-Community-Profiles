@@ -96,6 +96,15 @@
       </div>
     </section>
 
+    <section aria-labelledby="m-map">
+      <h3 id="m-map">Reading the map</h3>
+      <div class="notes">
+        <details open><summary>Choosing what it shows</summary><p>Pick a variable under "Colour by". Add a second one under "and" to make a bivariate map: each area falls in one of nine groups, three by three, and the legend outlines where the selected area sits.</p></details>
+        <details open><summary>Groups and layers</summary><p>Areas are shaded in five equal-sized groups. The map shows the year chosen at the top. Switch to tracts to see the latest period at finer detail.</p></details>
+        <details open><summary>Choosing an area</summary><p>Click an area to open its profile. Shift-click to compare it with the one you have open. The expand button at the top right of the panel makes the map full screen.</p></details>
+      </div>
+    </section>
+
     <section aria-labelledby="m-read">
       <h3 id="m-read">Reading the numbers</h3>
       <div class="notes">

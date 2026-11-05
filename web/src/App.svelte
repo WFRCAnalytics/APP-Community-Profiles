@@ -15,7 +15,6 @@
   import Income from "./tabs/Income.svelte";
   import Indicators from "./tabs/Indicators.svelte";
   import Jobs from "./tabs/Jobs.svelte";
-  import MapTab from "./tabs/MapTab.svelte";
   import Overview from "./tabs/Overview.svelte";
   import People from "./tabs/People.svelte";
 
@@ -44,7 +43,6 @@
         <ContextBar />
         <div class="screen" id="screen" role="tabpanel" aria-labelledby="tab-{app.tab}">
           {#if app.tab === "overview"}<Overview />
-          {:else if app.tab === "map"}<MapTab />
           {:else if app.tab === "people"}<People />
           {:else if app.tab === "households"}<Households />
           {:else if app.tab === "housing"}<Housing />

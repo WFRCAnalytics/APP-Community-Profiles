@@ -8,7 +8,6 @@ import type { AreaRef } from "./specs";
 
 export const TABS = [
   { id: "overview", label: "Overview", icon: "layout" },
-  { id: "map", label: "Map", icon: "map" },
   { id: "people", label: "People", icon: "users" },
   { id: "households", label: "Households", icon: "home-users" },
   { id: "housing", label: "Housing", icon: "house" },

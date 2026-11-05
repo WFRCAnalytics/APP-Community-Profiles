@@ -122,6 +122,6 @@
         <li class="none" role="presentation">No area matches “{query}”.</li>
       {/each}
     </ul>
-    <div class="foot2"><span>Up and Down to move, Enter to choose{mode === "area" ? ", Shift+Enter to compare" : ""}. You can also click an area on the Map tab.</span><button class="mini-btn" onclick={() => (app.picker = null)}>Close</button></div>
+    <div class="foot2"><span>Up and Down to move, Enter to choose{mode === "area" ? ", Shift+Enter to compare" : ""}. You can also click an area on the overview map.</span><button class="mini-btn" onclick={() => (app.picker = null)}>Close</button></div>
   </div>
 {/if}

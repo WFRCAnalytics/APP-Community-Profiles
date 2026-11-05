@@ -96,7 +96,7 @@ for (const scheme of ["light", "dark"] as const) {
 test("every tab fits one screen at 1440 by 900", async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1440, height: 900 });
-  for (const tab of ["overview", "map", "people", "households", "housing", "income", "education", "jobs", "commute", "indicators"]) {
+  for (const tab of ["overview", "people", "households", "housing", "income", "education", "jobs", "commute", "indicators"]) {
     await page.goto(`/#type=county&id=49035&cmp=49&tab=${tab}`);
     await ready(page).catch(() => page.waitForSelector(".screen"));
     await page.waitForFunction(() => !document.querySelector(".loading"));

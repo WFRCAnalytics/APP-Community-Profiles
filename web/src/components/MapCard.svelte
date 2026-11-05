@@ -14,9 +14,8 @@
   const FRONT: [[number, number], [number, number]] = [[-113.25, 39.55], [-110.85, 41.95]];
   const STATE: [[number, number], [number, number]] = [[-114.1, 36.95], [-108.95, 42.05]];
 
-  // simple: the overview panel, the same map without the areas-or-tracts switch.
   // idX and plural are bindable so the panel can title itself.
-  let { simple = false, idX = $bindable("median_income"), plural = $bindable("") }: { simple?: boolean; idX?: string; plural?: string } = $props();
+  let { idX = $bindable("median_income"), plural = $bindable("") }: { idX?: string; plural?: string } = $props();
   let el: HTMLDivElement | undefined = $state();
   let controller = $state.raw<MapController>();
   let legend = $state.raw<Legend | null>(null);
@@ -121,7 +120,7 @@
   }
   const selCell = $derived(cell(marks.sel[0], marks.sel[1]));
   const cmpCell = $derived(cell(marks.cmp[0], marks.cmp[1]));
-  $effect(() => { plural = layerPlural; });
+  $effect(() => { plural = layer === "tracts" ? "tracts" : layerPlural; });
   const span = $derived(legend ? legend.edges[legend.edges.length - 1] - legend.edges[0] : 0);
 </script>
 
@@ -129,12 +128,10 @@
   <div class="canvas" bind:this={el} role="application" aria-label="Map of {layerPlural}, shaded by {indX.label}{indY ? ` and ${indY.label}` : ''}. Use the search to pick an area with the keyboard."></div>
 
   <div class="top">
-    {#if !simple}
-      <div class="pill seg" role="group" aria-label="Map layer">
+    <div class="pill seg" role="group" aria-label="Map layer">
         <button aria-pressed={layer === "areas"} onclick={() => (layer = "areas")}>{layerPlural.replace(/^./, (c) => c.toUpperCase())}</button>
         <button aria-pressed={layer === "tracts"} onclick={() => (layer = "tracts")}>Tracts</button>
-      </div>
-    {/if}
+    </div>
     <button class="pill btn" onclick={() => (extent = effective === "front" ? "state" : "front")}>{effective === "front" ? "Show all of Utah" : "Zoom to Wasatch Front"}</button>
   </div>
 

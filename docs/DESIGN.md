@@ -15,6 +15,8 @@ Decided with the maintainer after reviewing layout prototypes (canvas "Community
 
 - **The navbar search is the area picker.** The field shows the current area as a chip; opening it shows filter chips (Region, MPO, RPO, Workshop areas, Counties, Cities and towns), type-ahead and a browsable list. Every row has a Compare action.
 - **Compare is any area against any other** (county with county, city with county, planning area with the state). Utah is only the first benchmark offered, not the only one.
+- **What the compare list suggests, in order:** (1) areas of the same kind (counties for a county, cities for a city), (2) the larger areas around it: for a city, its county, the WFRC region or MPO if it lies in one, and Utah; for a county, the WFRC region, MPO and Utah, (3) anything else by search. Salt Lake City against Salt Lake County, Salt Lake City against Utah, Salt Lake County against Utah County and Salt Lake County against Utah are all first-class.
+- Needs a containment lookup in the pipeline: each place and county mapped to its county, WFRC region, MPO and RPO (spatial join in DuckDB, written to `data/meta/`).
 - No separate kind and area selects.
 
 ## The map

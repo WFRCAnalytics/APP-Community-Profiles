@@ -65,7 +65,7 @@ test("every chart has a table view, and the indicators table downloads as CSV", 
 
 test("the methods page renders in the app", async ({ page }) => {
   await page.goto("/#page=methods");
-  await expect(page.getByRole("heading", { level: 1, name: /methods and sources/i })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { level: 2, name: /methods and sources/i })).toBeVisible({ timeout: 60_000 });
 });
 
 test("a method chip explains itself on hover", async ({ page }) => {

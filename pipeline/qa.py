@@ -113,7 +113,7 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
         tables[era] = {**t, "members": members}
 
     lines += ["## By vintage", "",
-              f"Largest relative gap across the {len(counties)} counties when rebuilt from polygons (counties), the {_QA['reference_label']} "
+              f"Largest relative gap across the {len(tiger.county_fips(cfg["state"]["abbr"], cfg["tiger"]["audit_year"]))} counties when rebuilt from polygons (counties), the {_QA['reference_label']} "
               "against the sum of its counties (AOG), and people in ACS block groups missing from the block "
               "table (unmatched).", "",
               "| Vintage | Era | Counties: pop / hh / hu | AOG: pop / hh / hu | Unmatched people |",

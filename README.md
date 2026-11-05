@@ -92,7 +92,7 @@ is the only GeoJSON. Output is deterministic (ordered, zstd), and a size guard i
 ### How the WFRC areas are built
 
 A block belongs to an area when its internal point is inside the polygon. Each ACS block group is split between areas by the
-the Decennial Census count of people, households or housing units in each block (chosen per table in the config; land area is the last resort). The weight is the population of each block, not the number of blocks.
+the Decennial Census population of each block, for every table (`weight: pop` in the config; housing units and then land area are fallbacks). The weight is the population of each block, not the number of blocks.
 Margins of error add the block group margins in quadrature, scaled by the share, which is conservative for large areas.
 Medians are interpolated from allocated brackets and labeled `derived`. Poverty, group quarters, school enrollment and
 disability are not published at block group, so those tables are split from tracts (`unit: tract` in the config); the app says so.

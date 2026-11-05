@@ -22,13 +22,33 @@
   import Table from "@lucide/svelte/icons/table";
   import Users from "@lucide/svelte/icons/users";
   import Wallet from "@lucide/svelte/icons/wallet";
+  import Cake from "@lucide/svelte/icons/cake";
+  import Globe from "@lucide/svelte/icons/globe";
+  import Languages from "@lucide/svelte/icons/languages";
+  import Accessibility from "@lucide/svelte/icons/accessibility";
+  import Car from "@lucide/svelte/icons/car";
+  import KeyRound from "@lucide/svelte/icons/key-round";
+  import Percent from "@lucide/svelte/icons/percent";
+  import School from "@lucide/svelte/icons/school";
+  import BookOpen from "@lucide/svelte/icons/book-open";
+  import Banknote from "@lucide/svelte/icons/banknote";
+  import HandCoins from "@lucide/svelte/icons/hand-coins";
+  import Factory from "@lucide/svelte/icons/factory";
+  import UsersRound from "@lucide/svelte/icons/users-round";
+  import Bus from "@lucide/svelte/icons/bus";
+  import MapPin from "@lucide/svelte/icons/map-pin";
+  import Wifi from "@lucide/svelte/icons/wifi";
+  import TrendingUp from "@lucide/svelte/icons/trending-up";
+  import ChartColumn from "@lucide/svelte/icons/chart-column";
+  import ChartLine from "@lucide/svelte/icons/chart-line";
   import X from "@lucide/svelte/icons/x";
 
   let { name, size = 18 }: { name: string; size?: number } = $props();
   const ICONS: Record<string, Component<{ size?: number; "aria-hidden"?: boolean | "true" | "false"; style?: string }>> = {
     search: Search, sun: Sun, moon: Moon, monitor: Monitor, layout: LayoutDashboard, users: Users, house: House,
     wallet: Wallet, cap: GraduationCap, briefcase: Briefcase, route: Route, table: Table, play: Play, pause: Pause,
-    maximize: Maximize, minimize: Minimize, info: Info, download: Download, chevron: ChevronDown, x: X, plus: Plus, sliders: Sliders,
+    maximize: Maximize, minimize: Minimize, info: Info, download: Download, chevron: ChevronDown, x: X, plus: Plus, "chart-bars": ChartColumn, "chart-line": ChartLine, trend: TrendingUp, sliders: Sliders,
+    cake: Cake, globe: Globe, languages: Languages, accessibility: Accessibility, car: Car, key: KeyRound, percent: Percent, school: School, book: BookOpen, banknote: Banknote, coins: HandCoins, factory: Factory, people: UsersRound, bus: Bus, pin: MapPin, wifi: Wifi,
   };
   const Glyph = $derived(ICONS[name] ?? Info);
   // Households: the Lucide house outline with a person inside (no single Lucide icon is both).

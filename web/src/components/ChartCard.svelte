@@ -6,6 +6,7 @@
   import DataTable, { type Column, type Row } from "./DataTable.svelte";
   import type { Palette } from "../lib/theme.svelte";
   import { slug, toCsv } from "../lib/format";
+  import { easeInOut, lerp } from "../lib/tween";
 
   interface Props {
     title: string;
@@ -22,6 +23,34 @@
   let { title, note, load, draw, table, isEmpty = (d) => d == null || (Array.isArray(d) && d.length === 0), emptyText = "Not published for this area or year.", controls, headerExtra, style = "" }: Props = $props();
 
   const promise = $derived(load());
+
+  // What is on screen. A new year or area does not blank the panel: the old picture stays until the new data arrives, then the
+  // numbers glide to it (bars grow, rings turn) instead of the chart being redrawn from nothing.
+  let shown = $state.raw<{ data: T } | null>(null);
+  let failed = $state.raw<string | null>(null);
+  let frame = 0;
+  const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $effect(() => {
+    const p = promise;
+    let live = true;
+    p.then((next) => {
+      if (!live) return;
+      failed = null;
+      cancelAnimationFrame(frame);
+      const from = shown?.data;
+      if (from === undefined || still || isEmpty(from) || isEmpty(next)) { shown = { data: next }; return; }
+      const t0 = performance.now(), span = 520;
+      let last = 0;
+      const step = (now: number) => {
+        const t = Math.min(1, (now - t0) / span);
+        if (t === 1) { shown = { data: next }; return; }
+        if (now - last >= 40) { shown = { data: lerp(from, next, easeInOut(t)) }; last = now; }
+        frame = requestAnimationFrame(step);
+      };
+      frame = requestAnimationFrame(step);
+    }).catch((e) => { if (live) failed = e instanceof Error ? e.message : String(e); });
+    return () => { live = false; };
+  });
   let view = $state<"chart" | "table">("chart");
 
   function download(t: { columns: Column[]; rows: Row[] }) {
@@ -38,20 +67,21 @@
 <section class="pn" aria-label={title} {style}>
   <div class="pn-head">
     <h3>{title}</h3>
-    {#await promise then data}
-      {#if table && !isEmpty(data)}
-        <div class="pn-actions">
-          {#if headerExtra && view === "chart"}{@render headerExtra()}{/if}
-          <button class="mini-btn" aria-pressed={view === "table"} onclick={() => (view = view === "table" ? "chart" : "table")}>{view === "table" ? "Chart" : "Table"}</button>
-          {#if view === "table"}<button class="mini-btn" onclick={() => download(table(data))}>CSV</button>{/if}
-        </div>
-      {/if}
-    {/await}
+    {#if shown && table && !isEmpty(shown.data)}
+      <div class="pn-actions">
+        {#if headerExtra && view === "chart"}{@render headerExtra()}{/if}
+        <button class="mini-btn" aria-pressed={view === "table"} onclick={() => (view = view === "table" ? "chart" : "table")}>{view === "table" ? "Chart" : "Table"}</button>
+        {#if view === "table"}<button class="mini-btn" onclick={() => download(table(shown!.data))}>CSV</button>{/if}
+      </div>
+    {/if}
   </div>
   {#if controls}{@render controls()}{/if}
-  {#await promise}
+  {#if failed}
+    <div class="pn-body"><div class="empty error" role="alert">Could not load this chart: {failed}</div></div>
+  {:else if !shown}
     <div class="pn-body"><div class="loading" aria-busy="true"></div></div>
-  {:then data}
+  {:else}
+    {@const data = shown.data}
     <div class="pn-body">
       {#if isEmpty(data)}
         <div class="empty">{emptyText}</div>
@@ -63,7 +93,5 @@
       {/if}
     </div>
     {#if note && !isEmpty(data)}<p class="src">{note}</p>{/if}
-  {:catch e}
-    <div class="pn-body"><div class="empty error" role="alert">Could not load this chart: {e instanceof Error ? e.message : e}</div></div>
-  {/await}
+  {/if}
 </section>

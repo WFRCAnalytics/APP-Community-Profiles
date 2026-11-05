@@ -23,7 +23,7 @@ test("loads the overview for the default area with no errors", async ({ page }) 
   expect(errors).toEqual([]);
 });
 
-test("the URL hash restores the area, comparison, year and tab", async ({ page }) => {
+test("the URL hash restores the area, view, year and tab", async ({ page }) => {
   await page.goto("/#type=county&id=49035&cmp=49&v=2022&tab=people");
   await ready(page);
   await expect(page.getByRole("heading", { level: 2 })).toContainText("Salt Lake County");
@@ -52,10 +52,20 @@ test("search picks an area and the compare picker suggests areas of the same kin
   await expect(page).toHaveURL(/cmp=49/);
 });
 
-test("every chart has a table view, and the indicators table downloads as CSV", async ({ page }) => {
-  await page.goto("/#type=county&id=49035&tab=people");
+test("a panel with a history can switch from the chosen year to every year", async ({ page }) => {
+  await page.goto("/#type=county&id=49035&tab=people&sub=race");
   await ready(page);
-  const card = page.getByRole("region", { name: "Race" });
+  const race = page.getByRole("region", { name: "Race", exact: true });
+  await race.getByRole("button", { name: "Trend" }).click();
+  await expect(page.getByRole("region", { name: "Race over time" })).toBeVisible();
+  await page.getByRole("region", { name: "Race over time" }).getByRole("button", { name: "Snapshot" }).click();
+  await expect(page.getByRole("region", { name: "Race", exact: true })).toBeVisible();
+});
+
+test("every chart has a table view, and the indicators table downloads as CSV", async ({ page }) => {
+  await page.goto("/#type=county&id=49035&tab=people&sub=race");
+  await ready(page);
+  const card = page.getByRole("region", { name: "Race", exact: true });
   await card.getByRole("button", { name: "Table" }).click();
   await expect(card.getByRole("table")).toBeVisible();
   await page.getByRole("tab", { name: "Indicators" }).click();
@@ -111,4 +121,15 @@ test("on a phone the page scrolls as one column without sideways overflow", asyn
   await ready(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await context.close();
+});
+
+test("each tab has topic sub-tabs, kept in the address, and the Commute flow map has its place", async ({ page }) => {
+  await page.goto("/#type=county&id=49035&tab=people");
+  await ready(page);
+  await page.getByRole("tab", { name: "Race, origin and moves" }).click();
+  await expect(page).toHaveURL(/sub=race/);
+  const race = page.getByRole("region", { name: "Race", exact: true });
+  await page.getByRole("tab", { name: "Commute" }).click();
+  await page.getByRole("tab", { name: "Where they go" }).click();
+  await expect(page.getByRole("region", { name: "Commute flow map" })).toBeVisible();
 });

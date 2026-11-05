@@ -1,27 +1,40 @@
 <script lang="ts">
+  import RateCard from "../components/RateCard.svelte";
   import ShareCard from "../components/ShareCard.svelte";
+  import SubTabs from "../components/SubTabs.svelte";
   import Tiles from "../components/Tiles.svelte";
   import TrendCard from "../components/TrendCard.svelte";
   import { app } from "../lib/app.svelte";
   import { SPECS } from "../lib/specs";
 
+  const SUBS = [{ id: "income", label: "Income" }, { id: "poverty", label: "Poverty and work" }];
+  let sub = $state("income");
   // Poverty is not published below the tract, so a WFRC area is split from tracts and is the more approximate table.
   const custom = $derived(app.refs.some((r) => ["aog", "mpo", "rpo", "fws"].includes(r.type)));
+  const planning = $derived(custom ? "Planning areas are split from tracts, so this is approximate." : "")
 </script>
 
-<div style="display:flex;flex-direction:column;gap:12px;height:100%">
-  <Tiles ids={["median_income", "poverty", "unemployment"]} />
-  <div class="g" style="flex:1;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)">
-    <ShareCard title="Household income" spec={SPECS.income} note="Dollars of each year, not adjusted for inflation." style="grid-row:1 / span 2" />
-    <TrendCard title="Median household income over time" id="median_income" />
-    <TrendCard title="People below the poverty level" id="poverty" />
-    <TrendCard title="Unemployment rate" id="unemployment" />
-    <section class="pn">
-      <div class="pn-head"><h3>A caution for planning areas</h3></div>
-      <div class="pn-body prose-note">
-        <p>The Census Bureau does not publish poverty, group quarters, school enrollment or disability below the census tract. For the WFRC region, MPO, RPO and workshop areas these tables are split from tracts, so they are the more approximate figures for the smaller areas.</p>
-        {#if custom}<p class="caveat">The area you are looking at is one of these planning areas.</p>{/if}
-      </div>
-    </section>
-  </div>
+<div class="tab">
+  {#if sub === "income"}
+    <Tiles ids={["median_income", "low_income", "high_income", "snap"]} />
+  {:else}
+    <Tiles ids={["poverty", "unemployment", "labor_force", "snap"]} />
+  {/if}
+  <SubTabs items={SUBS} bind:active={sub} />
+  {#if sub === "income"}
+    <div class="g" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)">
+      <ShareCard title="Household income" spec={SPECS.income} note="Dollars of each year, not adjusted for inflation." style="grid-row:1 / span 2" />
+      <TrendCard title="Median household income" id="median_income" />
+      <TrendCard title="Households on SNAP or public assistance" id="snap" />
+      <TrendCard title="Households under $25,000" id="low_income" />
+      <TrendCard title="Households at $100,000 or more" id="high_income" />
+    </div>
+  {:else}
+    <div class="g" style="grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:minmax(0,1fr) minmax(0,1fr)">
+      <ShareCard title="Poverty status" spec={SPECS.poverty} note={planning} />
+      <RateCard title="Poverty by age" spec="povertyByAge" note="Share of each age group below the poverty level. {planning}" style="grid-row:1 / span 2" />
+      <ShareCard title="Industry of employed residents" spec={SPECS.residentIndustry} sort note="Where residents work, wherever the job is." style="grid-row:1 / span 2" />
+      <TrendCard title="People below the poverty level" id="poverty" />
+    </div>
+  {/if}
 </div>

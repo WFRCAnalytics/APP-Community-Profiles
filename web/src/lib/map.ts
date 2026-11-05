@@ -97,6 +97,7 @@ export class MapController {
       if (r.ok) style = await r.json();
     } catch { /* offline: plain background */ }
     if (token !== this.styleToken) return;
+    this.shapeKey = "";
     this.map.setStyle(style, { diff: false });
     const ready = () => {
       if (token !== this.styleToken) return;
@@ -128,9 +129,9 @@ export class MapController {
     }
     const add = (layer: maplibregl.LayerSpecification) => map.addLayer(layer, before);
     const line = mode === "dark" ? "#0A1F2E" : "#FFFFFF";
-    add({ id: "areas-fill", type: "fill", source: "areas", paint: { "fill-color": NO_DATA[mode], "fill-opacity": 0.88 } });
+    add({ id: "areas-fill", type: "fill", source: "areas", paint: { "fill-color": NO_DATA[mode], "fill-opacity": 0.88, "fill-color-transition": { duration: 600, delay: 0 } } });
     add({ id: "areas-line", type: "line", source: "areas", paint: { "line-color": line, "line-width": 0.8, "line-opacity": 0.9 } });
-    add({ id: "tracts-fill", type: "fill", source: "tracts", paint: { "fill-color": NO_DATA[mode], "fill-opacity": 0.88 } });
+    add({ id: "tracts-fill", type: "fill", source: "tracts", paint: { "fill-color": NO_DATA[mode], "fill-opacity": 0.88, "fill-color-transition": { duration: 600, delay: 0 } } });
     add({ id: "tracts-line", type: "line", source: "tracts", paint: { "line-color": line, "line-width": 0.4, "line-opacity": 0.8 } });
     // Selected: a surface-coloured casing under a blue line. Compared: a dashed brick line.
     add({ id: "focus-casing", type: "line", source: "focus", paint: { "line-color": line, "line-width": 6, "line-opacity": 0.9 }, layout: { "line-join": "round" } });
@@ -177,6 +178,7 @@ export class MapController {
     this.render();
   }
 
+  private shapeKey = "";
   private render() {
     const view = this.view, map = this.map;
     if (!view || !map.getSource("areas")) return;
@@ -185,10 +187,15 @@ export class MapController {
     const bi = !!view.values2;
     const cuts = quantileBreaks([...view.values.values()], bi ? 3 : 5);
     const cuts2 = bi ? quantileBreaks([...view.values2!.values()], 3) : [];
-    (map.getSource("areas") as maplibregl.GeoJSONSource).setData(areas ? view.shapes : EMPTY);
-    (map.getSource("tracts") as maplibregl.GeoJSONSource).setData(areas ? EMPTY : view.shapes);
-    (map.getSource("focus") as maplibregl.GeoJSONSource).setData(view.focus);
     const ids = view.shapes.features.map((f) => String(f.properties?.id));
+    // The shapes only change with the layer, the extent or the selection; a new year only changes the colours, which fade.
+    const key = `${view.layer}|${ids.length}|${ids[0]}|${ids.at(-1)}|${view.focus.features.map((f) => `${f.properties?.id}${f.properties?.role}`).join()}`;
+    if (key !== this.shapeKey) {
+      this.shapeKey = key;
+      (map.getSource("areas") as maplibregl.GeoJSONSource).setData(areas ? view.shapes : EMPTY);
+      (map.getSource("tracts") as maplibregl.GeoJSONSource).setData(areas ? EMPTY : view.shapes);
+      (map.getSource("focus") as maplibregl.GeoJSONSource).setData(view.focus);
+    }
     if (ids.length) {
       map.setPaintProperty(areas ? "areas-fill" : "tracts-fill", "fill-color",
         ["match", ["get", "id"], ...ids.flatMap((id) => [id, bi ? biColour(view.values.get(id), view.values2!.get(id), cuts, cuts2, mode) : colourFor(view.values.get(id), cuts, mode)]), NO_DATA[mode]] as any);

@@ -135,7 +135,7 @@ button.cmp-pill:hover { background: var(--surface-2); }
 .cmp-pill b { font-weight: 600; }
 .cmp-pill button { border: 0; background: transparent; color: var(--muted); border-radius: 99px; padding: 2px 6px; display: grid; place-items: center; }
 .cmp-pill button:hover { background: var(--surface-2); color: var(--text); }
-.year { width: 320px; max-width: 100%; }
+.year { width: 320px; max-width: 100%; min-height: 62px; }
 .year .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.72rem; color: var(--muted); }
 .year output { font: 700 1.05rem var(--f-display); color: var(--text); }
 .year input[type="range"] { width: 100%; margin: 2px 0 0; accent-color: var(--accent); }
@@ -145,9 +145,9 @@ button.cmp-pill:hover { background: var(--surface-2); }
 /* ---------- panels and grids ---------- */
 .g { display: grid; gap: 12px; height: 100%; min-height: 0; }
 .pn { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-panel); padding: 12px 14px; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
-.pn-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.pn-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .pn h3 { font-size: 0.95rem; }
-.pn-actions { display: flex; gap: 4px; flex: none; }
+.pn-actions { display: flex; gap: 4px; flex: 0 1 auto; flex-wrap: wrap; margin-left: auto; }
 .mini-btn { border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 0.72rem; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
 .mini-btn:hover { color: var(--text); background: var(--surface-2); }
 .mini-btn[aria-pressed="true"] { background: var(--surface-2); color: var(--text); font-weight: 600; }
@@ -274,3 +274,14 @@ button.cmp-pill:hover { background: var(--surface-2); }
    (to light the icons), which turned their borders white. */
 .maplibregl-ctrl-group button + button { border-top: 1px solid transparent !important; }
 .maplibregl-ctrl-group { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 29px, var(--border) 29px, var(--border) 30px) !important; }
+
+/* Key figures: a sparkline beside the number, and the topic strip under the tiles. */
+.tile-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tile .spark { flex: none; opacity: 0.9; }
+.tab { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+.tab > .g { flex: 1; }
+
+.year .hint { margin: 2px 0 0; font-size: 0.72rem; color: var(--muted); }
+
+/* Standard panel grids: three columns by two rows. */
+.g.c3r2 { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }

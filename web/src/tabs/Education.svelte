@@ -5,11 +5,14 @@
   import { SPECS } from "../lib/specs";
 </script>
 
-<div style="display:flex;flex-direction:column;gap:12px;height:100%">
-  <Tiles ids={["bachelors"]} cols={1} style="max-width:260px" />
-  <div class="g" style="flex:1;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:minmax(0,1fr)">
+<div class="tab">
+  <Tiles ids={["bachelors", "grad", "no_hs", "enrolled", "college"]} />
+  <div class="g c3r2">
     <ShareCard title="Educational attainment (25 and over)" spec={SPECS.education} note="Published from 2012." />
     <ShareCard title="School enrollment (3 and over)" spec={SPECS.enrollment} />
     <TrendCard title="Adults with a bachelor's degree or more" id="bachelors" />
+    <TrendCard title="Adults with a graduate degree" id="grad" />
+    <TrendCard title="Adults without a high school diploma" id="no_hs" />
+    <TrendCard title="People in college or graduate school" id="college" />
   </div>
 </div>

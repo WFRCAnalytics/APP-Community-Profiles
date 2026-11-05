@@ -204,6 +204,13 @@ export async function lodesSeries(h: Db, kind: "wac" | "rac", refs: Ref[]) {
   return out;
 }
 
+// One LODES breakdown over the years for one area: [{year, variable, jobs}] including the total (C000).
+export async function lodesGroupSeries(h: Db, kind: "wac" | "rac", ref: Ref, variables: string[]) {
+  return sql<{ year: number; variable: string; jobs: number }>(h, `
+    SELECT year, variable, jobs::DOUBLE AS jobs FROM read_parquet('${dataUrl(`lodes/${kind}/${ref.type}.parquet`)}')
+    WHERE geo_id = ${lit(ref.id)} AND variable IN (${list([...variables, "C000"])}) ORDER BY year`);
+}
+
 export const lodesVariables = (h: Db) =>
   sql<{ source: string; variable: string; group: string; label: string }>(
     h, `SELECT source, variable, "group", label FROM read_parquet('${dataUrl("meta/lodes_variables.parquet")}')`);
@@ -253,6 +260,14 @@ export async function qcewIndustries(h: Db, ref: Ref, year: number): Promise<Qce
     by.set(r.industry, o);
   }
   return [...by.values()];
+}
+
+// One QCEW measure (employment, avg_annual_pay, ...) by industry over the years: [{year, industry, value}].
+export async function qcewSeries(h: Db, ref: Ref, variable: string) {
+  if (!(ref.type in QCEW_FILE)) return [];
+  return sql<{ year: number; industry: string; value: number }>(h, `
+    SELECT year, industry, value::DOUBLE AS value FROM read_parquet('${dataUrl(`qcew/${QCEW_FILE[ref.type]}.parquet`)}')
+    WHERE geo_id = ${lit(ref.id)} AND ownership = '5' AND variable = ${lit(variable)} ORDER BY year`);
 }
 
 export const qcewCodes = (h: Db) =>

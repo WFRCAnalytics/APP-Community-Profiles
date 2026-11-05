@@ -32,6 +32,7 @@ class App {
   cmp = $state("");
   v = $state(0);
   tab = $state("overview");
+  sub = $state(""); // the sub-tab inside the current tab; empty means its first
   page = $state("");
   picker = $state<null | "area" | "compare">(null);
 
@@ -77,13 +78,21 @@ class App {
     this.id = geo?.geo_id ?? this.byId.get(site.defaults[type] ?? "")?.geo_id ?? this.geos.find((g) => g.geo_type === type)?.geo_id ?? "";
     this.cmp = h.cmp && h.cmp !== this.id && this.byId.has(h.cmp) ? h.cmp : "";
     this.tab = TABS.some((t) => t.id === h.tab) ? h.tab! : "overview";
+    this.sub = h.sub ?? "";
     this.page = h.page ?? "";
     this.v = this.years.includes(h.v ?? 0) ? h.v! : this.years.at(-1) ?? this.latestVintage;
   }
 
   writeHash() {
-    const next = formatHash({ type: this.type, id: this.id, cmp: this.cmp, v: this.v, tab: this.tab, page: this.page });
+    const next = formatHash({ type: this.type, id: this.id, cmp: this.cmp, v: this.v, tab: this.tab, sub: this.sub, page: this.page });
     if (next !== location.hash) history.replaceState(null, "", next);
+  }
+
+  // Switch the main tab; each tab opens on its first sub-tab.
+  go(tab: string) {
+    if (tab === this.tab) return;
+    this.tab = tab;
+    this.sub = "";
   }
 
   select(id: string) {

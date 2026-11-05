@@ -24,7 +24,7 @@
     if (playing) return stop();
     playing = true;
     if (app.v >= last) app.v = first;
-    timer = setInterval(() => { if (app.v >= last) stop(); else app.v += 1; }, 650);
+    timer = setInterval(() => { if (app.v >= last) stop(); else app.v += 1; }, 900);
   }
   onDestroy(stop);
   const ticks = $derived([0, 1, 2, 3, 4, 5].map((i) => Math.round(first + ((last - first) * i) / 5)));

@@ -1,11 +1,12 @@
 // The URL hash keeps the chosen area, comparison, period and tab, so a view can be shared:
-//   #type=county&id=49035&cmp=49&v=2024&tab=housing
+//   #type=county&id=49035&v=2024&tab=housing
 export interface HashState {
   type?: string;
   id?: string;
   cmp?: string;
   v?: number;
   tab?: string;
+  sub?: string;
   page?: string;
 }
 
@@ -18,6 +19,7 @@ export function parseHash(hash: string): HashState {
     cmp: p.get("cmp") || undefined,
     v: Number.isFinite(v) && v > 0 ? v : undefined,
     tab: p.get("tab") || undefined,
+    sub: p.get("sub") || undefined,
     page: p.get("page") || undefined,
   };
 }
@@ -30,5 +32,6 @@ export function formatHash(s: HashState): string {
   if (s.cmp) p.set("cmp", s.cmp);
   if (s.v) p.set("v", String(s.v));
   if (s.tab && s.tab !== "overview") p.set("tab", s.tab);
+  if (s.sub && s.tab && s.tab !== "overview") p.set("sub", s.sub);
   return `#${p}`;
 }

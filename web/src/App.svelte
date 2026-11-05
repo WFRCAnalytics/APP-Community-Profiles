@@ -23,7 +23,7 @@
   // Keep the address bar in step with the chosen area, comparison, year and tab.
   $effect(() => {
     if (!app.ready) return;
-    app.type; app.id; app.cmp; app.v; app.tab; app.page;
+    app.type; app.id; app.cmp; app.v; app.tab; app.sub; app.page;
     app.writeHash();
   });
   $effect(() => { document.title = app.selected ? `${app.selected.label} · ${site.title}` : site.title; });

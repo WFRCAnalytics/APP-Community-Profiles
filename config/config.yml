@@ -98,9 +98,22 @@ acs:
     B08303: { topic: commute, label: Travel time to work (by residence), weight: pop }
     B08601: { topic: commute, label: Means of transportation to work (by workplace), custom: false }
     B08603: { topic: commute, label: Travel time to work (by workplace), custom: false }
-    B16001: { topic: social, label: Language spoken at home, weight: pop, custom: false }
+    C16001: { topic: social, label: Language spoken at home, weight: pop, unit: tract }
     B18101: { topic: social, label: Disability status, weight: pop, unit: tract }
     B28002: { topic: social, label: Internet subscriptions, weight: pop }
+    B03002: { topic: population, label: Hispanic or Latino origin by race, weight: pop }
+    B05002: { topic: population, label: Place of birth by nativity, weight: pop, unit: tract }
+    B07003: { topic: population, label: Residence one year ago, weight: pop, unit: tract }
+    B25008: { topic: households, label: Population in occupied housing units, weight: pop }
+    B25004: { topic: housing, label: Vacancy status, weight: pop }
+    B27001: { topic: social, label: Health insurance coverage, weight: pop, unit: tract }
+    B21001: { topic: population, label: Veteran status, weight: pop, unit: tract }
+    B12001: { topic: population, label: Marital status, weight: pop, unit: tract }
+    B25014: { topic: housing, label: Occupants per room (crowding), weight: pop }
+    B19313: { topic: income, label: Aggregate income, weight: pop }
+    B19058: { topic: income, label: Public assistance or SNAP, weight: pop, unit: tract }
+    B08013: { topic: commute, label: Aggregate travel time to work (by residence), weight: pop, unit: tract }
+    C24050: { topic: employment, label: Industry of employed residents, weight: pop, unit: tract }
 
 # Decennial block counts used as allocation weights. A 5-year ACS vintage uses the block group
 # geography of its era: 2020 and later vintages use 2020 blocks, 2019 and earlier use 2010 blocks.

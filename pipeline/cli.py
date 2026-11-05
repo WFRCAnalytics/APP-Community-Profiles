@@ -22,7 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     # Imported here so `--help` stays fast and a missing key only matters for stages that need it.
-    from . import acs, aggregate, audit, boundaries, crosswalk, export, geographies, lodes, pep, qcew, qa
+    from . import acs, aggregate, audit, boundaries, crosswalk, export, geographies, lodes, pep, qa, qcew
 
     con = None
     if args.command in ("boundaries", "all"):

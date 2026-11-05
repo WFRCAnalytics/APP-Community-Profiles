@@ -1,10 +1,16 @@
-/.quarto/
-**/*.quarto_ipynb
-/_site/
-/docs/
+# Python
 __pycache__/
-node_modules/
-scripts/tools/qa-report.md
-.env
 .venv/
-/profiles/raw/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets and local downloads (the pipeline re-creates raw/ with `uv run profiles all`)
+.env
+/raw/
+
+# Web app
+node_modules/
+/web/dist/
+/web/playwright-report/
+/web/test-results/
+*.tsbuildinfo

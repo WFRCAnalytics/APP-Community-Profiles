@@ -1,7 +1,7 @@
 import pandas as pd
 
-from wfrc_profiles.acs import clean_label, geo_id, to_long
-from wfrc_profiles.geographies import split_place
+from pipeline.acs import clean_label, geo_id, to_long
+from pipeline.geographies import split_place
 
 
 def _raw():

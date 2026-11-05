@@ -2,9 +2,9 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import box
 
-from wfrc_profiles.boundaries import make_id, process_layer
-from wfrc_profiles.db import connect, write_parquet
-from wfrc_profiles.util import slugify, write_if_changed
+from pipeline.boundaries import make_id, process_layer
+from pipeline.db import connect, write_parquet
+from pipeline.util import slugify, write_if_changed
 
 CFG = {"name_strip": ["Co."]}
 

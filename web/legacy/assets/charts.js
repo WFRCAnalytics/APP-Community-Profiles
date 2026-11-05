@@ -104,7 +104,7 @@ export function bars({ rows, order, seriesOrder, colors = chartColors(), format,
   }
   const chart = Plot.plot(base({
     width, height, marginLeft: labelMargin(cats), marginRight: 44, marginTop: 6,
-    x: { domain: [0, max], grid: true, tickFormat, label: null, ticks: 5 },
+    x: { domain: [0, max], grid: true, tickFormat, label: null, ticks: 5, tickSize: 0 },
     y: grouped ? { axis: null, domain: series } : { domain: cats, label: null, tickSize: 0 },
     fy: grouped ? { domain: cats, label: null, tickSize: 0, padding: 0.18 } : undefined,
     marks,
@@ -123,7 +123,7 @@ export function stacked({ rows, order, seriesOrder, colors = chartColors(), form
   const color = Object.fromEntries(series.map((s, i) => [s, colors[i % colors.length]]));
   const chart = Plot.plot(base({
     width, height: cats.length * 30 + 40, marginLeft: labelMargin(cats), marginTop: 6,
-    x: { grid: true, tickFormat, label: null, ticks: 5 },
+    x: { grid: true, tickFormat, label: null, ticks: 5, tickSize: 0 },
     y: { domain: cats, label: null, tickSize: 0 },
     marks: [
       Plot.barX(rows, {
@@ -157,7 +157,7 @@ export function pyramid({ rows, compare, ages, colors = chartColors(), format, t
   }
   const chart = Plot.plot(base({
     width, height: ages.length * 20 + 44, marginLeft: 64, marginTop: 6,
-    x: { domain: [-max, max], grid: true, label: null, tickFormat: (d) => tickFormat(Math.abs(d)), ticks: 6 },
+    x: { domain: [-max, max], grid: true, label: null, tickFormat: (d) => tickFormat(Math.abs(d)), ticks: 6, tickSize: 0 },
     y: { domain: [...ages].reverse(), label: null, tickSize: 0 },
     marks,
   }));
@@ -191,28 +191,36 @@ export function lines({ series, format, tickFormat = format, xFormat = (d) => St
     Plot.tip(flat, Plot.pointerX({ x: "x", y: "y", title: tip })),
   ];
   const chart = Plot.plot(base({
-    width, height: 240, marginRight: 40, marginLeft: 72, marginTop: 14,
-    x: { label: null, tickFormat: xFormat, ticks: Math.min(xTicks ?? 6, Math.max(2, Math.floor(width / 85))), type: "linear", nice: false },
-    y: { grid: true, label: yLabel ?? null, tickFormat, zero, nice: true },
+    width, height: 240, marginRight: 28, marginLeft: 64, marginTop: 14,
+    x: { label: null, tickFormat: xFormat, ticks: Math.min(xTicks ?? 6, Math.max(2, Math.floor(width / 70))), type: "linear", nice: false, tickSize: 3 },
+    y: { grid: true, label: yLabel ?? null, tickFormat, zero, nice: true, tickSize: 0 },
     marks,
   }));
   return withLegend(series.map((s) => ({ label: s.label, color: s.color })), chart, "line");
 }
 
-// ---- value box and table ---------------------------------------------------------------------------------
+// ---- value tile and table --------------------------------------------------------------------------------
 
-export function valueBox({ label, value, sub, method, methods }) {
+// One key fact: label, number, a meta line (margin of error and how it was made) and, when comparing,
+// the other area's value beside a key in its series colour. Every tile has the same four rows so a row of
+// them lines up whatever the content.
+export function valueTile({ label, value, meta, method, methods, compare, tip }) {
   const el = document.createElement("div");
-  el.className = "pf-value";
-  const m = method ? `<span class="pf-chip pf-chip-${method}" title="${escapeHtml(methods?.[method]?.note ?? "")}">${escapeHtml(methods?.[method]?.short ?? method)}</span>` : "";
-  el.innerHTML = `<div class="pf-value-label">${escapeHtml(label)}</div>
-    <div class="pf-value-number">${escapeHtml(value)}</div>
-    <div class="pf-value-sub">${sub ? escapeHtml(sub) : "&nbsp;"} ${m}</div>`;
+  el.className = "pf-tile";
+  const chip = method ? `<span class="pf-chip pf-chip-${method}" title="${escapeHtml(methods?.[method]?.note ?? "")}">${escapeHtml(methods?.[method]?.short ?? method)}</span>` : "";
+  const other = compare
+    ? `<i class="pf-dot" style="background:${compare.color}"></i><span class="pf-compare-name">${escapeHtml(compare.label)}</span> <span class="pf-compare-value">${escapeHtml(compare.value)}</span>`
+    : "";
+  el.innerHTML = `<div class="pf-tile-label" title="${escapeHtml(tip ?? label)}">${escapeHtml(label)}</div>
+    <div class="pf-tile-number">${escapeHtml(value)}</div>
+    <div class="pf-tile-meta">${meta ? `<span>${escapeHtml(meta)}</span>` : ""}${chip}</div>
+    <div class="pf-tile-compare">${other}</div>`;
   return el;
 }
 
-// A plain table (the accessible view of the data). columns: [{key, label, align?}].
-export function table(rows, columns) {
+// A plain table (the accessible view of the data). columns: [{key, label, align?}]. If rows carry a `group`,
+// a heading row is inserted whenever it changes.
+export function table(rows, columns, { groupKey = null } = {}) {
   const t = document.createElement("table");
   t.className = "pf-table";
   const head = t.createTHead().insertRow();
@@ -223,7 +231,16 @@ export function table(rows, columns) {
     head.append(th);
   }
   const body = t.createTBody();
+  let group = null;
   for (const r of rows) {
+    if (groupKey && r[groupKey] !== group) {
+      group = r[groupKey];
+      const tr = body.insertRow();
+      tr.className = "pf-group";
+      const th = document.createElement("th");
+      th.colSpan = columns.length; th.scope = "colgroup"; th.textContent = group;
+      tr.append(th);
+    }
     const tr = body.insertRow();
     for (const c of columns) {
       const td = tr.insertCell();

@@ -8,7 +8,6 @@ rests on whole block groups (the alignment score), are the tracked outputs.
 from __future__ import annotations
 
 import duckdb
-import pandas as pd
 
 from . import decennial, tiger
 from .db import connect, sql_path, write_parquet

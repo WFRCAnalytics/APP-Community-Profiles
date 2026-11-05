@@ -2,10 +2,10 @@
 
 LODES is published at the block, so every number here is a sum of whole blocks (method = aggregated)
 for the state, counties, places, tracts and the WFRC areas; nothing is allocated. Blocks are assigned to
-the WFRC areas by the same crosswalk as the ACS tables (profiles/raw/derived/block_area_2020.parquet).
+the WFRC areas by the same crosswalk as the ACS tables (raw/derived/block_area_2020.parquet).
 Block counts carry noise infusion by the Census Bureau, so small areas are noisy.
 
-Outputs (profiles/data):
+Outputs (data):
   lodes/wac|rac/<geo_type>.parquet   geo_id, geo_type, year, variable, jobs, method
   lodes/od/<geo_type>.parquet        origin_id, dest_id, year, then one column per OD measure
   meta/lodes_variables.parquet       what each variable means
@@ -89,8 +89,7 @@ def download(src: str, dest: Path, refresh: bool = False) -> Path:
             with requests.get(src, stream=True, timeout=300) as r:
                 if r.status_code == 200:
                     with open(tmp, "wb") as f:
-                        for chunk in r.iter_content(1 << 20):
-                            f.write(chunk)
+                        f.writelines(r.iter_content(1 << 20))
                     tmp.replace(dest)
                     return dest
                 last = f"HTTP {r.status_code}"

@@ -1,6 +1,6 @@
 import pandas as pd
 
-from wfrc_profiles.pep import melt_estimates
+from pipeline.pep import melt_estimates
 
 
 def test_melt_estimates_builds_long_rows_for_the_years_asked():

@@ -1,10 +1,10 @@
 """ACS 5-year direct pulls: validate the configured tables, download whole tables for each geography and
-vintage, and write long-format parquet (profiles/data/acs/<topic>/<geo>.parquet).
+vintage, and write long-format parquet (data/acs/<topic>/<geo>.parquet).
 
 Every row published here has method = 'direct' (the Census Bureau published it at that geography).
 Estimates of areas that are not Census geographies are built from these in the aggregation stage.
 
-Layout: each (topic, geography, vintage) is written as a part file under profiles/raw/derived/acs, which
+Layout: each (topic, geography, vintage) is written as a part file under raw/derived/acs, which
 keeps memory small and holds the full history. The tracked files are assembled from those parts; tracts
 and block groups are published for the latest vintage only (config: acs.latest_only).
 """

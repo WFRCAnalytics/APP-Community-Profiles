@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
-from wfrc_profiles import aggregate, crosswalk
-from wfrc_profiles.db import connect
+from pipeline import aggregate, crosswalk
+from pipeline.db import connect
 
 BG_A, BG_B = "490010000001", "490010000002"
 

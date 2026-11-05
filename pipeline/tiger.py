@@ -1,4 +1,4 @@
-"""TIGER/Line geometries through pygris, cached as GeoParquet under profiles/raw/tiger."""
+"""TIGER/Line geometries through pygris, cached as GeoParquet under raw/tiger."""
 from __future__ import annotations
 
 from pathlib import Path

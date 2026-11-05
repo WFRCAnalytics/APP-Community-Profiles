@@ -1,4 +1,4 @@
-"""Web exports: simplified GeoJSON for the dashboard maps (profiles/data/web/<geo_type>.geojson).
+"""Web exports: simplified GeoJSON for the dashboard maps (data/web/<geo_type>.geojson).
 
 GeoParquet stays the stored format; browsers read GeoJSON, so this stage derives it. Each feature has an
 `id` property equal to the geo_id used in every data file. Geometries are simplified for the screen.

@@ -1,7 +1,7 @@
 """BLS Quarterly Census of Employment and Wages: establishments, employment and wages by county,
 ownership and industry (annual averages), from the BLS area files.
 
-Outputs (profiles/data/qcew): state.parquet, county.parquet (method = direct) and areas.parquet, the WFRC
+Outputs (data/qcew): state.parquet, county.parquet (method = direct) and areas.parquet, the WFRC
 areas that are exactly whole counties (AOG, Morgan RPO), summed from their counties (method = aggregated).
 Columns: geo_id, geo_type, year, ownership, industry, variable, value, flag, method. variable is one of
 estabs, employment, wages, avg_annual_pay. flag is `suppressed` where BLS withholds a value to protect
@@ -10,9 +10,9 @@ so it is a lower bound. avg_annual_pay of an area is its wages divided by its em
 """
 from __future__ import annotations
 
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-import time
 
 import pandas as pd
 import requests

@@ -1,6 +1,6 @@
 """Audit the custom boundaries against counties and against each other, in DuckDB spatial SQL.
 
-Writes profiles/data/meta/boundary-audit.md (deterministic, tracked). It answers: which boundaries
+Writes data/meta/boundary-audit.md (deterministic, tracked). It answers: which boundaries
 equal a county (so their data can be treated as direct), which cut through counties (so they need the
 block crosswalk), whether features inside a layer overlap, and what happened to same-name rows.
 """

@@ -38,7 +38,7 @@ acs:
     tract: { for: "tract:*", in: "state:49 county:*", since: 2009 }
     block_group: { for: "block group:*", in: "state:49 county:*", since: 2013 }
   # Tracts and block groups are only published for the latest vintage (maps). Their history is kept in
-  # profiles/raw and feeds the WFRC area tables, so the repository stays small.
+  # raw and feeds the WFRC area tables, so the repository stays small.
   latest_only: [tract, block_group]
   # Whole tables are pulled (every estimate and margin of error). agg says how a table combines when
   # summing areas later: sum (counts, the default) or median (must be re-derived, never summed).
@@ -133,4 +133,4 @@ qcew:
   base: https://data.bls.gov/cew/data/api
   years: [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
   agglvl: [70, 71, 74]
-  user_agent: wfrcanalytics.github.io profiles pipeline
+  user_agent: APP-Community-Profiles pipeline

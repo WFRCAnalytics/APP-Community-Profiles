@@ -1,6 +1,6 @@
 """Pull WFRC planning boundaries from the ArcGIS FeatureServer and write tracked snapshots.
 
-Raw layer responses are cached in profiles/raw/arcgis as GeoParquet. The processed snapshot (one
+Raw layer responses are cached in raw/arcgis as GeoParquet. The processed snapshot (one
 GeoParquet per geo_type plus meta/geographies.parquet) is what the rest of the pipeline uses, so results
 stay reproducible even if the live service changes. Spatial work runs in DuckDB (spatial extension).
 Web-ready GeoJSON is derived later, at export time.
@@ -8,7 +8,7 @@ Web-ready GeoJSON is derived later, at export time.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
@@ -33,7 +33,7 @@ def _get(url: str, params: dict) -> dict:
 
 
 def fetch_layer(service: str, layer: int, refresh: bool = False) -> tuple[Path, dict]:
-    """Return (path to the raw GeoParquet, layer metadata), downloading into profiles/raw/arcgis if needed."""
+    """Return (path to the raw GeoParquet, layer metadata), downloading into raw/arcgis if needed."""
     folder = RAW / "arcgis"
     geo_path, meta_path = folder / f"layer{layer}.parquet", folder / f"layer{layer}.meta.json"
     if geo_path.exists() and meta_path.exists() and not refresh:
@@ -55,7 +55,7 @@ def fetch_layer(service: str, layer: int, refresh: bool = False) -> tuple[Path, 
     meta = {
         "layer": layer,
         "name": info["name"],
-        "last_edit": datetime.fromtimestamp(edited / 1000, timezone.utc).strftime("%Y-%m-%d") if edited else None,
+        "last_edit": datetime.fromtimestamp(edited / 1000, UTC).strftime("%Y-%m-%d") if edited else None,
         "feature_count": len(features),
     }
     folder.mkdir(parents=True, exist_ok=True)

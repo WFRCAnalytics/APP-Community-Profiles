@@ -3,8 +3,8 @@ import math
 import pandas as pd
 import pytest
 
-from wfrc_profiles.db import connect
-from wfrc_profiles.medians import derive, interpolate, parse_range
+from pipeline.db import connect
+from pipeline.medians import derive, interpolate, parse_range
 
 
 @pytest.mark.parametrize("label,expected", [

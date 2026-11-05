@@ -1,4 +1,4 @@
-"""Minimal Census Data API client. Responses are cached as JSON in profiles/raw/<source>/..."""
+"""Minimal Census Data API client. Responses are cached as JSON in raw/<source>/..."""
 from __future__ import annotations
 
 import json

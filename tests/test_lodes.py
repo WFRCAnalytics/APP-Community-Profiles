@@ -3,8 +3,8 @@ import gzip
 import pandas as pd
 import pytest
 
-from wfrc_profiles import lodes
-from wfrc_profiles.db import connect
+from pipeline import lodes
+from pipeline.db import connect
 
 WAC_HEADER = ("w_geocode,C000,CA01,CA02,CA03,CE01,CE02,CE03,CNS01,CNS02,CNS03,CNS04,CNS05,CNS06,CNS07,CNS08,CNS09,"
               "CNS10,CNS11,CNS12,CNS13,CNS14,CNS15,CNS16,CNS17,CNS18,CNS19,CNS20,CR01,CR02,CR03,CR04,CR05,CR07,CT01,"

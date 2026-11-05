@@ -33,7 +33,7 @@ def write_if_changed(path: Path, data: bytes) -> bool:
 
 
 def update_manifest(section: str, content: dict) -> None:
-    """Merge one section into profiles/data/meta/manifest.json (sorted keys, no timestamps)."""
+    """Merge one section into data/meta/manifest.json (sorted keys, no timestamps)."""
     path = META / "manifest.json"
     manifest = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     manifest[section] = content

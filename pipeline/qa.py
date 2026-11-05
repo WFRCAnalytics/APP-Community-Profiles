@@ -11,7 +11,7 @@ Then, once:
 5. Overlaps: blocks that fall in more than one area of the same layer (they would be double counted).
 6. Fallbacks: block groups that had no Decennial count of the preferred kind.
 
-Writes profiles/data/meta/crosswalk-qa.md and raises if a check exceeds the configured tolerance.
+Writes data/meta/crosswalk-qa.md and raises if a check exceeds the configured tolerance.
 """
 from __future__ import annotations
 

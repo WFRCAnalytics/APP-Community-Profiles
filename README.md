@@ -43,16 +43,19 @@ The map basemap is OpenFreeMap (Positron in light mode, Dark in dark mode); ever
 
 ### How the app is built
 
-| Module (`web/src/lib/`) | Role |
-|---|---|
-| `db.ts`, `data.ts` | Open DuckDB-WASM (`allowFullHTTPReads: true`, so servers without byte-range support still work) and every query: registry, indicators and series, PEP, LODES, OD flows, QCEW |
-| `indicators.ts`, `specs.ts` | The headline indicators and the distribution charts, defined once as ACS variable codes |
-| `format.ts` | Number formats and the method labels |
-| `charts.ts`, `place.ts`, `map.ts`, `classes.ts` | Plot charts, the place silhouette, the MapLibre choropleth and its classes |
-| `app.svelte.ts`, `hash.ts`, `theme.svelte.ts` | State, the shareable URL hash (`#type=…&id=…&cmp=…&v=…&tab=…`) and light, dark or system theme |
+A floating icon rail switches between ten screens (Overview, Map, People, Households, Housing, Income and poverty, Education, Jobs and economy, Commute, Indicators), each sized to fit one screen. The navbar search picks the area (filter by region, MPO, RPO, workshop areas, counties, cities); the compare pill picks a second area, suggesting areas of the same kind first and then the larger areas around it. A Year slider (with Play) drives every panel and highlights that year on every trend. The planned tabs and panels are in [docs/CHARTS.md](docs/CHARTS.md) and the design decisions in [docs/DESIGN.md](docs/DESIGN.md).
 
-Colour grammar, everywhere: **blue is the selected area and brick is the compared area**. The map's data ramp is a neutral
-slate so it never competes with either.
+| Module (`web/src/`) | Role |
+|---|---|
+| `lib/db.ts`, `lib/data.ts` | Open DuckDB-WASM (`allowFullHTTPReads: true`, so servers without byte-range support still work) and every query: registry, indicators and series, PEP, LODES, OD flows, QCEW |
+| `lib/indicators.ts`, `lib/specs.ts` | The headline indicators and the distribution charts, defined once as ACS variable codes |
+| `lib/format.ts` | Number formats and the method labels |
+| `lib/charts.ts`, `lib/place.ts`, `lib/map.ts`, `lib/classes.ts` | Plot charts (year highlight, pyramid), the place silhouette, the MapLibre choropleth (one or two variables) and its classes |
+| `lib/app.svelte.ts`, `lib/hash.ts`, `lib/theme.svelte.ts` | State, the shareable URL hash (`#type=…&id=…&cmp=…&v=…&tab=…`) and light, dark or system theme |
+| `components/` | Navbar, area picker, rail, context bar, panels (`ChartCard`, `ShareCard`, `TrendCard`, `PyramidCard`, `SeriesCard`), tiles, map card |
+| `tabs/` | One file per screen |
+
+Colour grammar, everywhere: **blue is the selected area and orange-brown is the compared area**; the population pyramid keeps the usual men blue, women pink. Method chips are tinted (green published, blue aggregate, amber estimate) and explain themselves on hover. The map's data ramps are neutral teal and a 3 by 3 bivariate palette, never the selection colours.
 
 ## Run the pipeline
 

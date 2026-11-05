@@ -10,9 +10,10 @@
   import { MapController, type Legend } from "../lib/map";
   import { theme } from "../lib/theme.svelte";
 
-  const FRONT: [[number, number], [number, number]] = [[-112.75, 39.55], [-111.05, 41.95]];
+  const FRONT: [[number, number], [number, number]] = [[-113.25, 39.55], [-110.85, 41.95]];
   const STATE: [[number, number], [number, number]] = [[-114.1, 36.95], [-108.95, 42.05]];
 
+  let { compact = false }: { compact?: boolean } = $props();
   let el: HTMLDivElement | undefined = $state();
   let controller = $state.raw<MapController>();
   let legend = $state.raw<Legend | null>(null);
@@ -107,6 +108,7 @@
 <div class="mapcard">
   <div class="canvas" bind:this={el} role="application" aria-label="Map of {app.typeInfo.plural}, shaded by {indX.label}{indY ? ` and ${indY.label}` : ''}. Use the search to pick an area with the keyboard."></div>
 
+  {#if !compact}
   <div class="top">
     <div class="pill wide"><span>Colour by</span>
       <select bind:value={idX} aria-label="Colour the map by">{#each mapInds as i}<option value={i.id}>{i.label}</option>{/each}</select></div>
@@ -123,8 +125,9 @@
     </div>
   </div>
   <button class="pill btn zoomer" onclick={() => (extent = extent === "front" ? "state" : "front")}>{extent === "front" ? "Show all of Utah" : "Zoom to Wasatch Front"}</button>
+  {/if}
 
-  {#if legend}
+  {#if legend && !compact}
     <div class="maplegend" aria-live="polite">
       {#if legend.bi}
         <div class="bi">
@@ -158,7 +161,7 @@
 <style>
   .mapcard { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; background: var(--raised); }
   .canvas { position: absolute; inset: 0; }
-  .top { position: absolute; left: 10px; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+  .top { position: absolute; left: 10px; width: min(430px, calc(100% - 20px)); top: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
   .row2 { display: flex; gap: 6px; align-items: center; }
   .wide { flex: 1; min-width: 0; }
   .wide select { flex: 1; min-width: 0; max-width: none; }

@@ -43,15 +43,16 @@ export function palette() {
   const css = getComputedStyle(document.documentElement);
   const get = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
   return {
-    selected: get("--sel", "#1479B8"),
-    compare: get("--cmp", "#D2582A"),
-    c3: get("--c3", "#8A5FB0"),
-    c4: get("--c4", "#D6A21E"),
-    c5: get("--c5", "#1FA0A6"),
-    ink: get("--ink", "#16232C"),
-    ink2: get("--ink-2", "#4F5E69"),
+    selected: get("--sel", "#0072B2"),
+    compare: get("--cmp", "#BD4B00"),
+    male: get("--male", "#0072B2"),
+    female: get("--female", "#CC79A7"),
+    c3: get("--c3", "#00735A"),
+    c4: get("--c4", "#A86F00"),
+    ink: get("--text", "#131A27"),
+    ink2: get("--muted", "#566074"),
     surface: get("--surface", "#FFFFFF"),
-    grid: get("--grid", "#D9E0E5"),
+    grid: get("--grid", "#E3E7EE"),
   };
 }
 export type Palette = ReturnType<typeof palette>;

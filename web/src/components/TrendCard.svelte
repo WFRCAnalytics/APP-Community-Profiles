@@ -1,19 +1,19 @@
 <script lang="ts">
-  // An ACS history chart for one indicator (one point per 5-year period, labelled by the period's end year), with the margin of
-  // error as a band where the Census publishes one.
+  // An ACS history chart for one indicator (one point per year, the year being the end of the 5-year estimate), with the margin
+  // of error as a band where the Census publishes one. The chosen year is highlighted.
   import { app } from "../lib/app.svelte";
   import { lines, type LineSeries } from "../lib/charts";
   import { indicatorSeries } from "../lib/data";
   import { FORMATS, METHODS, fmtPct } from "../lib/format";
   import { BY_ID } from "../lib/indicators";
+  import { colorize } from "../lib/series";
   import { trendTable } from "../lib/tables";
   import ChartCard from "./ChartCard.svelte";
 
-  let { title, id, zero = false }: { title: string; id: string; zero?: boolean } = $props();
+  let { title, id, zero = false, style = "" }: { title: string; id: string; zero?: boolean; style?: string } = $props();
   const ind = $derived(BY_ID[id]);
   const fmt = $derived(FORMATS[ind.format]);
   const tickFmt = $derived(ind.format === "pct" ? (d: number | null | undefined) => fmtPct(d, 0) : fmt);
-  const NOTE = "Each point is a 5-year ACS period, labelled by its last year. Periods overlap, so compare periods that do not (for example 2014–18 and 2019–23). Shaded band: margin of error where one is published.";
 
   async function load(): Promise<LineSeries[]> {
     const refs = app.refs;
@@ -30,9 +30,10 @@
 
 <ChartCard
   {title}
-  note={NOTE}
+  {style}
+  note="Source: American Community Survey 5-year estimates; each point is the estimate ending that year."
   {load}
   isEmpty={(s) => !s.length}
-  draw={(s, width, pal) => lines({ series: s.map((x) => ({ ...x, color: x.label === app.selected?.label ? pal.selected : pal.compare })), pal, format: fmt, tickFormat: tickFmt, zero, width, tipX: (v) => `${v - 4}–${v}` })}
-  table={(s) => trendTable(s, fmt, (x) => `${x - 4}–${x}`)}
+  draw={(s, width, height, pal) => lines({ series: colorize(s, app.selected?.label, pal), pal, format: fmt, tickFormat: tickFmt, zero, width, height, highlight: app.v, tipX: (v) => `${v - 4}–${v}` })}
+  table={(s) => trendTable(s, fmt, (x) => `${x}`)}
 />

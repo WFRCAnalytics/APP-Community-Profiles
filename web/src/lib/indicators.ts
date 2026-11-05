@@ -60,7 +60,7 @@ export type GeoType = "aog" | "mpo" | "rpo" | "fws" | "county" | "place" | "stat
 
 // The geography types a reader can pick, in menu order.
 export const GEO_TYPES: { id: GeoType; label: string; plural: string; custom: boolean }[] = [
-  { id: "aog", label: "WFRC region (AOG)", plural: "regions", custom: true },
+  { id: "aog", label: "WFRC region (Association of Governments)", plural: "regions", custom: true },
   { id: "mpo", label: "Metropolitan Planning Organization", plural: "MPOs", custom: true },
   { id: "rpo", label: "Rural Planning Organization", plural: "RPOs", custom: true },
   { id: "fws", label: "Workshop area", plural: "workshop areas", custom: true },

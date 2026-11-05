@@ -27,14 +27,22 @@ export const AGES = AGE_GROUPS.map((g) => g[0]);
 
 // topic, total variable(s) and categories. `minus` removes rows that are not part of the base.
 export const SPECS: Record<string, Spec> = {
+  occupancy: { topic: "housing", den: codes("B25002", 1), categories: [{ label: "Occupied", vars: codes("B25002", 2) }, { label: "Vacant", vars: codes("B25002", 3) }] },
+  internet: { topic: "social", den: codes("B28002", 1), categories: [
+    { label: "Has an internet subscription", vars: codes("B28002", 2) }, { label: "Access without a subscription", vars: codes("B28002", 12) },
+    { label: "No internet access", vars: codes("B28002", 13) }] },
+  enrollment: { topic: "education", den: codes("B14001", 1), categories: [
+    { label: "Not enrolled", vars: codes("B14001", 10) }, { label: "Preschool", vars: codes("B14001", 3) },
+    { label: "Kindergarten to grade 8", vars: codes("B14001", 4, 5, 6) }, { label: "High school", vars: codes("B14001", 7) },
+    { label: "College", vars: codes("B14001", 8) }, { label: "Graduate or professional school", vars: codes("B14001", 9) }] },
   ageBands: { topic: "population", den: codes("B01001", 1), categories: [
     { label: "Under 18", vars: [...codes("B01001", 3, 4, 5, 6), ...codes("B01001", 27, 28, 29, 30)] },
     { label: "18 to 64", vars: [...span("B01001", 7, 19), ...span("B01001", 31, 43)] },
     { label: "65 and over", vars: [...span("B01001", 20, 25), ...span("B01001", 44, 49)] }] },
   race: { topic: "population", den: codes("B02001", 1), categories: [
     { label: "White", vars: codes("B02001", 2) }, { label: "Black or African American", vars: codes("B02001", 3) },
-    { label: "American Indian and Alaska Native", vars: codes("B02001", 4) }, { label: "Asian", vars: codes("B02001", 5) },
-    { label: "Native Hawaiian and Pacific Islander", vars: codes("B02001", 6) },
+    { label: "Am. Indian, Alaska Native", vars: codes("B02001", 4) }, { label: "Asian", vars: codes("B02001", 5) },
+    { label: "Pacific Islander", vars: codes("B02001", 6) },
     { label: "Some other race", vars: codes("B02001", 7) }, { label: "Two or more races", vars: codes("B02001", 8) }] },
   ethnicity: { topic: "population", den: codes("B03003", 1), categories: [
     { label: "Hispanic or Latino (any race)", vars: codes("B03003", 3) }, { label: "Not Hispanic or Latino", vars: codes("B03003", 2) }] },

@@ -1,22 +1,26 @@
-// Application state: the chosen area, comparison and period, the lookups loaded once, and the URL hash that mirrors them.
-import { acsVintages, geojson, lodesYears, qcewYears, registry, type Geography } from "./data";
+// Application state: the chosen area, comparison and year, the lookups loaded once, and the URL hash that mirrors them.
+import { geojson, lodesYears, qcewYears, registry, acsVintages, type Geography } from "./data";
 import { openDb, type Db } from "./db";
 import { formatHash, parseHash } from "./hash";
 import { GEO_TYPES, type GeoType } from "./indicators";
 import type { AreaRef } from "./specs";
 
 export const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "population", label: "Population" },
-  { id: "housing", label: "Households and housing" },
-  { id: "income", label: "Income and education" },
-  { id: "jobs", label: "Jobs and commute" },
-  { id: "indicators", label: "Indicators" },
+  { id: "overview", label: "Overview", icon: "layout" },
+  { id: "map", label: "Map", icon: "map" },
+  { id: "people", label: "People", icon: "users" },
+  { id: "households", label: "Households", icon: "home-users" },
+  { id: "housing", label: "Housing", icon: "house" },
+  { id: "income", label: "Income and poverty", icon: "wallet" },
+  { id: "education", label: "Education", icon: "cap" },
+  { id: "jobs", label: "Jobs and economy", icon: "briefcase" },
+  { id: "commute", label: "Commute", icon: "route" },
+  { id: "indicators", label: "Indicators", icon: "table" },
 ] as const;
 
 const DEFAULTS: Record<string, string> = { aog: "aog-wfrc", mpo: "mpo-wfrc", county: "49035", place: "4967000", state: "49" };
 
-const displayName = (g: Geography) => (g.geo_type === "state" ? "Utah" : g.geo_id === "aog-wfrc" ? "WFRC region" : g.geo_name);
+export const displayName = (g: Geography) => (g.geo_type === "state" ? "Utah" : g.geo_id === "aog-wfrc" ? "WFRC region" : g.geo_name);
 
 class App {
   db = $state.raw<Db>();
@@ -31,8 +35,7 @@ class App {
   v = $state(0);
   tab = $state("overview");
   page = $state("");
-  // Shown when the map should reset to the whole region (used by the "fit" control).
-  mapEpoch = $state(0);
+  picker = $state<null | "area" | "compare">(null);
 
   byId = $derived(new Map(this.geos.map((g) => [g.geo_id, g])));
   selectedGeo = $derived(this.byId.get(this.id));
@@ -41,15 +44,15 @@ class App {
   compare = $derived<AreaRef | undefined>(this.compareGeo && { id: this.compareGeo.geo_id, type: this.compareGeo.geo_type, label: displayName(this.compareGeo) });
   refs = $derived<AreaRef[]>([this.selected, this.compare].filter((r): r is AreaRef => !!r));
   typeInfo = $derived(GEO_TYPES.find((t) => t.id === this.type)!);
-  periods = $derived(this.vintages.filter((v) => !this.typeInfo.custom || v >= 2013).slice().reverse());
+  // WFRC areas are built from block groups, which the Census publishes from the 2013 vintage.
+  years = $derived(this.vintages.filter((v) => !this.refs.some((r) => ["aog", "mpo", "rpo", "fws"].includes(r.type)) || v >= 2013));
   latestVintage = $derived(this.vintages.at(-1) ?? 0);
   lodesLatest = $derived(this.lodesYears.at(-1) ?? 0);
   qcewLatest = $derived(this.qcewYears.at(-1) ?? 0);
   ready = $derived(!!this.db && this.geos.length > 0 && this.v > 0);
-  period = $derived(`${this.v - 4}–${this.v}`);
-
+  // The ACS 5-year estimate behind the year shown, worded for source lines.
+  acs = $derived(`${this.v - 4}–${this.v} American Community Survey`);
   names = $derived(new Map(this.geos.map((g) => [g.geo_id, g.geo_name])));
-  displayName = displayName;
 
   async init() {
     try {
@@ -76,7 +79,7 @@ class App {
     this.cmp = h.cmp && h.cmp !== this.id && this.byId.has(h.cmp) ? h.cmp : "";
     this.tab = TABS.some((t) => t.id === h.tab) ? h.tab! : "overview";
     this.page = h.page ?? "";
-    this.v = this.periods.includes(h.v ?? 0) ? h.v! : this.periods[0] ?? this.latestVintage;
+    this.v = this.years.includes(h.v ?? 0) ? h.v! : this.years.at(-1) ?? this.latestVintage;
   }
 
   writeHash() {
@@ -90,12 +93,12 @@ class App {
     this.type = geo.geo_type;
     this.id = id;
     if (this.cmp === id) this.cmp = "";
-    if (!this.periods.includes(this.v)) this.v = this.periods[0];
+    if (!this.years.includes(this.v)) this.v = this.years.at(-1) ?? this.v;
   }
 
-  setType(type: GeoType) {
-    const first = this.byId.get(DEFAULTS[type] ?? "") ?? this.geos.find((g) => g.geo_type === type);
-    if (first) this.select(first.geo_id);
+  setCompare(id: string) {
+    this.cmp = id === this.id ? "" : id;
+    if (!this.years.includes(this.v)) this.v = this.years.at(-1) ?? this.v;
   }
 }
 

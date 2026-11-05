@@ -53,11 +53,22 @@ class App {
   acs = $derived(`${this.v - 4}–${this.v} American Community Survey`);
   names = $derived(new Map(this.geos.map((g) => [g.geo_id, g.geo_name])));
 
+  // Load steps finished so far, shown on the splash screen.
+  loaded = $state<string[]>([]);
+
   async init() {
+    const done = <T,>(step: string) => (x: T) => { this.loaded = [...this.loaded, step]; return x; };
     try {
       this.db = await openDb();
+      this.loaded = ["engine"];
       await loadSite();
-      const [geos, vintages, ly, qy] = await Promise.all([registry(this.db), acsVintages(this.db), lodesYears(this.db), qcewYears(this.db)]);
+      this.loaded = [...this.loaded, "site"];
+      const [geos, vintages, ly, qy] = await Promise.all([
+        registry(this.db).then(done("areas")),
+        acsVintages(this.db).then(done("census")),
+        lodesYears(this.db).then(done("jobs")),
+        qcewYears(this.db).then(done("wages")),
+      ]);
       this.geos = geos;
       this.vintages = vintages;
       this.lodesYears = ly;

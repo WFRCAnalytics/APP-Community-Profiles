@@ -7,6 +7,7 @@
   import Methods from "./components/Methods.svelte";
   import Navbar from "./components/Navbar.svelte";
   import RailNav from "./components/RailNav.svelte";
+  import Splash from "./components/Splash.svelte";
   import { app } from "./lib/app.svelte";
   import Commute from "./tabs/Commute.svelte";
   import Education from "./tabs/Education.svelte";
@@ -35,7 +36,7 @@
   {#if app.error}
     <div class="splash"><p class="error" role="alert">The data could not be loaded: {app.error}</p></div>
   {:else if !app.ready}
-    <div class="splash" role="status"><p>Loading the community profiles…</p></div>
+    <div class="splash"><Splash /></div>
   {:else}
     <div class="body">
       <RailNav />

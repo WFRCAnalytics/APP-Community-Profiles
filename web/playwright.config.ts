@@ -4,6 +4,6 @@ import { defineConfig } from "@playwright/test";
 // after `npx playwright install chromium`.
 export default defineConfig({
   testDir: "e2e",
-  webServer: { command: "npm run build && npx vite preview --port 4173 --strictPort", url: "http://localhost:4173/", reuseExistingServer: true, timeout: 180_000 },
-  use: { baseURL: "http://localhost:4173/", channel: process.env.PW_CHANNEL === "chromium" ? undefined : (process.env.PW_CHANNEL ?? "msedge") },
+  webServer: { command: "npm run build && npx vite preview --port 4179 --strictPort", url: "http://localhost:4179/", reuseExistingServer: !process.env.CI, timeout: 180_000 },
+  use: { baseURL: "http://localhost:4179/", channel: process.env.PW_CHANNEL === "chromium" ? undefined : (process.env.PW_CHANNEL ?? "msedge") },
 });

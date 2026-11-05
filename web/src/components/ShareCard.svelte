@@ -2,7 +2,7 @@
   // A share-of-total chart for a distribution defined in specs.ts. A distribution of up to five categories is drawn as a donut
   // by default and a longer one as bars. A switch in the header changes it either way. A compared area is a second ring or a second bar.
   import { app } from "../lib/app.svelte";
-  import { bars, donut } from "../lib/charts";
+  import { bars, donut, stacked100 } from "../lib/charts";
   import { fmtPct } from "../lib/format";
   import { distribution, sortByFirst, type Category, type Spec } from "../lib/specs";
   import { shareTable } from "../lib/tables";
@@ -46,8 +46,10 @@
   isEmpty={(d) => !d.rows.length}
   draw={(d, width, height, pal) => mode === "donut"
     ? donut({ rows: d.rows, order: d.order, seriesOrder: d.series, pal, format: pct1, width, height })
-    : bars({ rows: d.rows, order: d.order, seriesOrder: d.series, pal, format: pct1, tickFormat: pct0, labels: d.series.length === 1, width, height })}
+    : mode === "stack"
+    ? stacked100({ rows: d.rows, order: d.order, seriesOrder: d.series, pal, format: pct1, width, height })
+    : bars({ rows: d.rows, order: d.order, seriesOrder: d.series, pal, format: pct1, tickFormat: pct0, labels: d.series.length === 1, width, height, colorBy: "category" })}
   table={(d) => shareTable(d.rows, d.series, pct1)}
 >
-  {#snippet headerExtra()}<ModeToggle bind:value={mode} options={[{ id: "donut", label: "Donut" }, { id: "bars", label: "Bars" }]} />{/snippet}
+  {#snippet headerExtra()}<ModeToggle bind:value={mode} options={[{ id: "donut", label: "Donut" }, { id: "bars", label: "Bars" }, { id: "stack", label: "100%" }]} />{/snippet}
 </ChartCard>

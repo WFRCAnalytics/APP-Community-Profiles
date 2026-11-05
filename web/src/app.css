@@ -259,3 +259,7 @@ button { cursor: pointer; }
 .ctrl-reset button { display: grid; place-items: center; width: 29px; height: 29px; color: var(--text); background: transparent; border: 0; padding: 0; }
 .ctrl-reset button:hover { background: var(--surface-2); }
 .maplibregl-ctrl-scale { background: color-mix(in srgb, var(--surface) 88%, transparent) !important; color: var(--text) !important; border-color: var(--muted) !important; font-size: 0.68rem; padding: 0 5px; }
+
+/* Short charts (a few bars) sit in the middle of their panel instead of hugging the top; tall ones simply fill it and scroll. */
+.pn-body > .chart { display: flex; flex-direction: column; }
+.pn-body > .chart > * { margin-block: auto; }

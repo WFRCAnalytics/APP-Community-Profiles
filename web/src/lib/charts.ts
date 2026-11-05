@@ -60,23 +60,42 @@ function wrapLabel(text: string, max: number): string {
   return text;
 }
 
+// Legend for a chart whose colours mean categories: the areas are told apart by their dot (blue selected, orange compared, as in the
+// donut and the 100% bar) and by the bar itself, solid for the selected area and lighter for the compared one.
+export function areaLegend(series: string[], pal: Palette): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "legend";
+  series.forEach((label, i) => {
+    const item = document.createElement("span");
+    item.className = "legend-item";
+    item.innerHTML = `<i class="dot ${i === 0 ? "sel" : "cmp"}"></i><i style="display:inline-block;width:16px;height:8px;border-radius:3px;background:${pal.ink2};opacity:${i === 0 ? 1 : 0.4};border:${i === 0 ? "0" : `1.2px solid ${pal.ink2}`};box-sizing:border-box"></i>`;
+    item.append(document.createTextNode(label));
+    el.append(item);
+  });
+  return el;
+}
+
 export interface BarRow { category: string; series: string; value: number; note?: string; moe?: number | null }
 
 // ---- bars ------------------------------------------------------------------------------------------------
 
 // Horizontal bars. One series draws in the selected colour; two draw grouped (selected blue, compared orange) with a legend.
 // With a `height` the rows share it; the chart never gets taller than its natural size, and the panel scrolls if it must.
-export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat = format, labels = true, width, height }: {
-  rows: BarRow[]; order?: string[]; seriesOrder?: string[]; pal: Palette; colors?: string[]; format: Fmt; tickFormat?: Fmt; labels?: boolean; width: number; height?: number;
+export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat = format, labels = true, width, height, colorBy = "series" }: {
+  rows: BarRow[]; order?: string[]; seriesOrder?: string[]; pal: Palette; colors?: string[]; format: Fmt; tickFormat?: Fmt; labels?: boolean; width: number; height?: number; colorBy?: "series" | "category";
 }) {
   const cats = order ?? [...new Set(rows.map((r) => r.category))];
   const series = seriesOrder ?? [...new Set(rows.map((r) => r.series))];
   const palette = colors ?? areaColors(pal, series.length);
   const color = Object.fromEntries(series.map((s, i) => [s, palette[i % palette.length]]));
   const grouped = series.length > 1;
+  // colorBy "category" gives every category its own colour, the same ones the donut and 100% bar use; a compared area is then a lighter bar.
+  const byCat = colorBy === "category";
+  const catPalette = colors ?? CATEGORY_COLORS;
+  const catColor = (c: string) => catPalette[Math.max(0, cats.indexOf(c)) % catPalette.length];
   const available = innerHeight(height, series.length, 9999);
   const dense = cats.length > 10;
-  const unit = Math.max(grouped ? (dense ? 20 : 22) : 17, Math.min(grouped ? 46 : 32, (available - 30) / Math.max(1, cats.length)));
+  const unit = Math.max(grouped ? (dense ? 20 : 22) : 17, Math.min(grouped ? 38 : 26, (available - 30) / Math.max(1, cats.length)));
   const chartH = cats.length * unit + 30;
   const max = Math.max(0.0001, ...rows.map((r) => r.value ?? 0)) * 1.18;
   const marginLeft = labelMargin(cats, width);
@@ -87,7 +106,10 @@ export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat
   const marks: any[] = [
     Plot.ruleX([0], { stroke: pal.ink2, strokeOpacity: 0.5 }),
     Plot.barX(rows, {
-      x: "value", y: grouped ? "series" : "category", fy: grouped ? "category" : undefined, fill: (d: BarRow) => color[d.series],
+      x: "value", y: grouped ? "series" : "category", fy: grouped ? "category" : undefined,
+      fill: (d: BarRow) => (byCat ? catColor(d.category) : color[d.series]),
+      fillOpacity: (d: BarRow) => (byCat && grouped && d.series !== series[0] ? 0.4 : 1),
+      stroke: (d: BarRow) => (byCat && grouped && d.series !== series[0] ? catColor(d.category) : "none"), strokeWidth: 1.2,
       rx: 3, title: tipText, tip: true, insetTop: grouped ? 1 : 3, insetBottom: grouped ? 1 : 3,
     }),
   ];
@@ -104,6 +126,12 @@ export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat
     fy: grouped ? { domain: cats, label: null, tickSize: 0, padding: 0.18, tickFormat: (d: string) => fit(d) } : undefined,
     marks,
   }));
+  if (byCat) {
+    const wrapC = document.createElement("div");
+    if (grouped) wrapC.append(areaLegend(series, pal));
+    wrapC.append(chart);
+    return wrapC;
+  }
   return withLegend(series.map((s) => ({ label: s, color: color[s] })), chart, "rect");
 }
 
@@ -232,11 +260,86 @@ export function lines({ series, pal, format, tickFormat = format, xFormat = Stri
   return withLegend(series.map((s) => ({ label: s.label, color: s.color })), chart, "line");
 }
 
+// A hover tooltip drawn like Observable Plot's: a surface box, a thin slate border, a notch toward the mark.
+export function makeTooltip(host: HTMLElement) {
+  const tip = document.createElement("div");
+  tip.className = "dtip";
+  tip.setAttribute("role", "presentation");
+  tip.hidden = true;
+  const showTip = (e: PointerEvent, text: string) => {
+    tip.textContent = text;
+    tip.hidden = false;
+    const box = host.getBoundingClientRect();
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = e.clientX - box.left - 19, y = e.clientY - box.top + 16;
+    const flip = x + w > box.width - 4;
+    if (flip) x = Math.max(4, e.clientX - box.left - w + 19);
+    tip.classList.toggle("flip", flip);
+    if (y + h > box.height) y = Math.max(0, e.clientY - box.top - h - 14);
+    tip.style.left = `${Math.max(0, x)}px`;
+    tip.style.top = `${y}px`;
+  };
+  const hideTip = () => { tip.hidden = true; };
+  return { tip, showTip, hideTip };
+}
+
+// ---- 100% bar --------------------------------------------------------------------------------------------
+
+// One bar per area, split into the categories and always spanning 100 percent, with the shares inside and a legend below.
+// `colors` pins category colours (men and women keep the pyramid's).
+export function stacked100({ rows, order, seriesOrder, pal, format, width, height, colors }: {
+  rows: BarRow[]; order?: string[]; seriesOrder?: string[]; pal: Palette; format: Fmt; width: number; height?: number; colors?: string[];
+}) {
+  const cats = order ?? [...new Set(rows.map((r) => r.category))];
+  const series = seriesOrder ?? [...new Set(rows.map((r) => r.series))];
+  const value = (c: string, s: string) => rows.find((r) => r.category === c && r.series === s)?.value ?? 0;
+  const colour = (i: number) => colors?.[i] ?? CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+  const areaColor = areaColors(pal, series.length);
+  const wrap = document.createElement("div");
+  wrap.style.cssText = `position:relative;display:flex;flex-direction:column;justify-content:center;gap:14px;`;
+  const { tip, showTip, hideTip } = makeTooltip(wrap);
+  series.forEach((s, si) => {
+    const row = document.createElement("div");
+    const head = document.createElement("div");
+    head.style.cssText = "display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text);margin-bottom:5px;";
+    head.innerHTML = `<i style="width:9px;height:9px;border-radius:50%;background:${areaColor[si]};display:inline-block"></i>`;
+    head.append(document.createTextNode(s));
+    const bar = document.createElement("div");
+    bar.style.cssText = "display:flex;height:34px;gap:2px;border-radius:9px;overflow:hidden;background:var(--grid);";
+    cats.forEach((c, i) => {
+      const v = value(c, s);
+      if (!(v > 0)) return;
+      const seg = document.createElement("div");
+      seg.style.cssText = `width:${v * 100}%;background:${colour(i)};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:${i === 0 || colour(i) === pal.male ? "#fff" : "#131A27"};white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums;`;
+      if (v * width > 46) seg.textContent = format(v);
+      const note = rows.find((r) => r.category === c && r.series === s)?.note;
+      seg.addEventListener("pointermove", (e) => showTip(e, `${c}
+${s}: ${format(v)}${note ? `
+${note}` : ""}`));
+      seg.addEventListener("pointerleave", hideTip);
+      bar.append(seg);
+    });
+    row.append(head, bar);
+    wrap.append(row);
+  });
+  const legendEl = document.createElement("div");
+  legendEl.style.cssText = "display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--text);";
+  cats.forEach((c, i) => {
+    const item = document.createElement("span");
+    item.style.cssText = "display:inline-flex;align-items:center;gap:6px;";
+    item.innerHTML = `<i style="width:10px;height:10px;border-radius:3px;background:${colour(i)};display:inline-block"></i>`;
+    item.append(document.createTextNode(c));
+    legendEl.append(item);
+  });
+  wrap.append(legendEl, tip);
+  return wrap;
+}
+
 // ---- donut -----------------------------------------------------------------------------------------------
 
 // Categories take their own colours (Okabe-Ito, minus the blue and orange that mean selected and compared area), so a ring is
 // told apart from the other ring by position, not by hue. Two areas are drawn as two rings: the outer is the selected area.
-export const CATEGORY_COLORS = ["#009E73", "#E69F00", "#56B4E9", "#CC79A7", "#8E6BB8", "#7A8497", "#B07A4B", "#4C7A6B", "#C9B21E"];
+export const CATEGORY_COLORS = ["#009E73", "#E69F00", "#56B4E9", "#CC79A7", "#8E6BB8", "#7A8497", "#B07A4B", "#4C7A6B", "#C9B21E", "#D1495B", "#3D5A80", "#98C1D9"];
 
 // An annular sector between radii r0 and r1, from angle a0 to a1 (radians, clockwise from 12 o'clock).
 export function arcPath(cx: number, cy: number, r0: number, r1: number, a0: number, a1: number): string {
@@ -267,24 +370,7 @@ export function donut({ rows, order, seriesOrder, pal, format, width, height, co
   // The tooltip looks like Observable Plot's: a surface-coloured box with a thin slate border and a notch pointing at the mark.
   const wrap = document.createElement("div");
   wrap.style.cssText = "position:relative;display:flex;align-items:center;gap:14px;height:100%;min-height:0;";
-  const tip = document.createElement("div");
-  tip.className = "dtip";
-  tip.setAttribute("role", "presentation");
-  tip.hidden = true;
-  const showTip = (e: PointerEvent, text: string) => {
-    tip.textContent = text;
-    tip.hidden = false;
-    const box = wrap.getBoundingClientRect();
-    const w = tip.offsetWidth, h = tip.offsetHeight;
-    let x = e.clientX - box.left - 19, y = e.clientY - box.top + 16;
-    const flip = x + w > box.width - 4;
-    if (flip) x = Math.max(4, e.clientX - box.left - w + 19);
-    tip.classList.toggle("flip", flip);
-    if (y + h > box.height) y = Math.max(0, e.clientY - box.top - h - 14);
-    tip.style.left = `${Math.max(0, x)}px`;
-    tip.style.top = `${y}px`;
-  };
-  const hideTip = () => { tip.hidden = true; };
+  const { tip, showTip, hideTip } = makeTooltip(wrap);
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
   svg.setAttribute("width", String(size));

@@ -165,7 +165,7 @@
   .row2 { display: flex; gap: 6px; align-items: center; }
   .wide { flex: 1; min-width: 0; }
   .wide select { flex: 1; min-width: 0; max-width: none; }
-  .zoomer { position: absolute; right: 10px; bottom: 76px; z-index: 3; }
+  .zoomer { position: absolute; right: 10px; bottom: 30px; z-index: 3; }
   .pill { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; box-shadow: var(--shadow); overflow: hidden; }
   .pill span { font-size: 0.72rem; color: var(--muted); padding-left: 12px; white-space: nowrap; }
   .pill select { border: 0; background: transparent; padding: 7px 22px 7px 6px; font-size: 0.78rem; font-weight: 600; color: var(--text); cursor: pointer; text-overflow: ellipsis; }
@@ -173,7 +173,7 @@
   .btn { padding: 7px 12px; font-size: 0.78rem; font-weight: 600; color: var(--text); cursor: pointer; }
   .seg button { border: 0; background: transparent; padding: 7px 12px; font-size: 0.78rem; font-weight: 600; color: var(--muted); cursor: pointer; }
   .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
-  .maplegend { position: absolute; left: 10px; bottom: 28px; width: 214px; z-index: 3; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; font-size: 0.75rem; color: var(--muted); }
+  .maplegend { position: absolute; left: 10px; bottom: 36px; width: 214px; z-index: 3; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; font-size: 0.75rem; color: var(--muted); }
   .title { font-weight: 600; color: var(--text); font-size: 0.78rem; margin-bottom: 6px; line-height: 1.25; }
   .scale { position: relative; padding-top: 9px; }
   .bar { display: flex; gap: 2px; }

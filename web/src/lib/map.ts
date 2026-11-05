@@ -42,12 +42,35 @@ export interface MapView {
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
+// A map control button, drawn like the zoom and compass buttons, that returns the map to its starting view.
+class ResetViewControl implements maplibregl.IControl {
+  private el?: HTMLDivElement;
+  constructor(private onReset: () => void) {}
+  onAdd() {
+    const el = document.createElement("div");
+    el.className = "maplibregl-ctrl maplibregl-ctrl-group ctrl-reset";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.title = "Reset the view";
+    b.setAttribute("aria-label", "Reset the view");
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>';
+    b.addEventListener("click", this.onReset);
+    el.append(b);
+    this.el = el;
+    return el;
+  }
+  onRemove() {
+    this.el?.remove();
+  }
+}
+
 export class MapController {
   map: maplibregl.Map;
   mode: Mode;
   view: MapView | null = null;
   onLegend: (l: Legend | null) => void = () => {};
   private fitted = "";
+  private lastFit: { bounds: maplibregl.LngLatBounds; padding: number } | null = null;
   private popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8, className: "map-popup" });
   private styleToken = 0;
   private handlersBound = false;
@@ -57,7 +80,10 @@ export class MapController {
     this.map = new maplibregl.Map({
       container, style: BLANK(mode) as any, center: [-111.9, 40.7], zoom: 8, attributionControl: { compact: true },
     });
-    this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+    // Zoom, compass (reset north) and a reset-view button at the top right of every map; a scale bar at the bottom left.
+    this.map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: false }), "top-right");
+    this.map.addControl(new ResetViewControl(() => this.resetView()), "top-right");
+    this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: "imperial" }), "bottom-left");
     this.map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
     new ResizeObserver(() => this.map.resize()).observe(container);
     this.loadStyle(mode);
@@ -174,6 +200,7 @@ export class MapController {
       if (view.bounds) bounds.extend(view.bounds[0]).extend(view.bounds[1]);
       else view.focus.features.forEach((f) => extend((f.geometry as any).coordinates));
       map.resize();
+      this.lastFit = { bounds, padding: view.bounds ? 12 : 56 };
       map.fitBounds(bounds, { padding: view.bounds ? 12 : 56, duration: 500, maxZoom: 12 });
     }
     map.setLayoutProperty("areas-label", "visibility", areas ? "visible" : "none");
@@ -191,6 +218,12 @@ export class MapController {
     const colors = Array.from({ length: classes }, (_, i) => ramp[Math.round((i / Math.max(1, classes - 1)) * (ramp.length - 1))]);
     const bi = view.values2 ? { cutsA: cuts, cutsB: cuts2, rows: [...BIVARIATE[this.mode]].reverse().map((r) => [...r]) } : undefined;
     return { title: view.label, bi, edges, colors, items: colors.map((color, i) => ({ color, text: `${view.format(edges[i])} – ${view.format(edges[i + 1])}` })) };
+  }
+
+  // Back to the extent the map was last fitted to, facing north.
+  resetView() {
+    if (!this.lastFit) return;
+    this.map.fitBounds(this.lastFit.bounds, { padding: this.lastFit.padding, duration: 500, maxZoom: 12, bearing: 0, pitch: 0 });
   }
 
   destroy() {

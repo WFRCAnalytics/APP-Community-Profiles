@@ -254,3 +254,8 @@ button { cursor: pointer; }
 .dtip::before { content: ""; position: absolute; top: -6px; left: 14px; width: 9px; height: 9px; background: var(--surface); border-left: 1px solid var(--muted); border-top: 1px solid var(--muted); transform: rotate(45deg); }
 .dtip.flip::before { left: auto; right: 14px; }
 .dtip[hidden] { display: none; }
+
+/* Map controls: zoom and compass top right, the scale bar bottom left, themed. */
+.ctrl-reset button { display: grid; place-items: center; width: 29px; height: 29px; color: var(--text); background: transparent; border: 0; padding: 0; }
+.ctrl-reset button:hover { background: var(--surface-2); }
+.maplibregl-ctrl-scale { background: color-mix(in srgb, var(--surface) 88%, transparent) !important; color: var(--text) !important; border-color: var(--muted) !important; font-size: 0.68rem; padding: 0 5px; }

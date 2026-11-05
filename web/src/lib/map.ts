@@ -9,6 +9,7 @@ maplibregl.setWorkerUrl(new URL(workerUrl, document.baseURI).href);
 
 export const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
 import { makeTooltip } from "./charts";
+import type { Method } from "./format";
 import { BIVARIATE, COMPARED, NO_DATA, RAMPS, SELECTED, biColour, colourFor, quantileBreaks, type Mode } from "./classes";
 export { BIVARIATE, COMPARED, SELECTED, RAMPS, colourFor, quantileBreaks };
 export type { Mode };
@@ -33,6 +34,9 @@ export interface MapView {
   focus: GeoJSON.FeatureCollection; // the selected (role "sel") and compared (role "cmp") areas
   values: Map<string, number | null>;
   values2?: Map<string, number | null>; // a second variable draws a bivariate map
+  history?: Map<string, { x: number; y: number }[]>; // each area's value in every period, for the trend line in the hover tooltip
+  details?: Map<string, { moe: number | null; method: Method }>; // margin of error and method of each area's value, for the hover tooltip
+  period?: number; // the period the map shows, ringed on that trend line
   bounds?: [[number, number], [number, number]]; // fit here instead of to the selected areas
   names: Map<string, string>;
   format: (v: number | null | undefined) => string;
@@ -182,8 +186,12 @@ export class MapController {
         if (!f || !this.view || this.view.layer !== layer) return;
         map.getCanvas().style.cursor = layer === "areas" && this.view.onSelect ? "pointer" : "";
         const id = String(f.properties.id);
-        const v = this.view.values.get(id);
-        this.tooltip.showTip(e.originalEvent, { title: this.view.names.get(id) ?? id, rows: [{ value: v == null ? "No data" : this.view.format(v), color: "var(--accent)", sub: v == null ? undefined : this.view.label }] });
+        const v = this.view.values.get(id), det = this.view.details?.get(id);
+        const points = this.view.history?.get(id);
+        const trend = points ? { points, at: this.view.period } : undefined;
+        // Census tracts were redrawn in 2020, so a trend across that year joins two sets of boundaries.
+        const foot = layer === "tracts" && points?.some((p) => p.x < 2020) && points.some((p) => p.x >= 2020) ? "Tract boundaries changed in 2020" : undefined;
+        this.tooltip.showTip(e.originalEvent, { title: this.view.names.get(id) ?? id, rows: [{ value: v == null ? "No data" : this.view.format(v), color: "var(--accent)", sub: v == null ? undefined : this.view.label, moe: v == null || det?.moe == null ? undefined : `±${this.view.format(det.moe)}`, method: v == null ? undefined : det?.method }], trend, foot });
       });
       map.on("mouseleave", `${layer}-fill`, () => { this.tooltip.hideTip(); map.getCanvas().style.cursor = ""; });
       map.on("click", `${layer}-fill`, (e) => {

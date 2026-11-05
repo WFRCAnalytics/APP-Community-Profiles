@@ -143,6 +143,23 @@ export async function indicatorValues(h: Db, ind: Indicator, refs: Ref[] | null,
   return out;
 }
 
+// An indicator's value in every vintage for every area of one type: Map(id) -> points, oldest first. It feeds the trend line in
+// the map's hover tooltip.
+export async function indicatorHistory(h: Db, ind: Indicator, type: string) {
+  const rows = await sql<AggRow & { geo_id: string; vintage: number }>(h, `
+    SELECT geo_id, vintage, ${AGG_COLUMNS(ind)}, ${METHOD_RANK}, max(flag) AS flag
+    FROM read_parquet('${dataUrl(`acs/${ind.topic}/${type}.parquet`)}')
+    WHERE variable IN (${list(variablesOf(ind))})
+    GROUP BY geo_id, vintage ORDER BY vintage`);
+  const out = new Map<string, { x: number; y: number }[]>();
+  for (const r of rows) {
+    const v = summarize(ind, r).value;
+    if (v == null) continue;
+    (out.get(r.geo_id) ?? out.set(r.geo_id, []).get(r.geo_id)!).push({ x: r.vintage, y: v });
+  }
+  return out;
+}
+
 // Indicator history across vintages: [{id, vintage, value, moe, method}].
 export async function indicatorSeries(h: Db, ind: Indicator, refs: Ref[]) {
   const out: (IndicatorValue & { id: string; vintage: number })[] = [];

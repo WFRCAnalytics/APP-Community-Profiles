@@ -311,8 +311,9 @@ export function lines({ series, pal, format, tickFormat = format, xFormat = Stri
 // One tooltip for every chart and map: a title, then one row per value. A row has an optional label and swatch (only needed when
 // two areas or categories share the tooltip) and a value drawn in the series colour. The area name is not repeated for a single
 // area, because it is already at the top of the page.
-export interface TipRow { label?: string; value: string; color?: string; sub?: string; method?: Method }
-export interface TipData { title?: string; rows: TipRow[]; foot?: string }
+export interface TipRow { label?: string; value: string; color?: string; sub?: string; moe?: string; method?: Method }
+export interface TipTrend { points: { x: number; y: number }[]; at?: number }
+export interface TipData { title?: string; rows: TipRow[]; foot?: string; trend?: TipTrend }
 
 const el = (tag: string, cls: string, text?: string) => {
   const e = document.createElement(tag);
@@ -328,19 +329,68 @@ export function renderTip(tip: HTMLElement, d: string | TipData) {
     tip.append(el("div", "tt", first), ...rest.map((r) => el("div", "tf", r)));
     return;
   }
-  if (d.title) tip.append(el("div", "tt", d.title));
+  const title = d.title ? el("div", "tt", d.title) : null;
   const solo = d.rows.length === 1 && !d.rows[0].label;
+  if (d.trend && d.trend.points.length > 1 && solo) {
+    // Laid out like a KPI tile: the title and the number on the left, the trend line beside them across both rows, the indicator
+    // and the years under it.
+    const r = d.rows[0], xs = d.trend.points.map((p) => p.x);
+    const main = el("div", "tmain");
+    const row = el("div", "tr solo");
+    if (r.color) row.style.setProperty("--c", r.color);
+    row.append(el("span", "tv", r.value));
+    if (r.moe) row.append(el("span", "ts", r.moe));
+    if (r.method) row.append(el("span", `chip chip-${r.method} tb`, METHODS[r.method].letter));
+    if (title) main.append(title);
+    main.append(row, sparkline(d.trend, 132, 52));
+    tip.append(main, el("div", "ts", [r.sub, `${Math.min(...xs)} to ${Math.max(...xs)}`].filter(Boolean).join(", ")));
+    if (d.foot) tip.append(el("div", "tf", d.foot));
+    return;
+  }
+  if (title) tip.append(title);
   for (const r of d.rows) {
     const row = el("div", solo ? "tr solo" : "tr");
     if (r.color) row.style.setProperty("--c", r.color);
     if (r.color && !solo) row.append(el("i", "tk"));
     if (r.label) row.append(el("span", "tl", r.label));
     row.append(el("span", "tv", r.value));
+    if (r.moe) row.append(el("span", "ts", r.moe));
     if (r.sub) row.append(el("span", "ts", r.sub));
     if (r.method) row.append(el("span", `chip chip-${r.method} tb`, METHODS[r.method].letter));
     tip.append(row);
   }
   if (d.foot) tip.append(el("div", "tf", d.foot));
+}
+
+// The same trend line as the KPI tiles (Tile.svelte): the theme accent, a dot at the period the map shows. Taller here, so it
+// can run alongside both the title and the number.
+function sparkline({ points, at }: TipTrend, W = 64, H = 26) {
+  const NS = "http://www.w3.org/2000/svg";
+  const xs = points.map((p) => p.x), ys = points.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const px = (x: number) => 2 + ((x - x0) / (x1 - x0 || 1)) * (W - 4);
+  const py = (y: number) => H - 3 - ((y - y0) / (y1 - y0 || 1)) * (H - 6);
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("class", "spark");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("width", String(W));
+  svg.setAttribute("height", String(H));
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("d", points.map((p, i) => `${i ? "L" : "M"}${px(p.x).toFixed(1)},${py(p.y).toFixed(1)}`).join(""));
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "var(--accent)");
+  path.setAttribute("stroke-width", "1.6");
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("stroke-linejoin", "round");
+  const mark = points.find((p) => p.x === at) ?? points[points.length - 1];
+  const dot = document.createElementNS(NS, "circle");
+  dot.setAttribute("cx", px(mark.x).toFixed(1));
+  dot.setAttribute("cy", py(mark.y).toFixed(1));
+  dot.setAttribute("r", "2.4");
+  dot.setAttribute("fill", "var(--accent)");
+  svg.append(path, dot);
+  return svg;
 }
 
 // A hover tooltip drawn like Observable Plot's: a surface box, a thin slate border, a notch toward the mark.

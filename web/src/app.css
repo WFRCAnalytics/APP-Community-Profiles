@@ -274,6 +274,12 @@ button.cmp-pill:hover { background: var(--surface-2); }
 .dtip .tb { margin-left: 4px; padding: 0 5px; font-size: 0.66rem; line-height: 1.4; cursor: default; align-self: center; }
 .draft { flex: none; font: 700 0.72rem/1.5 var(--f-body); padding: 1px 9px; border-radius: 999px; border: 1px solid var(--chip-line); color: var(--chip-ink); background: var(--chip-bg); --chip-bg: #fff0d3; --chip-ink: #85560a; --chip-line: #efce86; }
 :root[data-theme="dark"] .draft { --chip-bg: #3d2f10; --chip-ink: #f0cf86; --chip-line: #7a6021; }
+.dtip .tmain { display: grid; grid-template-columns: 1fr auto; column-gap: 18px; align-items: center; }
+.dtip .tmain .tt { grid-column: 1; margin-bottom: 1px; }
+.dtip .tmain .tr { grid-column: 1; }
+.dtip .tmain .spark { grid-column: 2; grid-row: 1 / span 2; }
+.dtip .tmain .spark { flex: none; opacity: 0.9; }
+.dtip .tmain + .ts { margin-top: 1px; }
 .dtip .tf { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
 .dtip .tt + .tf { margin-top: 0; padding-top: 0; border-top: 0; }
 .dtip[hidden] { display: none; }

@@ -60,9 +60,9 @@ acs:
     place: { for: "place:*", in: "state:{fips}", since: 2009 }
     tract: { for: "tract:*", in: "state:{fips} county:*", since: 2009 }
     block_group: { for: "block group:*", in: "state:{fips} county:*", since: 2013 }
-  # Tracts and block groups are only published for the latest vintage (maps). Their history is kept in
+  # Block groups are only published for the latest vintage. Their history is kept in
   # raw and feeds the WFRC area tables, so the repository stays small.
-  latest_only: [tract, block_group]
+  latest_only: [block_group]
   # Whole tables are pulled (every estimate and margin of error). agg says how a table combines when
   # summing areas later: sum (counts, the default) or median (must be re-derived, never summed).
   # weight is the 2020/2010 Decennial block count used to split a block group between areas. Every table uses

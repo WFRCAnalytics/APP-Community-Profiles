@@ -4,7 +4,7 @@
   import { onMount } from "svelte";
   import { app } from "../lib/app.svelte";
   import { BIVARIATE } from "../lib/classes";
-  import { geojson, indicatorValues } from "../lib/data";
+  import { geojson, indicatorHistory, indicatorValues } from "../lib/data";
   import { FORMATS, fmtCompact, fmtPct, type FormatId } from "../lib/format";
   import { BY_ID, INDICATORS } from "../lib/indicators";
   import { MapController, type Legend } from "../lib/map";
@@ -66,10 +66,12 @@
     const type = tracts ? "tract" : ["state", "aog", "mpo", "rpo"].includes(sel.type) ? "county" : sel.type, period = tracts ? app.latestVintage : app.v, db = app.db!;
     const mine = ++token;
     (async () => {
-      const [vx, vy, vmx, vmy, shapes, selShapes, cmpShapes] = await Promise.all([
+      const [vx, vy, vmx, vmy, shapes, selShapes, cmpShapes, history] = await Promise.all([
         indicatorValues(db, x, null, period, type), y ? indicatorValues(db, y, null, period, type) : null,
         indicatorValues(db, x, app.refs, period), y ? indicatorValues(db, y, app.refs, period) : null,
         geojson(type), geojson(sel.type), cmp ? geojson(cmp.type) : null,
+        // The trend line in the hover tooltip: one variable only.
+        y ? null : indicatorHistory(db, x, type).catch(() => null),
       ]);
       if (mine !== token) return;
       const focusFeatures = [selShapes, cmpShapes].flatMap((fc, i) => (fc ? fc.features.filter((f: any) => f.properties.id === (i === 0 ? sel.id : cmp?.id)) : []));
@@ -94,7 +96,8 @@
         layer: tracts ? "tracts" : "areas",
         shapes: named,
         focus: { type: "FeatureCollection", features: [...pick(selShapes, sel.id, "sel"), ...(cmp && cmp.type !== "state" ? pick(cmpShapes, cmp.id, "cmp") : [])] },
-        values: px, values2: py,
+        values: px, values2: py, history: history ?? undefined, period,
+        details: y ? undefined : new Map([...vx].map(([id, v]) => [id, { moe: v.moe, method: v.method }])),
         names: tracts ? new Map([...vx.keys()].map((id) => [id, `Census tract ${id.slice(5)}`])) : app.names,
         format: FORMATS[x.format], label: y ? `${x.label} and ${y.label}` : x.label,
         bounds: eff === "front" ? FRONT : STATE,

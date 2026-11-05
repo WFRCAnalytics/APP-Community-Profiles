@@ -20,7 +20,7 @@
         <button class="sq" onclick={() => (full = !full)} aria-label={full ? "Exit full screen" : "Expand the map to full screen"} title={full ? "Exit full screen" : "Full screen"}><Icon name={full ? "minimize" : "maximize"} size={14} /></button>
       </div>
       <div class="pn-body"><div style="position:absolute;inset:0;border-radius:10px;overflow:hidden"><MapCard bind:idX={mapVar} bind:plural /></div></div>
-      <p class="src">Source: {app.acs}. Pick one or two variables, or switch to tracts for the latest period. How to read it is in the documentation.</p>
+      <p class="src">Source: {app.acs}. Pick one or two variables, or switch to tracts. Census redrew tracts in 2020, so before then a tract that was split or merged has no value. How to read it is in the documentation.</p>
     </section>
     <SeriesCard kind="pop" title="Population over time" />
     <TrendCard title="Median household income over time" id="median_income" />

@@ -334,7 +334,8 @@ export function renderTip(tip: HTMLElement, d: string | TipData) {
   if (d.trend && d.trend.points.length > 1 && solo) {
     // Laid out like a KPI tile: the title and the number on the left, the trend line beside them across both rows, the indicator
     // and the years under it.
-    const r = d.rows[0], xs = d.trend.points.map((p) => p.x);
+    // The years are the period the number is for (an ACS 5-year ending in `at`), as everywhere else in the app.
+    const r = d.rows[0], end = d.trend.at ?? Math.max(...d.trend.points.map((p) => p.x));
     const main = el("div", "tmain");
     const row = el("div", "tr solo");
     if (r.color) row.style.setProperty("--c", r.color);
@@ -343,7 +344,7 @@ export function renderTip(tip: HTMLElement, d: string | TipData) {
     if (r.method) row.append(el("span", `chip chip-${r.method} tb`, METHODS[r.method].letter));
     if (title) main.append(title);
     main.append(row, sparkline(d.trend, 132, 52));
-    tip.append(main, el("div", "ts", [r.sub, `${Math.min(...xs)} to ${Math.max(...xs)}`].filter(Boolean).join(", ")));
+    tip.append(main, el("div", "ts", [r.sub, `${end - 4}–${end}`].filter(Boolean).join(", ")));
     if (d.foot) tip.append(el("div", "tf", d.foot));
     return;
   }
@@ -383,13 +384,17 @@ function sparkline({ points, at }: TipTrend, W = 64, H = 26) {
   path.setAttribute("stroke-width", "1.6");
   path.setAttribute("stroke-linecap", "round");
   path.setAttribute("stroke-linejoin", "round");
-  const mark = points.find((p) => p.x === at) ?? points[points.length - 1];
-  const dot = document.createElementNS(NS, "circle");
-  dot.setAttribute("cx", px(mark.x).toFixed(1));
-  dot.setAttribute("cy", py(mark.y).toFixed(1));
-  dot.setAttribute("r", "2.4");
-  dot.setAttribute("fill", "var(--accent)");
-  svg.append(path, dot);
+  svg.append(path);
+  // The dot sits on the period the number is for; if the area has no value that period there is no dot.
+  const mark = points.find((p) => p.x === (at ?? x1));
+  if (mark) {
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("cx", px(mark.x).toFixed(1));
+    dot.setAttribute("cy", py(mark.y).toFixed(1));
+    dot.setAttribute("r", "2.4");
+    dot.setAttribute("fill", "var(--accent)");
+    svg.append(dot);
+  }
   return svg;
 }
 

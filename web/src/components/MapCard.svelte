@@ -7,7 +7,7 @@
   import { geojson, indicatorHistory, indicatorValues } from "../lib/data";
   import { FORMATS, fmtCompact, fmtPct, type FormatId } from "../lib/format";
   import { BY_ID, INDICATORS } from "../lib/indicators";
-  import { MapController, type Legend } from "../lib/map";
+  import { MapController, type Legend, type MapView } from "../lib/map";
   import { theme } from "../lib/theme.svelte";
   import Dropdown from "./Dropdown.svelte";
 
@@ -57,21 +57,27 @@
   });
   $effect(() => { controller?.setMode(mode); });
 
+  // A trend line's history does not depend on the year, so it is fetched once per indicator and area type, and never holds up the map.
+  const histories = new Map<string, Promise<Map<string, { x: number; y: number }[]> | null>>();
+  const historyOf = (x: (typeof indX), type: string) => {
+    const key = `${x.id}|${type}`;
+    if (!histories.has(key)) histories.set(key, indicatorHistory(app.db!, x, type).catch(() => null));
+    return histories.get(key)!;
+  };
+
   let token = 0;
   $effect(() => {
     const c = controller;
     if (!c || !app.ready || !app.selected) return;
     const x = indX, y = indY, tracts = layer === "tracts", sel = app.selected, cmp = app.compare, ext = extent;
     // Areas that are one or two polygons (the state, the region, the MPO, the RPOs) are shown against the counties.
-    const type = tracts ? "tract" : ["state", "aog", "mpo", "rpo"].includes(sel.type) ? "county" : sel.type, period = tracts ? app.latestVintage : app.v, db = app.db!;
+    const type = tracts ? "tract" : ["state", "aog", "mpo", "rpo"].includes(sel.type) ? "county" : sel.type, period = app.v, db = app.db!;
     const mine = ++token;
     (async () => {
-      const [vx, vy, vmx, vmy, shapes, selShapes, cmpShapes, history] = await Promise.all([
+      const [vx, vy, vmx, vmy, shapes, selShapes, cmpShapes] = await Promise.all([
         indicatorValues(db, x, null, period, type), y ? indicatorValues(db, y, null, period, type) : null,
         indicatorValues(db, x, app.refs, period), y ? indicatorValues(db, y, app.refs, period) : null,
         geojson(type), geojson(sel.type), cmp ? geojson(cmp.type) : null,
-        // The trend line in the hover tooltip: one variable only.
-        y ? null : indicatorHistory(db, x, type).catch(() => null),
       ]);
       if (mine !== token) return;
       const focusFeatures = [selShapes, cmpShapes].flatMap((fc, i) => (fc ? fc.features.filter((f: any) => f.properties.id === (i === 0 ? sel.id : cmp?.id)) : []));
@@ -92,18 +98,21 @@
         sel: [vmx.get(sel.id)?.value ?? null, vmy?.get(sel.id)?.value ?? null],
         cmp: cmp ? [vmx.get(cmp.id)?.value ?? null, vmy?.get(cmp.id)?.value ?? null] : [null, null],
       };
-      c.update({
+      const view: MapView = {
         layer: tracts ? "tracts" : "areas",
         shapes: named,
         focus: { type: "FeatureCollection", features: [...pick(selShapes, sel.id, "sel"), ...(cmp && cmp.type !== "state" ? pick(cmpShapes, cmp.id, "cmp") : [])] },
-        values: px, values2: py, history: history ?? undefined, period,
+        values: px, values2: py, period,
         details: y ? undefined : new Map([...vx].map(([id, v]) => [id, { moe: v.moe, method: v.method }])),
         names: tracts ? new Map([...vx.keys()].map((id) => [id, `Census tract ${id.slice(5)}`])) : app.names,
         format: FORMATS[x.format], label: y ? `${x.label} and ${y.label}` : x.label,
         bounds: eff === "front" ? FRONT : STATE,
         fitKey: `${eff}|${type}|${sel.id}|${cmp?.id ?? ""}`,
         onSelect: tracts ? undefined : (id, shift) => (shift && id !== app.id ? (app.cmp = id) : app.select(id)),
-      });
+      };
+      c.update(view);
+      // The trend line for the hover tooltip (one variable only) joins in when its history has loaded.
+      if (!y) void historyOf(x, type).then((history) => { if (mine === token && history) c.update({ ...view, history }); });
     })().catch((e) => console.error(e));
   });
 
@@ -155,7 +164,7 @@
           <span class="ax x">{indX.label} →</span>
         </div>
       {:else}
-        <div class="title">{legend.title}{layer === "tracts" ? ", latest period" : ""}</div>
+        <div class="title">{legend.title}</div>
         <div class="scale">
           {#if pos(marks.sel[0]) != null}<span class="mk sel" style="left:{pos(marks.sel[0])}%"></span>{/if}
           {#if pos(marks.cmp[0]) != null}<span class="mk cmp" style="left:{pos(marks.cmp[0])}%"></span>{/if}

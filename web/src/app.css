@@ -263,3 +263,8 @@ button { cursor: pointer; }
 /* Short charts (a few bars) sit in the middle of their panel instead of hugging the top; tall ones simply fill it and scroll. */
 .pn-body > .chart { display: flex; flex-direction: column; }
 .pn-body > .chart > * { margin-block: auto; }
+
+/* The dividers between the zoom buttons are drawn on the group, not as button borders: in dark mode the buttons are colour-inverted
+   (to light the icons), which turned their borders white. */
+.maplibregl-ctrl-group button + button { border-top: 1px solid transparent !important; }
+.maplibregl-ctrl-group { background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 29px, var(--border) 29px, var(--border) 30px) !important; }

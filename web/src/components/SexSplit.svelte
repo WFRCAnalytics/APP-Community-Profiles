@@ -1,8 +1,8 @@
 <script lang="ts">
   // Men and women: a donut by default (outer ring the selected area, inner ring the compared one), with the counts in the hover
-  // and the number of men per 100 women underneath. A switch changes it to a 100% bar, which keeps the pyramid's colours.
+  // and the number of men per 100 women underneath. A switch changes it to bars or a 100% bar; all three keep the pyramid's blue and pink.
   import { app } from "../lib/app.svelte";
-  import { donut, stacked100, type BarRow } from "../lib/charts";
+  import { bars, donut, stacked100, type BarRow } from "../lib/charts";
   import { acsVariables } from "../lib/data";
   import { escapeHtml, fmtInt, fmtPct } from "../lib/format";
   import ChartCard from "./ChartCard.svelte";
@@ -11,6 +11,7 @@
   interface Area { label: string; men: number; women: number }
   let mode = $state("donut");
   const pct1 = (d: number | null | undefined) => fmtPct(d, 1);
+  const pct0 = (d: number | null | undefined) => fmtPct(d, 0);
 
   async function load(): Promise<Area[]> {
     const refs = app.refs;
@@ -41,9 +42,12 @@
     const holder = document.createElement("div");
     holder.style.cssText = "flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;justify-content:center;";
     const inner = Math.max(120, height - foot.childElementCount * 20 - 14);
+    const sex = [pal.male, pal.female];
     holder.append(mode === "donut"
-      ? donut({ rows, order, seriesOrder: series, pal, format: pct1, width, height: inner, colors: [pal.male, pal.female] })
-      : stacked100({ rows, order, seriesOrder: series, pal, format: pct1, width, height: inner, colors: [pal.male, pal.female] }));
+      ? donut({ rows, order, seriesOrder: series, pal, format: pct1, width, height: inner, colors: sex })
+      : mode === "stack"
+      ? stacked100({ rows, order, seriesOrder: series, pal, format: pct1, width, height: inner, colors: sex })
+      : bars({ rows, order, seriesOrder: series, pal, format: pct1, tickFormat: pct0, labels: series.length === 1, width, height: inner, colorBy: "category", colors: sex }));
     wrap.append(holder, foot);
     return wrap;
   }}
@@ -52,5 +56,5 @@
     rows: d.map((r) => ({ area: r.label, men: fmtInt(r.men), women: fmtInt(r.women), ratio: ((r.men / r.women) * 100).toFixed(1) })),
   })}
 >
-  {#snippet headerExtra()}<ModeToggle bind:value={mode} options={[{ id: "donut", label: "Donut" }, { id: "stack", label: "100% bar" }]} />{/snippet}
+  {#snippet headerExtra()}<ModeToggle bind:value={mode} options={[{ id: "donut", label: "Donut" }, { id: "bars", label: "Bars" }, { id: "stack", label: "100%" }]} />{/snippet}
 </ChartCard>

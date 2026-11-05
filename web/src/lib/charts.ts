@@ -95,7 +95,7 @@ export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat
   const catColor = (c: string) => catPalette[Math.max(0, cats.indexOf(c)) % catPalette.length];
   const available = innerHeight(height, series.length, 9999);
   const dense = cats.length > 10;
-  const unit = Math.max(grouped ? (dense ? 20 : 22) : 17, Math.min(grouped ? 38 : 26, (available - 30) / Math.max(1, cats.length)));
+  const unit = Math.max(grouped ? (dense ? 20 : 22) : 17, Math.min(grouped ? 96 : 56, (available - 30) / Math.max(1, cats.length)));
   const chartH = cats.length * unit + 30;
   const max = Math.max(0.0001, ...rows.map((r) => r.value ?? 0)) * 1.18;
   const marginLeft = labelMargin(cats, width);
@@ -298,6 +298,8 @@ export function stacked100({ rows, order, seriesOrder, pal, format, width, heigh
   const wrap = document.createElement("div");
   wrap.style.cssText = `position:relative;display:flex;flex-direction:column;justify-content:center;gap:14px;`;
   const { tip, showTip, hideTip } = makeTooltip(wrap);
+  // Bars grow with the space the panel has, between 34 and 72 pixels thick.
+  const barH = height ? Math.round(Math.max(34, Math.min(72, (height - 52 - 38 * series.length) / series.length))) : 34;
   series.forEach((s, si) => {
     const row = document.createElement("div");
     const head = document.createElement("div");
@@ -305,7 +307,7 @@ export function stacked100({ rows, order, seriesOrder, pal, format, width, heigh
     head.innerHTML = `<i style="width:9px;height:9px;border-radius:50%;background:${areaColor[si]};display:inline-block"></i>`;
     head.append(document.createTextNode(s));
     const bar = document.createElement("div");
-    bar.style.cssText = "display:flex;height:34px;gap:2px;border-radius:9px;overflow:hidden;background:var(--grid);";
+    bar.style.cssText = `display:flex;height:${barH}px;gap:2px;border-radius:9px;overflow:hidden;background:var(--grid);`;
     cats.forEach((c, i) => {
       const v = value(c, s);
       if (!(v > 0)) return;

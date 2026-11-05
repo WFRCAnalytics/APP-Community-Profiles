@@ -130,6 +130,8 @@ button { cursor: pointer; }
 .ctx h1 { font: 700 1.25rem/1.1 var(--f-display); }
 .ctx .sub { font-size: 0.75rem; color: var(--muted); }
 .cmp-pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface); padding: 5px 6px 5px 12px; font-size: 0.8125rem; }
+button.cmp-pill { padding: 5px 14px 5px 10px; cursor: pointer; }
+button.cmp-pill:hover { background: var(--surface-2); }
 .cmp-pill b { font-weight: 600; }
 .cmp-pill button { border: 0; background: transparent; color: var(--muted); border-radius: 99px; padding: 2px 6px; display: grid; place-items: center; }
 .cmp-pill button:hover { background: var(--surface-2); color: var(--text); }

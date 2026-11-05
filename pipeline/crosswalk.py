@@ -34,7 +34,7 @@ def eras_needed(cfg: dict | None = None) -> list[int]:
 def load_blocks(con: duckdb.DuckDBPyConnection, era: int, refresh: bool = False) -> str:
     """Create table blocks_<era> (block, bg, aland, pop, hu, hh, geom) from TIGER points and Decennial counts."""
     cfg = load_config()
-    abbr = cfg["tiger"]["state"]
+    abbr = cfg["state"]["abbr"]
     fips = tiger.county_fips(abbr, cfg["tiger"]["audit_year"])
     points = tiger.blocks(abbr, cfg["decennial"][era]["tiger_year"], fips, refresh)
     con.register(f"weights_{era}", decennial.block_weights(era, refresh))
@@ -156,7 +156,7 @@ def county_relations(con: duckdb.DuckDBPyConnection, out: str = "area_county_rel
     """Relations between the WFRC area polygons and the TIGER county polygons, in a metric CRS."""
     cfg = load_config()
     crs = cfg["audit"]["crs"]
-    counties = tiger.counties(cfg["tiger"]["state"], cfg["tiger"]["audit_year"])
+    counties = tiger.counties(cfg["state"]["abbr"], cfg["tiger"]["audit_year"])
     areas = custom_areas_sql().replace(
         "geometry::GEOMETRY AS geometry",
         f"ST_Transform(geometry, 'EPSG:4326', '{crs}', always_xy := true) AS geometry")

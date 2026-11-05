@@ -27,6 +27,7 @@ from .util import load_config, update_manifest
 
 DERIVED = RAW / "derived" / "lodes"
 WORKERS = 6
+OTHER = load_config()["lodes"]["other_id"]   # OD id for blocks of the state outside every area
 
 NAICS = {
     "CNS01": "Agriculture, forestry, fishing and hunting (11)", "CNS02": "Mining, quarrying, and oil and gas extraction (21)",
@@ -162,11 +163,11 @@ def od_part(con: duckdb.DuckDBPyConnection, year: int, main: Path, aux: Path, ge
         con.execute(f"CREATE OR REPLACE TEMP VIEW bg_{t.replace('-', '_')} AS SELECT block, geo_id FROM block_geo WHERE geo_type = '{t}'")
         selects.append(f"""
             SELECT '{t}' AS geo_type,
-                   coalesce(h.geo_id, CASE WHEN od.src = 'aux' THEN 'out-of-state' ELSE 'other-ut' END) AS origin_id,
-                   coalesce(w.geo_id, 'other-ut') AS dest_id, {year} AS year, {sums}
+                   coalesce(h.geo_id, CASE WHEN od.src = 'aux' THEN 'out-of-state' ELSE '{OTHER}' END) AS origin_id,
+                   coalesce(w.geo_id, '{OTHER}') AS dest_id, {year} AS year, {sums}
             FROM od LEFT JOIN bg_{t} h ON h.block = od.h_geocode LEFT JOIN bg_{t} w ON w.block = od.w_geocode
             GROUP BY ALL
-            HAVING NOT (origin_id IN ('other-ut', 'out-of-state') AND dest_id = 'other-ut')""")
+            HAVING NOT (origin_id IN ('{OTHER}', 'out-of-state') AND dest_id = '{OTHER}')""")
     part = DERIVED / "od" / f"{year}.parquet"
     part.parent.mkdir(parents=True, exist_ok=True)
     con.execute(f"COPY ({' UNION ALL '.join(selects)} ORDER BY geo_type, origin_id, dest_id) TO '{sql_path(part)}' "

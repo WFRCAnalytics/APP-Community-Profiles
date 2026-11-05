@@ -24,6 +24,8 @@ from .paths import DATA, META
 from .util import load_config, update_manifest, write_if_changed
 
 CHECKS = {"B01001_001": "pop", "B25003_001": "hh", "B25002_001": "hu"}  # variable -> weight
+_QA = load_config()["qa"]
+REF = _QA["reference_area"]   # the area reconciled against its counties
 TOPIC = {"B01001_001": "population", "B25003_001": "households", "B25002_001": "housing"}
 
 
@@ -58,16 +60,16 @@ def _employment(con: duckdb.DuckDBPyConnection, tol: float, failures: list[str])
              s AS (SELECT year, jobs AS j FROM {wac('state')} WHERE variable = 'C000')
         SELECT max(abs(c.j - s.j) / s.j) FROM c JOIN s USING (year)""")
     gap("LODES jobs: WFRC AOG equals its counties", f"""
-        WITH a AS (SELECT year, jobs AS j FROM {wac('aog')} WHERE variable = 'C000' AND geo_id = 'aog-wfrc'),
+        WITH a AS (SELECT year, jobs AS j FROM {wac('aog')} WHERE variable = 'C000' AND geo_id = '{REF}'),
              c AS (SELECT year, sum(jobs) AS j FROM {wac('county')} w
-                   WHERE variable = 'C000' AND geo_id IN (SELECT county FROM {members} WHERE geo_id = 'aog-wfrc') GROUP BY year)
+                   WHERE variable = 'C000' AND geo_id IN (SELECT county FROM {members} WHERE geo_id = '{REF}') GROUP BY year)
         SELECT max(abs(a.j - c.j) / c.j) FROM a JOIN c USING (year)""")
     gap("QCEW employment: WFRC AOG equals its counties", f"""
         WITH a AS (SELECT year, value AS v FROM {qcew('areas')}
-                   WHERE geo_id = 'aog-wfrc' AND variable = 'employment' AND ownership = '0' AND industry = '10' AND flag IS NULL),
+                   WHERE geo_id = '{REF}' AND variable = 'employment' AND ownership = '0' AND industry = '10' AND flag IS NULL),
              c AS (SELECT year, sum(value) AS v FROM {qcew('county')}
                    WHERE variable = 'employment' AND ownership = '0' AND industry = '10'
-                     AND geo_id IN (SELECT county FROM {members} WHERE geo_id = 'aog-wfrc') GROUP BY year)
+                     AND geo_id IN (SELECT county FROM {members} WHERE geo_id = '{REF}') GROUP BY year)
         SELECT max(abs(a.v - c.v) / c.v) FROM a JOIN c USING (year)""")
     lines.append("")
 
@@ -81,7 +83,7 @@ def _employment(con: duckdb.DuckDBPyConnection, tol: float, failures: list[str])
         SELECT w.geo_id, w.jobs, q.value FROM {wac('county')} w
         JOIN {qcew('county')} q ON q.geo_id = w.geo_id AND q.year = w.year
         WHERE w.year = {year} AND w.variable = 'C000' AND q.variable = 'employment' AND q.ownership = '0'
-          AND q.industry = '10' AND w.geo_id IN (SELECT county FROM {members} WHERE geo_id = 'aog-wfrc')
+          AND q.industry = '10' AND w.geo_id IN (SELECT county FROM {members} WHERE geo_id = '{REF}')
         ORDER BY w.jobs DESC""").fetchall()
     lines += [f"| `{g}` | {j:,} | {q:,.0f} | {j / q:.2f} |" for g, j, q in rows]
     lines.append("")
@@ -97,7 +99,7 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
     failures: list[str] = []
     lines = ["# Crosswalk QA", "", f"Tolerance {tol:.2%} of the published value.", ""]
 
-    counties = tiger.counties(cfg["tiger"]["state"], cfg["tiger"]["audit_year"])
+    counties = tiger.counties(cfg["state"]["abbr"], cfg["tiger"]["audit_year"])
     areas = (f"SELECT STATEFP || COUNTYFP AS geo_id, geometry::GEOMETRY AS geometry "
              f"FROM read_parquet('{sql_path(counties)}')")
     vintages = [v for v in cfg["acs"]["vintages"] if "block_group" in geographies_for(cfg["acs"], v)]
@@ -107,11 +109,11 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
         t = crosswalk.build(con, era, refresh)
         crosswalk.assign(con, t["blocks"], areas, f"qa_county_area_{era}")
         crosswalk.shares(con, t["blocks"], f"qa_county_area_{era}", f"qa_county_shares_{era}")
-        members = [r[0] for r in con.execute(f"SELECT county FROM {t['area_counties']} WHERE geo_id = 'aog-wfrc' ORDER BY 1").fetchall()]
+        members = [r[0] for r in con.execute(f"SELECT county FROM {t['area_counties']} WHERE geo_id = '{REF}' ORDER BY 1").fetchall()]
         tables[era] = {**t, "members": members}
 
     lines += ["## By vintage", "",
-              "Largest relative gap across the 29 counties when rebuilt from polygons (counties), the WFRC AOG "
+              f"Largest relative gap across the {len(counties)} counties when rebuilt from polygons (counties), the {_QA['reference_label']} "
               "against the sum of its counties (AOG), and people in ACS block groups missing from the block "
               "table (unmatched).", "",
               "| Vintage | Era | Counties: pop / hh / hu | AOG: pop / hh / hu | Unmatched people |",
@@ -135,7 +137,7 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
                 failures.append(f"{vintage}: counties rebuilt from polygons differ for {variable}: {gap:.4%} over {n} counties")
             aog = con.execute(f"""
                 SELECT sum(a.estimate * s.share) FROM {_bg(variable)} a
-                JOIN {t['shares']} s ON s.unit = 'bg' AND s.unit_id = a.geo_id AND s.weight = '{weight}' AND s.geo_id = 'aog-wfrc'
+                JOIN {t['shares']} s ON s.unit = 'bg' AND s.unit_id = a.geo_id AND s.weight = '{weight}' AND s.geo_id = '{REF}'
                 WHERE a.variable = '{variable}' AND a.vintage = {vintage}""").fetchone()[0]
             pub = con.execute(f"SELECT sum(estimate) FROM {_county(variable)} WHERE variable = '{variable}' "
                               f"AND vintage = {vintage} AND geo_id IN ({id_list})").fetchone()[0]

@@ -74,7 +74,7 @@ def run(refresh: bool = False, con: duckdb.DuckDBPyConnection | None = None) -> 
     con = con or connect()
     crs = aud["crs"]
 
-    counties_path = tiger.counties(tcfg["state"], tcfg["audit_year"], refresh)
+    counties_path = tiger.counties(cfg["state"]["abbr"], tcfg["audit_year"], refresh)
     con.execute(f"""
         CREATE OR REPLACE TABLE counties_m AS
         SELECT NAME, ST_Transform(geometry, 'EPSG:4269', '{crs}', always_xy := true) AS g

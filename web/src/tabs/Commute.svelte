@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { site } from "../lib/site";
   import ChartCard from "../components/ChartCard.svelte";
   import ShareCard from "../components/ShareCard.svelte";
   import Tile from "../components/Tile.svelte";
@@ -30,7 +31,7 @@
     return { both, inflow, outflow, outside, stay: w ? both / w : null, j, w };
   });
 
-  const label = (id: string, sel: string) => (id === sel ? "Same area" : id === "other-ut" ? "Elsewhere in Utah" : id === "out-of-state" ? "Outside Utah" : app.names.get(id) ?? id);
+  const label = (id: string, sel: string) => (id === sel ? "Same area" : id === site.outside_id ? `Elsewhere in ${site.state.name}` : id === "out-of-state" ? `Outside ${site.state.name}` : app.names.get(id) ?? id);
   async function loadTop(direction: "origins" | "destinations") {
     const sel = app.selected!;
     if (!OD_TYPES.includes(sel.type)) return [] as BarRow[];
@@ -47,8 +48,8 @@
       <div class="tiles" style="grid-column:4 / span 3;grid-template-columns:repeat(3,minmax(0,1fr))">
         {#if f}
           <Tile label="Live and work here" value={fmtInt(f.both)} meta="LODES8 {lodes}" method="aggregated" />
-          <Tile label="Commute in" value={fmtInt(f.inflow)} meta="{fmtInt(f.outside)} from outside Utah" method="aggregated" />
-          <Tile label="Commute out" value={fmtInt(f.outflow)} meta="to other Utah areas" method="aggregated" />
+          <Tile label="Commute in" value={fmtInt(f.inflow)} meta="{fmtInt(f.outside)} from outside {site.state.name}" method="aggregated" />
+          <Tile label="Commute out" value={fmtInt(f.outflow)} meta="to other {site.state.name} areas" method="aggregated" />
         {:else}
           <p class="empty" style="grid-column:1 / span 3">{NO_OD}</p>
         {/if}
@@ -70,7 +71,7 @@
     />
     <ChartCard
       title="Where residents work, {lodes}"
-      note="Workers who live here, by where they work, top 10. Jobs outside Utah are not in this data. Source: LEHD LODES8, {lodes}."
+      note="Workers who live here, by where they work, top 10. Jobs outside {site.state.name} are not in this data. Source: LEHD LODES8, {lodes}."
       load={() => loadTop("destinations")}
       isEmpty={(d) => !d.length}
       emptyText={NO_OD}

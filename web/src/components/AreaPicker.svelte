@@ -4,6 +4,7 @@
   import { tick } from "svelte";
   import { app, displayName } from "../lib/app.svelte";
   import type { Geography } from "../lib/data";
+  import { site } from "../lib/site";
   import Icon from "./Icon.svelte";
 
   const KIND_LABEL: Record<string, string> = { aog: "Region", mpo: "MPO", rpo: "RPO", fws: "Workshop area", county: "County", place: "City or town", state: "State" };
@@ -54,7 +55,7 @@
     if (mode === "compare" && kind === "suggested") {
       const sel = app.selectedGeo;
       const peers = everything.filter((g) => sel && g.geo_type === sel.geo_type).sort(byName);
-      const larger = ["49", "aog-wfrc", "mpo-wfrc"].map((id) => app.byId.get(id)).filter((g): g is Geography => !!g && g.geo_id !== app.id && g.geo_type !== sel?.geo_type);
+      const larger = site.benchmarks.map((id) => app.byId.get(id)).filter((g): g is Geography => !!g && g.geo_id !== app.id && g.geo_type !== sel?.geo_type);
       const out: Row[] = [];
       if (peers.length) out.push({ kind: "group", label: `${PLURAL[sel!.geo_type] ?? "Areas of the same kind"} like ${app.selected?.label}` }, ...peers.map((geo) => ({ kind: "area" as const, geo })));
       if (larger.length) out.push({ kind: "group", label: "Larger areas" }, ...larger.map((geo) => ({ kind: "area" as const, geo })));

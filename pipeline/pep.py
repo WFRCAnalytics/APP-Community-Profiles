@@ -58,7 +58,7 @@ def parse(cfg: dict, state: str, refresh: bool = False) -> pd.DataFrame:
 
 def run(refresh: bool = False) -> None:
     cfg = load_config()
-    long = parse(cfg["pep"], cfg["census"]["state_fips"], refresh)
+    long = parse(cfg["pep"], cfg["state"]["fips"], refresh)
     con = connect()
     con.register("pep_df", long)
     manifest = {}

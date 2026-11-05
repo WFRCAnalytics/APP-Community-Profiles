@@ -60,7 +60,7 @@ def download(cfg: dict, year: int, fips: str, refresh: bool = False) -> Path:
 
 def run(refresh: bool = False) -> None:
     cfg = load_config()
-    qc, state, abbr = cfg["qcew"], cfg["census"]["state_fips"], cfg["tiger"]["state"]
+    qc, state, abbr = cfg["qcew"], cfg["state"]["fips"], cfg["state"]["abbr"]
     counties = [state + c for c in tiger.county_fips(abbr, cfg["tiger"]["audit_year"])]
     fips_list = [state + "000"] + counties
     jobs = [(y, f) for y in qc["years"] for f in fips_list]

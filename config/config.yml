@@ -11,19 +11,42 @@ arcgis:
     rpo: { layer: 2, label: Rural Planning Organization, name_strip: [RPO] }
     fws: { layer: 5, label: Workshop Area, name_strip: ["Co."] }
 
+# The state the profiles cover. To build another state, change these three values (and the arcgis layers).
+state:
+  abbr: UT
+  fips: "49"
+  name: Utah
+
 tiger:
   # Vintage of the county polygons used to audit the custom boundaries.
   audit_year: 2023
-  state: UT
+
+# Simplification tolerance (degrees) for the web boundary files, by geography type.
+export:
+  simplify: { aog: 0.0004, mpo: 0.0004, rpo: 0.0004, fws: 0.0004, county: 0.0003, place: 0.0003, tract: 0.0003, state: 0.0010 }
+
+# What the web app shows. Written to data/meta/app.json by the export step; the app has no state or organisation
+# names of its own. defaults: the area opened for each geography type; benchmarks: larger areas offered first
+# when comparing; region_ids: geo_ids shown as the region label.
+app:
+  title: WFRC Community Profiles
+  organization: WFRC
+  default_type: aog
+  defaults: { aog: aog-wfrc, mpo: mpo-wfrc, county: "49035", place: "4967000", state: "49" }
+  benchmarks: ["49", aog-wfrc, mpo-wfrc]
+  region_labels: { aog-wfrc: WFRC region }
+  custom_types: [aog, mpo, rpo, fws]   # areas built from block groups: ACS history starts at the first block-group vintage
+
+# The area the QA checks reconcile against its member counties (a geo_id from the arcgis layers).
+qa:
+  reference_area: aog-wfrc
+  reference_label: WFRC AOG
 
 audit:
   crs: "EPSG:32612"            # UTM 12N, metric, for area math
   equivalent_iou: 0.98         # a boundary this close to one county is treated as that county
   overlap_tolerance_m2: 10000  # ignore slivers smaller than this when checking overlaps
   min_county_overlap_km2: 1    # ignore county slivers smaller than this in the audit table
-
-census:
-  state_fips: "49"
 
 acs:
   # 5-year end years. Counties, places and tracts go back to 2009; block groups exist in the API from
@@ -32,11 +55,11 @@ acs:
   # Census geography -> the `for`/`in` clause used to pull the whole state at that level, and the first
   # vintage the API serves it for.
   geographies:
-    state: { for: "state:49", since: 2009 }
-    county: { for: "county:*", in: "state:49", since: 2009 }
-    place: { for: "place:*", in: "state:49", since: 2009 }
-    tract: { for: "tract:*", in: "state:49 county:*", since: 2009 }
-    block_group: { for: "block group:*", in: "state:49 county:*", since: 2013 }
+    state: { for: "state:{fips}", since: 2009 }
+    county: { for: "county:*", in: "state:{fips}", since: 2009 }
+    place: { for: "place:*", in: "state:{fips}", since: 2009 }
+    tract: { for: "tract:*", in: "state:{fips} county:*", since: 2009 }
+    block_group: { for: "block group:*", in: "state:{fips} county:*", since: 2013 }
   # Tracts and block groups are only published for the latest vintage (maps). Their history is kept in
   # raw and feeds the WFRC area tables, so the repository stays small.
   latest_only: [tract, block_group]
@@ -110,20 +133,20 @@ medians:
 pep:
   base: https://www2.census.gov/programs-surveys/popest/datasets
   files:
-    - { vintage: 2019, years: [2010, 2019], counties: 2010-2019/counties/totals/co-est2019-alldata.csv, places: 2010-2019/cities/totals/sub-est2019_49.csv }
-    - { vintage: 2024, years: [2020, 2024], counties: 2020-2024/counties/totals/co-est2024-alldata.csv, places: 2020-2024/cities/totals/sub-est2024_49.csv }
+    - { vintage: 2019, years: [2010, 2019], counties: 2010-2019/counties/totals/co-est2019-alldata.csv, places: "2010-2019/cities/totals/sub-est2019_{fips}.csv" }
+    - { vintage: 2024, years: [2020, 2024], counties: 2020-2024/counties/totals/co-est2024-alldata.csv, places: "2020-2024/cities/totals/sub-est2024_{fips}.csv" }
 
 # LEHD Origin-Destination Employment Statistics. LODES8 is tabulated on 2020 blocks for every year, so one
 # crosswalk (the 2020 era) serves the whole series. WAC counts jobs by workplace block, RAC workers by
 # residence block, OD jobs by residence-workplace pair. S000/JT00 is all workers and all job types.
 lodes:
   base: https://lehd.ces.census.gov/data/lodes/LODES8
-  state: ut
   years: [2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023]
   segment: S000
   job_type: JT00
   latest_only: [tract]       # tracts are published for the latest year only (maps); history stays in raw
   od_geographies: [aog, mpo, rpo, fws, county, place]
+  other_id: other-ut         # OD id for a block of this state outside every area of a geography type
   drop_zero: [place, tract]  # these files omit rows of zero jobs (a missing row means zero)
 
 # Quarterly Census of Employment and Wages (BLS): establishments, employment and wages by county,

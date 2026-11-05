@@ -9,12 +9,10 @@ import json
 
 from . import tiger
 from .db import connect, sql_path
-from .paths import BOUNDARIES, DATA
+from .paths import BOUNDARIES, DATA, META
 from .util import load_config, update_manifest, write_if_changed
 
 PRECISION = 1e-5     # degrees, about 1 m
-SIMPLIFY = {"aog": 0.0004, "mpo": 0.0004, "rpo": 0.0004, "fws": 0.0004,
-            "county": 0.0003, "place": 0.0003, "tract": 0.0003, "state": 0.0010}
 
 
 def collection(con, query: str) -> bytes:
@@ -24,9 +22,17 @@ def collection(con, query: str) -> bytes:
     return json.dumps({"type": "FeatureCollection", "features": features}, separators=(",", ":")).encode("utf-8")
 
 
+def app_meta(cfg: dict) -> bytes:
+    """data/meta/app.json: the names and defaults the web app reads instead of carrying its own."""
+    first_bg = cfg["acs"]["geographies"]["block_group"]["since"]   # custom areas start with the first block-group vintage
+    meta = {**cfg["app"], "state": cfg["state"], "outside_id": cfg["lodes"]["other_id"], "custom_since": first_bg}
+    return json.dumps(meta, indent=1, sort_keys=True).encode("utf-8") + b"\n"
+
+
 def run(refresh: bool = False) -> None:
     cfg = load_config()
-    state, year = cfg["tiger"]["state"], cfg["tiger"]["audit_year"]
+    write_if_changed(META / "app.json", app_meta(cfg))
+    state, year = cfg["state"]["abbr"], cfg["tiger"]["audit_year"]
     con = connect()
     sources = {t: (f"SELECT geo_id, geometry FROM read_parquet('{sql_path(BOUNDARIES / (t + '.parquet'))}')")
                for t in cfg["arcgis"]["layers"]}
@@ -38,7 +44,7 @@ def run(refresh: bool = False) -> None:
     manifest = {}
     for geo_type, source in sources.items():
         query = (f"SELECT geo_id, ST_AsGeoJSON(ST_ReducePrecision(ST_SimplifyPreserveTopology(geometry::GEOMETRY, "
-                 f"{SIMPLIFY[geo_type]}), {PRECISION})) FROM ({source})")
+                 f"{cfg["export"]["simplify"][geo_type]}), {PRECISION})) FROM ({source})")
         data = collection(con, query)
         dest = DATA / "web" / f"{geo_type}.geojson"
         write_if_changed(dest, data)

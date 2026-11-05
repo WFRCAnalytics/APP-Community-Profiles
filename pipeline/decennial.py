@@ -13,7 +13,7 @@ def block_weights(era: int, refresh: bool = False) -> pd.DataFrame:
     """One row per block: 15-digit `block` id and integer pop, hu, hh counts for the census year `era`."""
     cfg = load_config()
     d = cfg["decennial"][era]
-    state, abbr = cfg["census"]["state_fips"], cfg["tiger"]["state"]
+    state, abbr = cfg["state"]["fips"], cfg["state"]["abbr"]
     frames = []
     for county in tiger.county_fips(abbr, cfg["tiger"]["audit_year"]):
         data = get_json(

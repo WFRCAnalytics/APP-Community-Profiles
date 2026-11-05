@@ -3,6 +3,7 @@ import { geojson, lodesYears, qcewYears, registry, acsVintages, type Geography }
 import { openDb, type Db } from "./db";
 import { formatHash, parseHash } from "./hash";
 import { GEO_TYPES, type GeoType } from "./indicators";
+import { loadSite, site } from "./site";
 import type { AreaRef } from "./specs";
 
 export const TABS = [
@@ -18,9 +19,7 @@ export const TABS = [
   { id: "indicators", label: "Indicators", icon: "table" },
 ] as const;
 
-const DEFAULTS: Record<string, string> = { aog: "aog-wfrc", mpo: "mpo-wfrc", county: "49035", place: "4967000", state: "49" };
-
-export const displayName = (g: Geography) => (g.geo_type === "state" ? "Utah" : g.geo_id === "aog-wfrc" ? "WFRC region" : g.geo_name);
+export const displayName = (g: Geography) => (g.geo_type === "state" ? site.state.name : site.region_labels[g.geo_id] ?? g.geo_name);
 
 class App {
   db = $state.raw<Db>();
@@ -29,8 +28,8 @@ class App {
   lodesYears = $state.raw<number[]>([]);
   qcewYears = $state.raw<number[]>([]);
   error = $state("");
-  type = $state<GeoType>("aog");
-  id = $state("aog-wfrc");
+  type = $state<GeoType>("state");
+  id = $state("");
   cmp = $state("");
   v = $state(0);
   tab = $state("overview");
@@ -44,8 +43,8 @@ class App {
   compare = $derived<AreaRef | undefined>(this.compareGeo && { id: this.compareGeo.geo_id, type: this.compareGeo.geo_type, label: displayName(this.compareGeo) });
   refs = $derived<AreaRef[]>([this.selected, this.compare].filter((r): r is AreaRef => !!r));
   typeInfo = $derived(GEO_TYPES.find((t) => t.id === this.type)!);
-  // WFRC areas are built from block groups, which the Census publishes from the 2013 vintage.
-  years = $derived(this.vintages.filter((v) => !this.refs.some((r) => ["aog", "mpo", "rpo", "fws"].includes(r.type)) || v >= 2013));
+  // Custom areas are built from block groups, which the Census publishes from the 2013 vintage (site.custom_since).
+  years = $derived(this.vintages.filter((v) => !this.refs.some((r) => site.custom_types.includes(r.type)) || v >= site.custom_since));
   latestVintage = $derived(this.vintages.at(-1) ?? 0);
   lodesLatest = $derived(this.lodesYears.at(-1) ?? 0);
   qcewLatest = $derived(this.qcewYears.at(-1) ?? 0);
@@ -57,6 +56,7 @@ class App {
   async init() {
     try {
       this.db = await openDb();
+      await loadSite();
       const [geos, vintages, ly, qy] = await Promise.all([registry(this.db), acsVintages(this.db), lodesYears(this.db), qcewYears(this.db)]);
       this.geos = geos;
       this.vintages = vintages;
@@ -73,9 +73,9 @@ class App {
   readHash() {
     const h = parseHash(location.hash);
     const geo = h.id ? this.byId.get(h.id) : undefined;
-    const type = (geo?.geo_type ?? (GEO_TYPES.some((t) => t.id === h.type) ? h.type : "aog")) as GeoType;
+    const type = (geo?.geo_type ?? (GEO_TYPES.some((t) => t.id === h.type) ? h.type : site.default_type)) as GeoType;
     this.type = type;
-    this.id = geo?.geo_id ?? this.byId.get(DEFAULTS[type] ?? "")?.geo_id ?? this.geos.find((g) => g.geo_type === type)?.geo_id ?? "aog-wfrc";
+    this.id = geo?.geo_id ?? this.byId.get(site.defaults[type] ?? "")?.geo_id ?? this.geos.find((g) => g.geo_type === type)?.geo_id ?? "";
     this.cmp = h.cmp && h.cmp !== this.id && this.byId.has(h.cmp) ? h.cmp : "";
     this.tab = TABS.some((t) => t.id === h.tab) ? h.tab! : "overview";
     this.page = h.page ?? "";

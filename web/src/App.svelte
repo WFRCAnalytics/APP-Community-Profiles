@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { site } from "./lib/site";
   import AreaPicker from "./components/AreaPicker.svelte";
   import ContextBar from "./components/ContextBar.svelte";
   import Footer from "./components/Footer.svelte";
@@ -26,7 +27,7 @@
     app.type; app.id; app.cmp; app.v; app.tab; app.page;
     app.writeHash();
   });
-  $effect(() => { document.title = app.selected ? `${app.selected.label} · WFRC Community Profiles` : "WFRC Community Profiles"; });
+  $effect(() => { document.title = app.selected ? `${app.selected.label} · ${site.title}` : site.title; });
 </script>
 
 <a class="skip" href="#screen">Skip to the profile</a>

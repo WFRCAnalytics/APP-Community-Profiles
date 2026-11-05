@@ -11,8 +11,23 @@ import yaml
 from .paths import CONFIG_FILE, META
 
 
+def _fill(node, values: dict):
+    """Replace {fips} and {abbr} in every string of the config."""
+    if isinstance(node, str):
+        return node.format(**values) if "{" in node else node
+    if isinstance(node, list):
+        return [_fill(n, values) for n in node]
+    if isinstance(node, dict):
+        return {k: _fill(v, values) for k, v in node.items()}
+    return node
+
+
 def load_config() -> dict:
-    return yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
+    cfg = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
+    st = cfg["state"]
+    cfg = _fill(cfg, {"fips": st["fips"], "abbr": st["abbr"].lower()})
+    cfg["lodes"]["state"] = st["abbr"].lower()   # LODES file prefix, derived
+    return cfg
 
 
 def slugify(text: str) -> str:

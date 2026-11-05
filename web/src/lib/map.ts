@@ -8,8 +8,8 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 maplibregl.setWorkerUrl(new URL(workerUrl, document.baseURI).href);
 
 const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
-import { COMPARED, NO_DATA, RAMPS, SELECTED, colourFor, quantileBreaks, type Mode } from "./classes";
-export { COMPARED, SELECTED, RAMPS, colourFor, quantileBreaks };
+import { BIVARIATE, COMPARED, NO_DATA, RAMPS, SELECTED, biColour, colourFor, quantileBreaks, type Mode } from "./classes";
+export { BIVARIATE, COMPARED, SELECTED, RAMPS, colourFor, quantileBreaks };
 export type { Mode };
 
 const BLANK = (mode: Mode) => ({
@@ -21,6 +21,9 @@ const BLANK = (mode: Mode) => ({
 export interface Legend {
   title: string;
   items: { color: string; text: string }[];
+  edges: number[]; // class boundaries, min first and max last
+  colors: string[]; // one colour per class
+  bi?: { cutsA: number[]; cutsB: number[]; rows: string[][] }; // set for a bivariate map
 }
 
 export interface MapView {
@@ -28,6 +31,8 @@ export interface MapView {
   shapes: GeoJSON.FeatureCollection; // the polygons being coloured
   focus: GeoJSON.FeatureCollection; // the selected (role "sel") and compared (role "cmp") areas
   values: Map<string, number | null>;
+  values2?: Map<string, number | null>; // a second variable draws a bivariate map
+  bounds?: [[number, number], [number, number]]; // fit here instead of to the selected areas
   names: Map<string, string>;
   format: (v: number | null | undefined) => string;
   label: string;
@@ -97,14 +102,20 @@ export class MapController {
     }
     const add = (layer: maplibregl.LayerSpecification) => map.addLayer(layer, before);
     const line = mode === "dark" ? "#0A1F2E" : "#FFFFFF";
-    add({ id: "areas-fill", type: "fill", source: "areas", paint: { "fill-color": NO_DATA[mode], "fill-opacity": 0.82 } });
+    add({ id: "areas-fill", type: "fill", source: "areas", paint: { "fill-color": NO_DATA[mode], "fill-opacity": 0.88 } });
     add({ id: "areas-line", type: "line", source: "areas", paint: { "line-color": line, "line-width": 0.8, "line-opacity": 0.9 } });
-    add({ id: "tracts-fill", type: "fill", source: "tracts", paint: { "fill-color": NO_DATA[mode], "fill-opacity": 0.82 } });
+    add({ id: "tracts-fill", type: "fill", source: "tracts", paint: { "fill-color": NO_DATA[mode], "fill-opacity": 0.88 } });
     add({ id: "tracts-line", type: "line", source: "tracts", paint: { "line-color": line, "line-width": 0.4, "line-opacity": 0.8 } });
     // Selected: a surface-coloured casing under a blue line. Compared: a dashed brick line.
     add({ id: "focus-casing", type: "line", source: "focus", paint: { "line-color": line, "line-width": 6, "line-opacity": 0.9 }, layout: { "line-join": "round" } });
     add({ id: "focus-cmp", type: "line", source: "focus", filter: ["==", ["get", "role"], "cmp"], paint: { "line-color": COMPARED[mode], "line-width": 3, "line-dasharray": [2, 1.2] }, layout: { "line-join": "round" } });
     add({ id: "focus-sel", type: "line", source: "focus", filter: ["==", ["get", "role"], "sel"], paint: { "line-color": SELECTED[mode], "line-width": 3.2 }, layout: { "line-join": "round" } });
+    // County and place names sit above everything else.
+    map.addLayer({
+      id: "areas-label", type: "symbol", source: "areas",
+      layout: { "text-field": ["get", "name"], "text-font": ["Noto Sans Regular"], "text-size": 11.5, "text-max-width": 6, "text-allow-overlap": false },
+      paint: { "text-color": mode === "dark" ? "#E8ECF3" : "#131A27", "text-halo-color": mode === "dark" ? "#0A1F2E" : "#FFFFFF", "text-halo-width": 1.6 },
+    });
     this.bindHandlers();
   }
 
@@ -145,40 +156,41 @@ export class MapController {
     if (!view || !map.getSource("areas")) return;
     const mode = this.mode;
     const areas = view.layer === "areas";
-    const cuts = quantileBreaks([...view.values.values()]);
+    const bi = !!view.values2;
+    const cuts = quantileBreaks([...view.values.values()], bi ? 3 : 5);
+    const cuts2 = bi ? quantileBreaks([...view.values2!.values()], 3) : [];
     (map.getSource("areas") as maplibregl.GeoJSONSource).setData(areas ? view.shapes : EMPTY);
     (map.getSource("tracts") as maplibregl.GeoJSONSource).setData(areas ? EMPTY : view.shapes);
     (map.getSource("focus") as maplibregl.GeoJSONSource).setData(view.focus);
     const ids = view.shapes.features.map((f) => String(f.properties?.id));
     if (ids.length) {
       map.setPaintProperty(areas ? "areas-fill" : "tracts-fill", "fill-color",
-        ["match", ["get", "id"], ...ids.flatMap((id) => [id, colourFor(view.values.get(id), cuts, mode)]), NO_DATA[mode]] as any);
+        ["match", ["get", "id"], ...ids.flatMap((id) => [id, bi ? biColour(view.values.get(id), view.values2!.get(id), cuts, cuts2, mode) : colourFor(view.values.get(id), cuts, mode)]), NO_DATA[mode]] as any);
     }
-    if (view.fitKey !== this.fitted && view.focus.features.length) {
+    if (view.fitKey !== this.fitted && (view.bounds || view.focus.features.length)) {
       this.fitted = view.fitKey;
       const bounds = new maplibregl.LngLatBounds();
       const extend = (c: any) => (typeof c[0] === "number" ? bounds.extend(c) : c.forEach(extend));
-      view.focus.features.forEach((f) => extend((f.geometry as any).coordinates));
+      if (view.bounds) bounds.extend(view.bounds[0]).extend(view.bounds[1]);
+      else view.focus.features.forEach((f) => extend((f.geometry as any).coordinates));
       map.resize();
-      map.fitBounds(bounds, { padding: 56, duration: 500, maxZoom: 12 });
+      map.fitBounds(bounds, { padding: view.bounds ? 12 : 56, duration: 500, maxZoom: 12 });
     }
-    this.onLegend(this.legend(cuts, view));
+    map.setLayoutProperty("areas-label", "visibility", areas ? "visible" : "none");
+    this.onLegend(this.legend(cuts, view, cuts2));
   }
 
-  private legend(cuts: number[], view: MapView): Legend | null {
+  private legend(cuts: number[], view: MapView, cuts2: number[] = []): Legend | null {
     const values = [...view.values.values()].filter((v): v is number => v != null && Number.isFinite(v));
     if (!values.length) return null;
-    if (Math.min(...values) === Math.max(...values)) return { title: view.label, items: [{ color: RAMPS[this.mode][2], text: view.format(values[0]) }] };
-    const edges = [Math.min(...values), ...cuts, Math.max(...values)];
+    const lo = Math.min(...values), hi = Math.max(...values);
     const ramp = RAMPS[this.mode];
-    const classes = cuts.length + 1;
-    return {
-      title: view.label,
-      items: Array.from({ length: classes }, (_, i) => ({
-        color: ramp[Math.round((i / Math.max(1, classes - 1)) * (ramp.length - 1))],
-        text: `${view.format(edges[i])} – ${view.format(edges[i + 1])}`,
-      })),
-    };
+    const flat = lo === hi;
+    const edges = flat ? [lo, hi] : [lo, ...cuts, hi];
+    const classes = flat ? 1 : cuts.length + 1;
+    const colors = Array.from({ length: classes }, (_, i) => ramp[Math.round((i / Math.max(1, classes - 1)) * (ramp.length - 1))]);
+    const bi = view.values2 ? { cutsA: cuts, cutsB: cuts2, rows: [...BIVARIATE[this.mode]].reverse().map((r) => [...r]) } : undefined;
+    return { title: view.label, bi, edges, colors, items: colors.map((color, i) => ({ color, text: `${view.format(edges[i])} – ${view.format(edges[i + 1])}` })) };
   }
 
   destroy() {

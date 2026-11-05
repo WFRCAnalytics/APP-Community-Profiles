@@ -255,6 +255,10 @@ button.cmp-pill:hover { background: var(--surface-2); }
   .play { order: 3; }
 }
 
+/* Observable Plot tips take the same surface, border and text as the donut tip, so they are dark in dark mode too (Plot's default is white). */
+.chart svg [aria-label="tip"] { --plot-background: var(--surface); color: var(--muted); }
+.chart svg [aria-label="tip"] path { stroke: var(--muted); stroke-opacity: 1; }
+
 /* Donut tooltip, drawn to match Observable Plot's tip: surface box, thin slate border, a notch toward the mark. */
 .dtip { position: absolute; z-index: 5; pointer-events: none; background: var(--surface); border: 1px solid var(--muted); padding: 7px 10px; font: 400 12px/1.35 var(--f-body); color: var(--muted); white-space: pre; }
 .dtip::before { content: ""; position: absolute; top: -6px; left: 14px; width: 9px; height: 9px; background: var(--surface); border-left: 1px solid var(--muted); border-top: 1px solid var(--muted); transform: rotate(45deg); }

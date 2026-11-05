@@ -1,30 +1,71 @@
-# Community profiles
+# APP-Community-Profiles
 
-Data pipeline and (later) dashboard for the WFRC facts and figures / community profiles section.
+Community profiles ("facts and figures") for the Wasatch Front: a static, map-first dashboard for the WFRC region, counties,
+cities and the WFRC planning areas (AOG, MPO, RPO and workshop areas), and the data pipeline behind it.
 
-## Setup on a new machine
+- ACS 5-year indicators with trends 2009–2024, annual population estimates (PEP), jobs, workers and commute flows (LODES) and
+  employment and wages (QCEW).
+- Every value carries a method label: `direct` (published by the Census Bureau for exactly this area), `aggregated` (an exact
+  sum of whole block groups or blocks), `allocated` (split from block groups that are partly inside the area) or `derived`
+  (a median interpolated from allocated brackets, with no margin of error).
+- There is no backend. DuckDB-WASM reads the committed Parquet files in the browser.
 
-```
-uv sync
-cp .env.example .env     # then add CENSUS_API_KEY
-uv run profiles all
-```
-
-`uv run profiles --help` lists the stages. Every stage caches downloads in `profiles/raw/` (gitignored)
-and rewrites a tracked file in `profiles/data/` only when its content changes. Pass `--refresh` to
-download again.
+The methods are written up in [METHODOLOGY.md](METHODOLOGY.md), which is also the in-app Methods page.
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
 | `config/config.yml` | Sources, vintages, boundary layers and audit thresholds (nothing is hardcoded in code) |
-| `src/wfrc_profiles/` | Pipeline code |
+| `pipeline/` | The Python pipeline package |
+| `tests/` | Pipeline tests (`uv run pytest`) |
+| `data/` | Processed outputs, **committed**: `acs/`, `pep/`, `lodes/`, `qcew/`, `crosswalk/`, `boundaries/`, `web/` (simplified GeoJSON for the maps) and `meta/` (registry, variables, QA reports, `manifest.json`) |
 | `raw/` | Local downloads, not tracked |
-| `data/` | Processed outputs, tracked (`boundaries/`, `meta/`, later `acs/`, `lodes/`, ...) |
-| `tests/` | `uv run pytest` |
+| `web/` | The app: Vite, Svelte 5 (runes), TypeScript, DuckDB-WASM, Observable Plot, MapLibre GL, d3-geo |
+| `web/e2e/` | Playwright smoke tests, including axe checks in light and dark |
+| `.github/workflows/` | CI and the GitHub Pages deploy |
 
-## Stages
+## Run the app
+
+```
+cd web
+npm ci
+npm run dev          # http://localhost:5173, with the data served from ../data
+npm run build        # type-checks, then builds web/dist (the data is copied into dist/data)
+npm run preview      # serves the build at http://localhost:4173
+npm test             # Vitest unit tests
+npm run e2e          # Playwright smoke tests (Edge by default; PW_CHANNEL=chromium for Chromium)
+```
+
+All data URLs are relative to the page, so the build works from any base path or a plain static server. Set `BASE`
+(for example `BASE=/APP-Community-Profiles/ npm run build`) when the site is served from a sub-path; the deploy workflow does.
+The map basemap is OpenFreeMap (Positron in light mode, Dark in dark mode); everything else is bundled.
+
+### How the app is built
+
+| Module (`web/src/lib/`) | Role |
+|---|---|
+| `db.ts`, `data.ts` | Open DuckDB-WASM (`allowFullHTTPReads: true`, so servers without byte-range support still work) and every query: registry, indicators and series, PEP, LODES, OD flows, QCEW |
+| `indicators.ts`, `specs.ts` | The headline indicators and the distribution charts, defined once as ACS variable codes |
+| `format.ts` | Number formats and the method labels |
+| `charts.ts`, `place.ts`, `map.ts`, `classes.ts` | Plot charts, the place silhouette, the MapLibre choropleth and its classes |
+| `app.svelte.ts`, `hash.ts`, `theme.svelte.ts` | State, the shareable URL hash (`#type=…&id=…&cmp=…&v=…&tab=…`) and light, dark or system theme |
+
+Colour grammar, everywhere: **blue is the selected area and brick is the compared area**. The map's data ramp is a neutral
+slate so it never competes with either.
+
+## Run the pipeline
+
+```
+uv sync
+cp .env.example .env            # then add CENSUS_API_KEY
+uv run python -m pipeline all   # or: uv run profiles all
+```
+
+`uv run profiles --help` lists the stages. On machines where Windows Application Control blocks the `profiles.exe` that uv
+generates, use `uv run python -m pipeline <command>`, which does the same thing. Every stage caches downloads in `raw/`
+and rewrites a tracked file in `data/` only when its bytes change, so a rerun leaves no git diff. Pass `--refresh` to download
+again.
 
 | Command | What it does | Output |
 |---|---|---|
@@ -33,131 +74,39 @@ download again.
 | `validate` | Check every configured ACS table and geography against each vintage | `data/meta/variables.parquet`, `data/meta/acs-availability.md` |
 | `acs` | Download whole ACS 5-year tables (2009 to latest) for state, county, place, tract and block group | `data/acs/<topic>/<geo_type>.parquet` |
 | `geographies` | Build the list of selectable areas | `data/meta/geographies.parquet` |
-| `crosswalk` | Decennial block counts + TIGER block points -> share of each ACS block group inside each WFRC area | `data/crosswalk/unit_share_<era>.parquet`, `data/meta/boundary_quality.parquet` |
+| `crosswalk` | Decennial block counts and TIGER block points → share of each ACS block group inside each WFRC area | `data/crosswalk/…`, `data/meta/boundary_quality.parquet` |
 | `aggregate` | Apply the shares to ACS block groups to build the WFRC areas' tables | `data/acs/<topic>/{aog,mpo,rpo,fws}.parquet` |
-| `pep` | Annual population estimates for state, counties, places, and whole-county WFRC areas | `data/pep/{state,county,place,areas}.parquet` |
-| `lodes` | LEHD jobs by workplace (WAC), workers by residence (RAC) and commute flows (OD), 2002 to latest, summed from blocks | `data/lodes/{wac,rac,od}/<geo_type>.parquet`, `data/meta/lodes_variables.parquet` |
-| `qcew` | BLS establishments, employment and wages by county, ownership and industry, 2014 to latest | `data/qcew/{state,county,areas}.parquet`, `data/meta/qcew_codes.parquet` |
-| `qa` | Check the crosswalk reproduces published county totals in every vintage, and that jobs data adds up | `data/meta/crosswalk-qa.md` |
+| `pep` | Annual population estimates for state, counties, places and whole-county WFRC areas | `data/pep/*.parquet` |
+| `lodes` | LEHD jobs by workplace (WAC), workers by residence (RAC) and commute flows (OD), 2002 to latest | `data/lodes/{wac,rac,od}/<geo_type>.parquet` |
+| `qcew` | BLS establishments, employment and wages by county, ownership and industry | `data/qcew/*.parquet` |
+| `qa` | Check the crosswalk reproduces published county totals in every vintage | `data/meta/crosswalk-qa.md` |
+| `export` | Simplified GeoJSON for the web maps | `data/web/<geo_type>.geojson` |
 
-`uv run profiles all` runs them in that order. ACS files are long format (`geo_id, geo_type, vintage,
-variable, estimate, moe, flag, method`) and every row from this stage has `method = direct`, meaning
-the Census Bureau published it at that geography. Null estimates are Census "no data / not applicable"
-codes. Spatial work runs in DuckDB with the spatial extension.
+`all` runs them in that order. ACS files are long format (`geo_id, geo_type, vintage, variable, estimate, moe, flag, method`).
+Geography files are GeoParquet; spatial work runs in DuckDB with the spatial extension. The simplified GeoJSON in `data/web/`
+is the only GeoJSON. Output is deterministic (ordered, zstd), and a size guard in the manifest flags files that grow unexpectedly.
 
-## How the WFRC areas are built
+### How the WFRC areas are built
 
-A block belongs to an area when its internal point is inside the polygon. Each ACS block group is split
-between areas by the Decennial block counts (people, households or housing units, chosen per table in
-the config; land area is the last resort for a block group with no counts). The `method` column says how
-a value was made: `direct` (the area equals a county, so the published county value is used),
-`aggregated` (every block group lies wholly inside the area, so the sum is exact) or `allocated` (some
-block groups are split, so it is a WFRC estimate). `data/meta/boundary_quality.parquet` has each area's
-alignment score, the share of its weight that sits in whole block groups.
+A block belongs to an area when its internal point is inside the polygon. Each ACS block group is split between areas by the
+Decennial block counts (people, households or housing units, chosen per table in the config; land area is the last resort).
+Margins of error add the block group margins in quadrature, scaled by the share, which is conservative for large areas.
+Medians are interpolated from allocated brackets and labeled `derived`. Poverty, group quarters, school enrollment and
+disability are not published at block group, so those tables are split from tracts (`unit: tract` in the config); the app says so.
+`METHODOLOGY.md` has the full account, and `data/meta/` has the QA reports.
 
-Margins of error for allocated and aggregated rows add the block group margins in quadrature, scaled by
-the share. Summing block group margins overstates the uncertainty of large areas' population counts,
-which the Census controls at county level, so treat those margins as conservative.
+### Reproducibility
 
-Medians are not summed or allocated. For the WFRC areas they are interpolated from the allocated
-bracket counts (household income, gross rent, home value, age) and labeled `derived`; the bracket
-ranges are read from each vintage's variable labels. They carry no margin of error, because the Census
-method needs design factors the API does not publish. `data/meta/crosswalk-qa.md` compares the same
-interpolation with the published county medians. Workplace-based tables (`B08601`, `B08603`) are not
-allocated; the work side comes from LODES.
-
-An area is treated as a county (`direct`) or a union of whole counties when its polygon overlaps the
-TIGER counties that closely (config `crosswalk`). Such areas take every block of those counties by
-county code, which makes them exact in every era, and get annual population from the PEP county series.
-
-## Jobs and employment
-
-- **LODES** (LEHD) counts jobs at the block, so the state, counties, places, tracts and every WFRC area
-  are exact sums of whole blocks (`method = aggregated`); nothing is allocated. LODES8 uses 2020 blocks
-  for every year, so the 2020-era block assignment serves the whole 2002 to latest series. WAC is jobs by
-  workplace, RAC is workers by residence. Each has jobs by industry (the 20 NAICS sectors), age, earnings,
-  race, ethnicity, education and sex, and WAC adds firm age and size. The Census Bureau adds noise to
-  block counts, so small areas are rough. Place and tract files leave out rows of zero jobs (a missing row
-  is zero); tracts are published for the latest year only.
-- **OD** commute flows are summed between areas of the same geography type (WFRC areas, counties and
-  places) and include workers who live outside Utah (the LODES aux files). In an OD file `other-ut` is a
-  Utah block outside every area of that type and `out-of-state` is a worker living outside Utah. This
-  gives the inflow and outflow of an area such as the MPO.
-- **QCEW** is county-level covered employment and wages by industry and ownership, so only the state,
-  counties and the WFRC areas that are whole counties (the AOG, Morgan RPO) are published. BLS withholds
-  some cells (`flag = suppressed`, value empty); an area sum missing such a county is flagged `partial` and
-  is a lower bound. QCEW and LODES count different things and will not match exactly.
-
-## History
-
-- ACS 5-year vintages run 2009 to the latest. Block groups exist in the API from 2013, so counties,
-  places and tracts go back to 2009 but the WFRC areas start at 2013 (the 2009-2013 window).
-  Vintages 2013-2019 use 2010 block groups and 2020 onward use 2020 block groups, so each era has its own
-  crosswalk (2010 and 2020 Decennial blocks).
-- Overlapping 5-year windows share years. Compare non-overlapping windows (for example 2014, 2019, 2024)
-  for trends; adjacent vintages are for smoothing only.
-- `data/meta/acs-availability.md` lists tables that start late or change their variables, so trends
-  across those years need care. Dollar values are nominal, not inflation adjusted.
-- Tracts and block groups are published for the latest vintage only; their history lives in
-  `profiles/raw/derived/acs` and feeds the WFRC area tables.
-- PEP 2010-2019 is based on the 2010 Census and 2020-2024 on the 2020 Census, so the series has a break
-  between 2019 and 2020.
-
-## Dashboard
-
-`index.qmd` is a Quarto dashboard (`format: wfrc-brand-dashboard`) built from Observable JS cells and the ES
-modules in `assets/`; `methodology.qmd` explains sources and methods. Nothing is computed on a server: the
-browser reads the tracked parquet files with DuckDB-WASM over HTTP range requests, draws charts with
-Observable Plot and the map with MapLibre GL. The URL hash keeps the chosen area, comparison and period, so a
-view can be shared.
-
-| File | Role |
-|---|---|
-| `assets/data.js` | Opens DuckDB-WASM and holds every query (ACS, PEP, LODES, QCEW, map geometry) |
-| `assets/indicators.js` | The headline indicators and geography types; drives value boxes, map metrics and the Indicators tab |
-| `assets/specs.js` | Distribution charts (age, race, tenure, income, commute, jobs by industry...) as variable codes |
-| `assets/charts.js`, `assets/map.js`, `assets/format.js` | Plot charts, the MapLibre map, number formatting |
-
-Run `uv run profiles export` to refresh the simplified map geometry in `data/web/`, then
-`quarto render profiles` and serve `docs/` with any static server, for example
-`uv run python -m http.server 8000 -d docs` and open `http://localhost:8000/profiles/`. The data files are read from
-`profiles/data/` by relative path, so the page must be served over HTTP, not opened as a file. Servers that
-support byte ranges (GitHub Pages does) fetch only what a query needs; others fall back to whole files. Avoid
-`quarto preview` for this site: the pre-render script rewrites its generated files on every build, which makes the
-preview reload the page in a loop. Runtime libraries load from jsDelivr
-at pinned versions (DuckDB-WASM 1.29.0, Observable Plot 0.6.16, MapLibre 4.7.1) and the basemap from
-OpenFreeMap. Each Quarto code cell holds one statement, so definitions are separate cells.
-
-To test in a real browser, `scripts/tools` already carries `puppeteer-core`: open the rendered page, wait for
-`.pf-value-number`, and look for console errors and `.observablehq--error` elements.
-
-## On the site
-
-- The navbar has a **Profiles** link, and the profiles are an Explore entry (`APP-Community-Profiles` in
-  `catalog.yml`, details in `tool-details.yml`). Because they live in this repository, not in a repository of
-  their own, the entry carries `in-site: profiles`: `scripts/sync_catalog.py` treats it as always live at its
-  `live-url` and dates it from the latest commit that touched `profiles/`, instead of reporting it as missing
-  from GitHub. The weekly screenshot job photographs the live page like any other tool.
-- Publishing and the weekly refresh install the project with `uv sync --frozen --no-dev` (the same `pyproject.toml`
-  and `uv.lock` the pipeline uses) and put its virtual environment on `PATH`, so `python scripts/build_lists.py`
-  runs in that environment. Only parquet and GeoJSON files in `profiles/data/` are published, not the raw
-  downloads, boundary snapshots or crosswalk tables.
-- To feature the profiles on the home page, set `featured: true` on the catalog entry.
-
-## Reproducibility
-
-Tested on 2026-11-04: from a fresh clone with no `profiles/raw/` and a new virtual environment, `uv sync`
-followed by `uv run profiles all` (a Census API key in `.env`) downloaded everything again, rebuilt all 127
-tracked files in `profiles/data/` and passed the QA checks. Every parquet and GeoJSON file came out
-byte-identical to the committed copy. It takes about an hour and a half, mostly the ACS downloads, and leaves
-about 1.1 GB in `profiles/raw/`. The pipeline writes a file only when its bytes change, so a rerun leaves no git diff.
+From a fresh clone with no `raw/` and a Census API key in `.env`, `uv sync` then `uv run python -m pipeline all` downloads
+everything again and rebuilds every tracked file in `data/` byte for byte. It takes about an hour and a half, mostly the ACS
+downloads, and leaves about 1.1 GB in `raw/`. Tested on 2026-11-04 in the source repository and again after the move into this
+one (no diff in `data/`).
 
 ## Notes
 
-- `duckdb` is pinned in `pyproject.toml`. If `LOAD spatial` fails with an Application Control policy
-  error, the spatial binary for that DuckDB version is blocked on the machine; 1.5.4 loads on WFRC
-  machines tested so far (1.5.6 and 2.0.0 were blocked on one).
-- MAG boundaries are filtered out through `arcgis.organizations` in the config.
-- Only the era needed by the configured ACS vintages is built (2020 blocks for 2020 and later vintages,
-  2010 blocks for earlier ones), so adding historical vintages adds the 2010 crosswalk automatically.
-- Planned next: the dashboard (Quarto, Observable Plot, DuckDB-WASM, MapLibre) and the web-ready exports.
+- `duckdb` is pinned to `1.5.4` in `pyproject.toml`. Newer builds (1.5.6, 2.0.0) were blocked by Windows Application Control on the
+  maintainer's machine; it may test 2.0.0 and bump the pin if `LOAD spatial` works.
+- Current boundaries are used for every period. MAG boundaries are filtered out through `arcgis.organizations` in the config and
+  deferred to a later phase.
+- Windows with CRLF line endings: `.gitattributes` normalises text to LF.
+- The Census API key lives in `.env` (gitignored). Never print or commit it.

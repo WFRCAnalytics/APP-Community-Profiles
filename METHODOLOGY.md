@@ -1,11 +1,6 @@
----
-title: "Community profiles: methods and sources"
-description: "Where the numbers come from, how WFRC planning areas are built from Census geography, and what to keep in mind when reading them."
-toc: true
-toc-depth: 2
----
+# Community profiles: methods and sources
 
-[{{< fa arrow-left >}} Back to the community profiles](index.qmd){.btn .btn-primary}
+Where the numbers come from, how WFRC planning areas are built from Census geography, and what to keep in mind when reading them.
 
 The community profiles show facts and figures for the Wasatch Front at several levels: the WFRC region, the metropolitan and rural planning areas, WFRC's workshop areas, counties, cities and the state. This page explains where each number comes from and how much weight it can bear.
 
@@ -51,7 +46,7 @@ A median cannot be added across pieces. For WFRC areas, medians (household incom
 
 ### Time
 
-History for WFRC areas uses today's boundary in every period, so a workshop area's trend means "this area as drawn now, over time". The Census block group geography changed in 2020, so periods ending 2019 and earlier use 2010 block groups and 2020 onward use 2020 block groups; each has its own block assignment. Block groups first appear in the Census data service with the 2009–2013 period, so the WFRC areas start there, while counties, cities and the state go back to 2005–2009. Tables that start later or changed their categories are listed in the [data documentation](https://github.com/WFRCAnalytics/wfrcanalytics.github.io/blob/main/profiles/data/meta/acs-availability.md){target="_blank"}. City trends follow each year's published city boundary, so annexations show up as growth.
+History for WFRC areas uses today's boundary in every period, so a workshop area's trend means "this area as drawn now, over time". The Census block group geography changed in 2020, so periods ending 2019 and earlier use 2010 block groups and 2020 onward use 2020 block groups; each has its own block assignment. Block groups first appear in the Census data service with the 2009–2013 period, so the WFRC areas start there, while counties, cities and the state go back to 2005–2009. Tables that start later or changed their categories are listed in the [data documentation](https://github.com/WFRCAnalytics/APP-Community-Profiles/blob/main/data/meta/acs-availability.md). City trends follow each year's published city boundary, so annexations show up as growth.
 
 ## Reading the numbers
 
@@ -64,10 +59,10 @@ History for WFRC areas uses today's boundary in every period, so a workshop area
 
 ## Reproducing and reusing the data
 
-All data behind the dashboard is published as Parquet files in the [site repository](https://github.com/WFRCAnalytics/wfrcanalytics.github.io/tree/main/profiles/data){target="_blank"}, and each page of the dashboard has a table view and a CSV download on the Data tab. The pipeline that downloads and processes the sources is in the same repository. It is reproducible from scratch: `uv sync`, add a Census API key to `.env`, and `uv run profiles all` rebuild every file from the original sources. The repository also holds the checks that the processing reproduces published Census totals.
+All data behind the dashboard is published as Parquet files in the [project repository](https://github.com/WFRCAnalytics/APP-Community-Profiles/tree/main/data), and every chart has a table view, and the Indicators tab has a CSV download. The pipeline that downloads and processes the sources is in the same repository. It is reproducible from scratch: `uv sync`, add a Census API key to `.env`, and `uv run python -m pipeline all` rebuild every file from the original sources. The repository also holds the checks that the processing reproduces published Census totals.
 
-WFRC's material is licensed CC BY 4.0; data from other sources keeps its own terms. See the [terms of use](../terms/index.qmd).
+WFRC's material is licensed CC BY 4.0; data from other sources keeps its own terms. See the [WFRC analytics terms of use](https://wfrcanalytics.github.io/terms/).
 
 ## Suggested citation
 
-Wasatch Front Regional Council, Community Profiles (wfrcanalytics.github.io/profiles), using data from the U.S. Census Bureau (ACS, Decennial Census, Population Estimates Program, LEHD LODES) and the U.S. Bureau of Labor Statistics (QCEW).
+Wasatch Front Regional Council, Community Profiles (wfrcanalytics.github.io/APP-Community-Profiles), using data from the U.S. Census Bureau (ACS, Decennial Census, Population Estimates Program, LEHD LODES) and the U.S. Bureau of Labor Statistics (QCEW).

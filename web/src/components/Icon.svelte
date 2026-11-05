@@ -1,37 +1,48 @@
 <script lang="ts">
-  // Lucide icons, inlined (only the ones the app uses).
+  // Icons are Lucide (@lucide/svelte); this maps the names the app uses to them.
+  import type { Component } from "svelte";
+  import Download from "@lucide/svelte/icons/download";
+  import GraduationCap from "@lucide/svelte/icons/graduation-cap";
+  import House from "@lucide/svelte/icons/house";
+  import Info from "@lucide/svelte/icons/info";
+  import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
+  import Maximize from "@lucide/svelte/icons/maximize-2";
+  import Minimize from "@lucide/svelte/icons/minimize-2";
+  import Monitor from "@lucide/svelte/icons/monitor";
+  import Moon from "@lucide/svelte/icons/moon";
+  import Pause from "@lucide/svelte/icons/pause";
+  import Play from "@lucide/svelte/icons/play";
+  import Plus from "@lucide/svelte/icons/plus";
+  import Briefcase from "@lucide/svelte/icons/briefcase-business";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import Route from "@lucide/svelte/icons/route";
+  import Search from "@lucide/svelte/icons/search";
+  import Sliders from "@lucide/svelte/icons/sliders-horizontal";
+  import Sun from "@lucide/svelte/icons/sun";
+  import Table from "@lucide/svelte/icons/table";
+  import Users from "@lucide/svelte/icons/users";
+  import Wallet from "@lucide/svelte/icons/wallet";
+  import X from "@lucide/svelte/icons/x";
+
   let { name, size = 18 }: { name: string; size?: number } = $props();
-  const c = (cx: number, cy: number, r: number) => `M${cx - r},${cy}a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`;
-  const ICONS: Record<string, string[]> = {
-    search: [c(11, 11, 8), "m21 21-4.3-4.3"],
-    sun: [c(12, 12, 4), "M12 2v2", "M12 20v2", "m4.93 4.93 1.41 1.41", "m17.66 17.66 1.41 1.41", "M2 12h2", "M20 12h2", "m6.34 17.66-1.41 1.41", "m19.07 4.93-1.41 1.41"],
-    moon: ["M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"],
-    monitor: ["M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z", "M8 21h8", "M12 17v4"],
-    layout: ["M3 5a2 2 0 0 1 2-2h4v8H3z", "M13 3h6a2 2 0 0 1 2 2v4h-8z", "M13 13h8v6a2 2 0 0 1-2 2h-6z", "M3 15h6v6H5a2 2 0 0 1-2-2z"],
-    users: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", c(9, 7, 4), "M22 21v-2a4 4 0 0 0-3-3.87", "M16 3.13a4 4 0 0 1 0 7.75"],
-    "home-users": ["M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", c(12, 12, 2), "M8.5 18a3.5 3.5 0 0 1 7 0"],
-    house: ["M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8", "M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"],
-    wallet: ["M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1", "M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"],
-    cap: ["M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z", "M22 10v6", "M6 12.5V16a6 3 0 0 0 12 0v-3.5"],
-    briefcase: ["M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16", "M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"],
-    route: [c(6, 19, 3), "M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15", c(18, 5, 3)],
-    table: ["M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M3 9h18", "M3 15h18", "M9 3v18"],
-    map: ["M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z", "M15 5.764v15", "M9 3.236v15"],
-    play: ["M6 3l14 9-14 9z"],
-    pause: ["M14 4h4v16h-4z", "M6 4h4v16H6z"],
-    github: ["M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4", "M9 18c-4.51 2-5-2-7-2"],
-    maximize: ["M8 3H5a2 2 0 0 0-2 2v3", "M21 8V5a2 2 0 0 0-2-2h-3", "M3 16v3a2 2 0 0 0 2 2h3", "M16 21h3a2 2 0 0 0 2-2v-3"],
-    minimize: ["M8 3v3a2 2 0 0 1-2 2H3", "M21 8h-3a2 2 0 0 1-2-2V3", "M3 16h3a2 2 0 0 1 2 2v3", "M16 21v-3a2 2 0 0 1 2-2h3"],
-    info: [c(12, 12, 10), "M12 16v-4", "M12 8h.01"],
-    download: ["M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "m7 10 5 5 5-5", "M12 15V3"],
-    chevron: ["m6 9 6 6 6-6"],
-    x: ["M18 6 6 18", "m6 6 12 12"],
-    plus: ["M5 12h14", "M12 5v14"],
-    sliders: ["M21 4h-7", "M10 4H3", "M21 12h-9", "M8 12H3", "M21 20h-5", "M12 20H3", "M14 2v4", "M8 10v4", "M16 18v4"],
+  const ICONS: Record<string, Component<{ size?: number; "aria-hidden"?: boolean | "true" | "false"; style?: string }>> = {
+    search: Search, sun: Sun, moon: Moon, monitor: Monitor, layout: LayoutDashboard, users: Users, house: House,
+    wallet: Wallet, cap: GraduationCap, briefcase: Briefcase, route: Route, table: Table, play: Play, pause: Pause,
+    maximize: Maximize, minimize: Minimize, info: Info, download: Download, chevron: ChevronDown, x: X, plus: Plus, sliders: Sliders,
   };
-  const paths = $derived(ICONS[name] ?? ICONS.info);
+  const Glyph = $derived(ICONS[name] ?? Info);
+  // Households: the Lucide house outline with a person inside (no single Lucide icon is both).
+  const HOME_USERS = ["M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z", "M12 10a2 2 0 1 0 0 4 2 2 0 1 0 0-4z", "M8.5 18a3.5 3.5 0 0 1 7 0"];
+  // Lucide has no brand icons, so GitHub is its own mark (the Octicons path).
+  const GITHUB = "M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z";
 </script>
 
-<svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none">
-  {#each paths as d}<path {d} />{/each}
-</svg>
+{#if name === "home-users"}
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;flex:none">
+    {#each HOME_USERS as d}<path {d} />{/each}
+  </svg>
+{:else if name === "github"}
+  <svg viewBox="0 0 16 16" width={size} height={size} fill="currentColor" aria-hidden="true" style="display:block;flex:none"><path d={GITHUB} /></svg>
+{:else}
+  <Glyph {size} aria-hidden="true" style="display:block;flex:none" />
+{/if}

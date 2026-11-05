@@ -30,6 +30,9 @@
   let direction = $state<Direction>("both");
   let limit = $state("100");
   let view = $state<"map" | "table">("map");
+  // Moving dashes show which way the jobs go but make the routes harder to read, so they are off until asked for, and they start only when a reader turns them on, including readers whose device prefers less motion.
+  let animate = $state(false);
+  const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   let failed = $state("");
   // The rows on screen. A new year or area replaces them only when the new ones arrive, so the map does not blank in between.
   let data = $state.raw<{ id: string; type: string; year: number; rows: OdRow[]; places: Map<string, { lon: number; lat: number }>; shapes: GeoJSON.FeatureCollection } | null>(null);
@@ -110,11 +113,11 @@
   }
 
   $effect(() => {
-    const c = controller, d = data, l = lines;
+    const c = controller, d = data, l = lines, moving = animate;
     if (!c || !d || !l) return;
     const type = d.type, focus = { type: "FeatureCollection" as const, features: d.shapes.features.filter((f: any) => f.properties.id === d.id) };
     c.update({
-      places, flows: l.flows, selId: d.id, shapes: d.shapes, focus, tip,
+      places, flows: l.flows, selId: d.id, shapes: d.shapes, focus, tip, animate: moving,
       fitKey: `${type}|${d.id}`, // not the direction or route count: changing those keeps the view the reader has framed
       onSelect: (id) => app.select(id),
     });
@@ -150,6 +153,9 @@
           {/each}
         </div>
         <div class="fm-min"><Dropdown bind:value={limit} options={ROUTE_LIMITS} label="How many routes to draw" up={false} /></div>
+        {#if view === "map"}
+          <button class="mini-btn" aria-pressed={animate} title={calm ? "Your device is set to reduce motion, so this is off until you turn it on. It moves dashes along the routes to show direction" : "Show moving dashes along the routes, which makes the direction easier to see"} onclick={() => (animate = !animate)}>Animate</button>
+        {/if}
         <button class="mini-btn" aria-pressed={view === "table"} onclick={() => (view = view === "table" ? "map" : "table")}>{view === "table" ? "Map" : "Table"}</button>
       </div>
     {/if}

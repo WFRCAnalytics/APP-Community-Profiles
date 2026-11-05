@@ -20,6 +20,7 @@ export interface FlowView {
   shapes: GeoJSON.FeatureCollection;   // outlines of every area of the type
   focus: GeoJSON.FeatureCollection;    // the selected area
   fitKey: string;                      // refit the map when this changes
+  animate: boolean;                    // moving dashes along the routes instead of solid lines
   tip: (t: FlowTip) => TipData | string;
   onSelect: (id: string) => void;
 }
@@ -117,7 +118,7 @@ export class FlowMapController {
       getLocationId: (p: FlowPlace) => p.id, getLocationName: (p: FlowPlace) => p.name, getLocationLon: (p: FlowPlace) => p.lon, getLocationLat: (p: FlowPlace) => p.lat,
       getFlowOriginId: (f: MapFlow) => f.origin, getFlowDestId: (f: MapFlow) => f.dest, getFlowMagnitude: (f: MapFlow) => f.count,
       colorScheme: [...FLOW_RAMPS[this.mode]], darkMode: dark,
-      flowLinesRenderingMode: "straight", flowLineThicknessScale: 1.5,
+      flowLinesRenderingMode: view.animate ? "animated-straight" : "straight", flowLineThicknessScale: 1.5,
       fadeEnabled: true, fadeAmount: 15, adaptiveScalesEnabled: true,
       locationTotalsEnabled: true, locationLabelsEnabled: false, clusteringEnabled: false,
       highlightColor: HIGHLIGHT[this.mode], maxTopFlowsDisplayNum: 5000, pickable: true,

@@ -8,9 +8,9 @@
   import Icon from "./Icon.svelte";
 
   const KIND_LABEL: Record<string, string> = { aog: "Region", mpo: "MPO", rpo: "RPO", fws: "Workshop area", county: "County", place: "City or town", state: "State" };
-  const PLURAL: Record<string, string> = { county: "Counties", place: "Cities and towns", fws: "Workshop areas", rpo: "RPOs", mpo: "MPOs", aog: "Regions" };
-  const AREA_KINDS = [["all", "All"], ["aog", "Region"], ["mpo", "MPO"], ["rpo", "RPO"], ["fws", "Workshop areas"], ["county", "Counties"], ["place", "Cities and towns"]] as const;
-  const COMPARE_KINDS = [["suggested", "Suggested"], ["county", "Counties"], ["place", "Cities and towns"], ["fws", "Workshop areas"], ["rpo", "RPO"], ["mpo", "MPO"], ["aog", "Region"]] as const;
+  const PLURAL: Record<string, string> = { county: "Counties", place: "Cities/Towns", fws: "Workshop areas", rpo: "RPOs", mpo: "MPOs", aog: "Regions" };
+  const AREA_KINDS = [["all", "All"], ["aog", "Region"], ["mpo", "MPO"], ["rpo", "RPO"], ["fws", "Workshop areas"], ["county", "Counties"], ["place", "Cities/Towns"]] as const;
+  const COMPARE_KINDS = [["suggested", "Suggested"], ["county", "Counties"], ["place", "Cities/Towns"], ["fws", "Workshop areas"], ["rpo", "RPO"], ["mpo", "MPO"], ["aog", "Region"]] as const;
   const ORDER = ["state", "aog", "mpo", "rpo", "fws", "county", "place"];
 
   const mode = $derived(app.picker);

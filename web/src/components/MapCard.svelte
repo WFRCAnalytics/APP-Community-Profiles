@@ -40,7 +40,7 @@
   const indY = $derived(idY ? BY_ID[idY] : null);
   const mapInds = INDICATORS.filter((i) => i.map);
   const mode = $derived(theme.resolved);
-  const PLURAL: Record<string, string> = { county: "counties", place: "cities and towns", fws: "workshop areas", rpo: "RPOs", mpo: "MPOs", aog: "regions", state: "states" };
+  const PLURAL: Record<string, string> = { county: "counties", place: "cities/towns", fws: "workshop areas", rpo: "RPOs", mpo: "MPOs", aog: "regions", state: "states" };
   const layerPlural = $derived(PLURAL[["state", "aog", "mpo", "rpo"].includes(app.type) ? "county" : app.type] ?? app.typeInfo.plural);
 
   const tick = (v: number, f: FormatId, span: number) =>

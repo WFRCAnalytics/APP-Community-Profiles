@@ -43,6 +43,7 @@ export function palette() {
   const css = getComputedStyle(document.documentElement);
   const get = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
   return {
+    accent: get("--accent", "#1B2A47"),
     selected: get("--sel", "#0072B2"),
     compare: get("--cmp", "#BD4B00"),
     male: get("--male", "#0072B2"),

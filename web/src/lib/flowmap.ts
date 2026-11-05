@@ -5,7 +5,7 @@ import * as maplibregl from "maplibre-gl";
 import { makeTooltip } from "./charts";
 import { FLOW_RAMPS, HIGHLIGHT, SELECTED, type Mode } from "./classes";
 import type { MapFlow } from "./flows";
-import { BLANK, ResetViewControl, STYLES } from "./map";
+import { BLANK, STYLES, addViewControls, boundsOf } from "./map";
 
 export interface FlowPlace { id: string; name: string; lon: number; lat: number }
 export interface FlowTotals { incoming: number; outgoing: number; within: number }
@@ -41,8 +41,7 @@ export class FlowMapController {
   constructor(container: HTMLElement, mode: Mode) {
     this.mode = mode;
     this.map = new maplibregl.Map({ container, style: BLANK(mode) as any, center: [-111.9, 40.7], zoom: 7, attributionControl: { compact: true } });
-    this.map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: false }), "top-right");
-    this.map.addControl(new ResetViewControl(() => this.fit(true)), "top-right");
+    addViewControls(this.map, () => this.fit(true), () => this.zoomToSelected());
     this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: "imperial" }), "bottom-left");
     this.map.on("error", (e) => console.warn("flow map:", e.error?.message ?? e));
     new ResizeObserver(() => this.map.resize()).observe(container);
@@ -138,26 +137,18 @@ export class FlowMapController {
     });
   }
 
-  // Frame the area and where most of the traffic goes: the middle 90 percent of jobs, weighted by size, along each axis. A few
-  // small, distant routes would otherwise zoom out to the whole state; they are still drawn, and the reset button returns here.
+  // The view that frames every route drawn: the box around both ends of every flow and the selected area, as in WFRC's regional
+  // commuter flows app.
   private measure(view: FlowView) {
     const at = new Map(view.places.map((p) => [p.id, p]));
-    const pts = view.flows.filter((f) => f.origin !== f.dest).flatMap((f) => {
-      const p = at.get(f.origin === view.selId ? f.dest : f.origin);
-      return p ? [{ lon: p.lon, lat: p.lat, w: f.count }] : [];
-    });
-    const home = at.get(view.selId);
     const b = new maplibregl.LngLatBounds();
+    const home = at.get(view.selId);
     if (home) b.extend([home.lon, home.lat]);
-    const spread = (key: "lon" | "lat") => {
-      const sorted = [...pts].sort((x, y) => x[key] - y[key]), total = sorted.reduce((n, p) => n + p.w, 0);
-      let acc = 0, lo = sorted[0]?.[key], hi = lo;
-      for (const p of sorted) { acc += p.w; if (acc < 0.05 * total) lo = p[key]; if (hi === sorted[0]?.[key] || acc <= 0.95 * total) hi = p[key]; }
-      return [lo, hi] as const;
-    };
-    if (pts.length) {
-      const [x0, x1] = spread("lon"), [y0, y1] = spread("lat");
-      b.extend([x0, y0]).extend([x1, y1]);
+    for (const f of view.flows) {
+      for (const id of [f.origin, f.dest]) {
+        const p = at.get(id);
+        if (p) b.extend([p.lon, p.lat]);
+      }
     }
     this.bounds = b.isEmpty() ? null : b;
   }
@@ -166,7 +157,17 @@ export class FlowMapController {
     if (!this.bounds) return;
     const single = this.bounds.getSouthWest().distanceTo(this.bounds.getNorthEast()) < 1;
     if (single) this.map.easeTo({ center: this.bounds.getCenter(), zoom: 9, duration: animate ? 600 : 0 });
-    else this.map.fitBounds(this.bounds, { padding: { top: 50, bottom: 50, left: 50, right: 60 }, maxZoom: 10.5, duration: animate ? 600 : 0 });
+    else this.map.fitBounds(this.bounds, { padding: 60, maxZoom: 11, duration: animate ? 600 : 0, bearing: 0, pitch: 0 });
+  }
+
+  // Close on the selected area alone.
+  zoomToSelected() {
+    const b = this.view && boundsOf(this.view.focus);
+    if (b) this.map.fitBounds(b, { padding: 60, maxZoom: 11, duration: 600, bearing: 0, pitch: 0 });
+    else if (this.view) {
+      const p = this.view.places.find((q) => q.id === this.view!.selId);
+      if (p) this.map.easeTo({ center: [p.lon, p.lat], zoom: 9, duration: 600 });
+    }
   }
 
   destroy() {

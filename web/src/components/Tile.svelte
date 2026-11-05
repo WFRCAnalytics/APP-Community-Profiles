@@ -29,8 +29,8 @@
     <div class="tile-number">{value}</div>
     {#if path}
       <svg class="spark" viewBox="0 0 {W} {H}" width={W} height={H} role="img" aria-label="Trend {spark[0].x - 4} to {spark.at(-1)!.x}">
-        <path d={path.d} fill="none" stroke="var(--sel)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
-        <circle cx={path.cx} cy={path.cy} r="2.4" fill="var(--sel)" />
+        <path d={path.d} fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        <circle cx={path.cx} cy={path.cy} r="2.4" fill="var(--accent)" />
       </svg>
     {/if}
   </div>

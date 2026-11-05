@@ -33,7 +33,7 @@
 <div class="card ctx">
   {#await mark then m}
     {#if m}
-      <svg class="mark" viewBox="0 0 {m.width} {m.height}" aria-hidden="true" focusable="false">
+      <svg class="mark" class:solo={!app.compare} viewBox="0 0 {m.width} {m.height}" aria-hidden="true" focusable="false">
         <path class="state" d={m.state} />
         {#if m.other}<path class="other" d={m.other} />{/if}
         {#if m.shape}<path class="shape" d={m.shape} />{/if}

@@ -3,14 +3,15 @@
 // Rules applied everywhere: thin marks with rounded data ends, a surface gap between stacked fills, a quiet grid, no tick
 // marks on the value axis, one colour for a single series, a legend for two or more, hover tooltips that carry the value,
 // and a table view next to every chart (see ChartCard).
-// Colour grammar: the selected area is always blue and the compared area orange-brown (`areaColors`). The population
+// Colour grammar: one area draws in the theme accent; with a comparison the selected area is blue and the compared area
+// orange-brown, so the two can be told apart (`areaColors`). The population
 // pyramid keeps the industry convention instead: men blue on the left, women pink on the right.
 import * as Plot from "@observablehq/plot";
 import type { Palette } from "./theme.svelte";
 
 export type Fmt = (v: number | null | undefined) => string;
 
-export const areaColors = (pal: Palette, n = 2) => [pal.selected, pal.compare].slice(0, Math.max(1, n));
+export const areaColors = (pal: Palette, n = 2) => (n > 1 ? [pal.selected, pal.compare] : [pal.accent]);
 
 const LEGEND_H = 24;
 
@@ -79,7 +80,7 @@ export interface BarRow { category: string; series: string; value: number; note?
 
 // ---- bars ------------------------------------------------------------------------------------------------
 
-// Horizontal bars. One series draws in the selected colour; two draw grouped (selected blue, compared orange) with a legend.
+// Horizontal bars. One series draws in the theme accent; two draw grouped (selected blue, compared orange) with a legend.
 // With a `height` the rows share it; the chart never gets taller than its natural size, and the panel scrolls if it must.
 export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat = format, labels = true, width, height, colorBy = "series" }: {
   rows: BarRow[]; order?: string[]; seriesOrder?: string[]; pal: Palette; colors?: string[]; format: Fmt; tickFormat?: Fmt; labels?: boolean; width: number; height?: number; colorBy?: "series" | "category";

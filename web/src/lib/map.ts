@@ -42,19 +42,43 @@ export interface MapView {
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
-// A map control button, drawn like the zoom and compass buttons, that returns the map to its starting view.
-export class ResetViewControl implements maplibregl.IControl {
+// Bounds of every coordinate in a feature collection, or null when it has none.
+export function boundsOf(fc: GeoJSON.FeatureCollection): maplibregl.LngLatBounds | null {
+  const bounds = new maplibregl.LngLatBounds();
+  const extend = (c: any) => (typeof c[0] === "number" ? bounds.extend(c) : c.forEach(extend));
+  fc.features.forEach((f) => extend((f.geometry as any).coordinates));
+  return bounds.isEmpty() ? null : bounds;
+}
+
+const ICON = (paths: string) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+
+// Zoom, compass and a zoom-to-selected button at the top right of every map. The compass needle tilts with the map; clicking it
+// resets the view as well as north and tilt, so there is one control for getting back.
+export function addViewControls(map: maplibregl.Map, reset: () => void, selected: () => void) {
+  const nav = new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true });
+  map.addControl(nav, "top-right");
+  const compass = (nav as any)._container?.querySelector(".maplibregl-ctrl-compass") as HTMLButtonElement | null;
+  if (compass) {
+    compass.title = "Reset the view, north and tilt";
+    compass.setAttribute("aria-label", "Reset the view, north and tilt");
+    compass.addEventListener("click", (e) => { e.stopImmediatePropagation(); reset(); }, true);
+  }
+  map.addControl(new ZoomToControl(selected), "top-right");
+}
+
+// A map control button, drawn like the zoom and compass buttons, that zooms to the selected area.
+export class ZoomToControl implements maplibregl.IControl {
   private el?: HTMLDivElement;
-  constructor(private onReset: () => void) {}
+  constructor(private onClick: () => void) {}
   onAdd() {
     const el = document.createElement("div");
     el.className = "maplibregl-ctrl maplibregl-ctrl-group ctrl-reset";
     const b = document.createElement("button");
     b.type = "button";
-    b.title = "Reset the view";
-    b.setAttribute("aria-label", "Reset the view");
-    b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>';
-    b.addEventListener("click", this.onReset);
+    b.title = "Zoom to the selected area";
+    b.setAttribute("aria-label", "Zoom to the selected area");
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/></svg>';
+    b.addEventListener("click", this.onClick);
     el.append(b);
     this.el = el;
     return el;
@@ -80,9 +104,7 @@ export class MapController {
     this.map = new maplibregl.Map({
       container, style: BLANK(mode) as any, center: [-111.9, 40.7], zoom: 8, attributionControl: { compact: true },
     });
-    // Zoom, compass (reset north) and a reset-view button at the top right of every map; a scale bar at the bottom left.
-    this.map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: false }), "top-right");
-    this.map.addControl(new ResetViewControl(() => this.resetView()), "top-right");
+    addViewControls(this.map, () => this.resetView(), () => this.zoomToSelected());
     this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: "imperial" }), "bottom-left");
     this.map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
     new ResizeObserver(() => this.map.resize()).observe(container);
@@ -231,6 +253,15 @@ export class MapController {
   resetView() {
     if (!this.lastFit) return;
     this.map.fitBounds(this.lastFit.bounds, { padding: this.lastFit.padding, duration: 500, maxZoom: 12, bearing: 0, pitch: 0 });
+  }
+
+  // Close on the selected areas (not the compared ones), whatever extent the map was fitted to.
+  zoomToSelected() {
+    const focus = this.view?.focus;
+    if (!focus) return;
+    const sel = { ...focus, features: focus.features.filter((f) => f.properties?.role === "sel") };
+    const bounds = boundsOf(sel.features.length ? sel : focus);
+    if (bounds) this.map.fitBounds(bounds, { padding: 56, duration: 500, maxZoom: 12, bearing: 0, pitch: 0 });
   }
 
   destroy() {

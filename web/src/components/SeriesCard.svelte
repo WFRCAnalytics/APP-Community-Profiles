@@ -1,30 +1,26 @@
 <script lang="ts">
-  // Annual series that are not ACS indicators: population estimates (PEP) and LEHD jobs or workers (LODES8).
+  // Annual series that are not plain ACS indicators: LEHD jobs or workers (LODES8). Population over time is the ACS series, so it
+  // carries the margin-of-error band where the Census publishes one.
   import { app } from "../lib/app.svelte";
   import { lines } from "../lib/charts";
-  import { hasPep, lodesSeries, pepSeries } from "../lib/data";
+  import { lodesSeries } from "../lib/data";
   import { fmtCompact, fmtInt } from "../lib/format";
   import { colorize, seriesFrom } from "../lib/series";
   import { trendTable } from "../lib/tables";
-  import TrendCard from "./TrendCard.svelte";
   import ChartCard from "./ChartCard.svelte";
+  import TrendCard from "./TrendCard.svelte";
 
   let { kind, title, style = "" }: { kind: "pop" | "jobs" | "workers"; title: string; style?: string } = $props();
 
-  // Population estimates exist for the state, counties, places and whole-county WFRC areas; otherwise fall back to the ACS.
-  const usePep = $derived(kind === "pop" && app.refs.every((r) => hasPep(r.type)));
-
   async function load() {
-    const refs = app.refs, db = app.db!;
-    if (kind === "pop") return seriesFrom(refs, (await pepSeries(db, refs)).map((p) => ({ id: p.id, x: p.year, y: p.value, note: p.year === 2020 ? "New base: 2020 Census" : "" })));
-    return seriesFrom(refs, (await lodesSeries(db, kind === "jobs" ? "wac" : "rac", refs)).map((p) => ({ id: p.id, x: p.year, y: p.value })));
+    const refs = app.refs;
+    return seriesFrom(refs, (await lodesSeries(app.db!, kind === "jobs" ? "wac" : "rac", refs)).map((p) => ({ id: p.id, x: p.year, y: p.value })));
   }
-  const source = $derived(kind === "pop" ? "Source: Census Bureau population estimates. The 2010s are based on the 2010 Census and the 2020s on the 2020 Census, so the series steps at 2020."
-    : `Source: LEHD LODES8, ${kind === "jobs" ? "jobs by place of work" : "workers by place of residence"}, all jobs, 2002 to ${app.lodesLatest}. Block counts carry noise, so small areas are rough.`);
+  const source = $derived(`Source: LEHD LODES8, ${kind === "jobs" ? "jobs by place of work" : "workers by place of residence"}, all jobs, 2002 to ${app.lodesLatest}. Block counts carry noise, so small areas are rough.`);
 </script>
 
-{#if kind === "pop" && !usePep}
-  <TrendCard {title} id="pop" zero {style} />
+{#if kind === "pop"}
+  <TrendCard {title} id="pop" {style} />
 {:else}
   <ChartCard
     {title}

@@ -8,7 +8,7 @@ format:
     nav-buttons:
       - icon: info-circle
         text: Methods
-        href: methodology.qmd
+        href: methodology.html
 ---
 
 ```{ojs}
@@ -231,7 +231,7 @@ trendChart = async (id, {zero = false} = {}) => {
 
 # Overview
 
-## Row {height=260px}
+## Row {height=280px}
 
 ::: {.card}
 ```{ojs}
@@ -281,7 +281,7 @@ glance = {
 //| echo: false
 viewof mapOpts = Inputs.form({
   layer: Inputs.radio(new Map([["Areas of this kind", "areas"], ["Census tracts (latest period)", "tracts"]]), {value: "areas"}),
-  indicator: Inputs.select(INDICATORS.filter((i) => i.map), {format: (i) => i.label, value: BY_ID.median_income})
+  indicator: Inputs.select(INDICATORS.filter((i) => i.map), {label: "Indicator", format: (i) => i.label, value: BY_ID.median_income})
 }, {template: (inputs) => html`<div class="pf-controls">${inputs.layer}${inputs.indicator}</div>`})
 ```
 

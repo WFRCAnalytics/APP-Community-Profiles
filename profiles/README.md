@@ -127,6 +127,19 @@ OpenFreeMap. Each Quarto code cell holds one statement, so definitions are separ
 To test in a real browser, `scripts/tools` already carries `puppeteer-core`: open the rendered page, wait for
 `.pf-value-number`, and look for console errors and `.observablehq--error` elements.
 
+## On the site
+
+- The navbar has a **Profiles** link, and the profiles are an Explore entry (`APP-Community-Profiles` in
+  `catalog.yml`, details in `tool-details.yml`). Because they live in this repository, not in a repository of
+  their own, the entry carries `in-site: profiles`: `scripts/sync_catalog.py` treats it as always live at its
+  `live-url` and dates it from the latest commit that touched `profiles/`, instead of reporting it as missing
+  from GitHub. The weekly screenshot job photographs the live page like any other tool.
+- Publishing and the weekly refresh install the project with `uv sync --frozen --no-dev` (the same `pyproject.toml`
+  and `uv.lock` the pipeline uses) and put its virtual environment on `PATH`, so `python scripts/build_lists.py`
+  runs in that environment. Only parquet and GeoJSON files in `profiles/data/` are published, not the raw
+  downloads, boundary snapshots or crosswalk tables.
+- To feature the profiles on the home page, set `featured: true` on the catalog entry.
+
 ## Notes
 
 - `duckdb` is pinned in `pyproject.toml`. If `LOAD spatial` fails with an Application Control policy

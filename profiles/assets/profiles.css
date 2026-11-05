@@ -12,10 +12,10 @@
 .pf-legend-note { flex-basis: 100%; font-size: 0.75rem; }
 
 /* value boxes */
-.pf-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+.pf-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
 .pf-value { padding: 0.15rem 0.25rem; min-width: 0; }
 .pf-value-label { font-size: 0.8rem; font-weight: 500; color: var(--wfrc-ink-2, #4f5e69); }
-.pf-value-number { font-family: Inter, sans-serif; font-size: 1.9rem; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; color: var(--wfrc-h1, inherit); }
+.pf-value-number { font-family: Inter, sans-serif; font-size: clamp(1.3rem, 0.9vw + 0.55rem, 1.9rem); white-space: nowrap; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; color: var(--wfrc-h1, inherit); }
 .pf-value-sub { font-size: 0.78rem; color: var(--wfrc-ink-2, #4f5e69); display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 .pf-compare { font-size: 0.78rem; color: var(--wfrc-ink-2, #4f5e69); }
 
@@ -60,3 +60,7 @@
 .quarto-dashboard .card-body { justify-content: flex-start; }
 /* cells size to their content instead of splitting the card's free height between them */
 .quarto-dashboard .card-body.cell, .quarto-dashboard .card-body .cell-output-display { flex: 0 0 auto; }
+
+/* contrast: the dashboard's nav button and the sidebar note sit on tinted backgrounds */
+.quarto-dashboard-link, .quarto-dashboard-link-text { color: var(--wfrc-link, #00395b) !important; opacity: 1 !important; }
+.sidebar .pf-note { color: var(--wfrc-ink, #16232c); }

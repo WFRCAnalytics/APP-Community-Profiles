@@ -119,8 +119,12 @@ view can be shared.
 | `assets/charts.js`, `assets/map.js`, `assets/format.js` | Plot charts, the MapLibre map, number formatting |
 
 Run `uv run profiles export` to refresh the simplified map geometry in `data/web/`, then
-`quarto preview profiles/index.qmd`. The data files are read from `profiles/data/` by relative path, so the page
-must be served over HTTP with range support (`quarto preview` does this). Runtime libraries load from jsDelivr
+`quarto render profiles` and serve `docs/` with any static server, for example
+`uv run python -m http.server 8000 -d docs` and open `http://localhost:8000/profiles/`. The data files are read from
+`profiles/data/` by relative path, so the page must be served over HTTP, not opened as a file. Servers that
+support byte ranges (GitHub Pages does) fetch only what a query needs; others fall back to whole files. Avoid
+`quarto preview` for this site: the pre-render script rewrites its generated files on every build, which makes the
+preview reload the page in a loop. Runtime libraries load from jsDelivr
 at pinned versions (DuckDB-WASM 1.29.0, Observable Plot 0.6.16, MapLibre 4.7.1) and the basemap from
 OpenFreeMap. Each Quarto code cell holds one statement, so definitions are separate cells.
 

@@ -14,6 +14,9 @@ export async function openDb() {
   const worker = new Worker(workerUrl);
   const db = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING), worker);
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  // Read parquet by byte range where the server supports it (GitHub Pages does). Servers without range support,
+  // such as `quarto preview`, fall back to fetching the whole file instead of failing.
+  await db.open({ filesystem: { allowFullHTTPReads: true } });
   URL.revokeObjectURL(workerUrl);
   return { db, conn: await db.connect() };
 }

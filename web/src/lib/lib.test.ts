@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { thinTicks } from "./charts";
+import { arcPath, thinTicks } from "./charts";
 import { formatHash, parseHash } from "./hash";
 import { classOf, colourFor, quantileBreaks, RAMPS } from "./classes";
 import { silhouette } from "./place";
@@ -78,5 +78,16 @@ describe("definitions", () => {
       if (i.type === "share") expect(i.den?.length).toBeGreaterThan(0);
     }
     for (const spec of Object.values(SPECS)) expect(spec.den.length).toBeGreaterThan(0);
+  });
+});
+
+describe("donut geometry", () => {
+  it("draws a finite annular sector, and a full ring for a single 100 percent slice", () => {
+    const part = arcPath(50, 50, 20, 40, 0, Math.PI / 2);
+    expect(part.startsWith("M")).toBe(true);
+    expect(part).not.toContain("NaN");
+    const full = arcPath(50, 50, 20, 40, 0, Math.PI * 2);
+    expect(full).not.toContain("NaN");
+    expect(full).toContain(" 0 1 1 ");      // a large arc, so the ring closes rather than collapsing
   });
 });

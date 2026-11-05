@@ -16,9 +16,10 @@
     isEmpty?: (data: T) => boolean;
     emptyText?: string;
     controls?: Snippet;
+    headerExtra?: Snippet;
     style?: string;
   }
-  let { title, note, load, draw, table, isEmpty = (d) => d == null || (Array.isArray(d) && d.length === 0), emptyText = "Not published for this area or year.", controls, style = "" }: Props = $props();
+  let { title, note, load, draw, table, isEmpty = (d) => d == null || (Array.isArray(d) && d.length === 0), emptyText = "Not published for this area or year.", controls, headerExtra, style = "" }: Props = $props();
 
   const promise = $derived(load());
   let view = $state<"chart" | "table">("chart");
@@ -40,6 +41,7 @@
     {#await promise then data}
       {#if table && !isEmpty(data)}
         <div class="pn-actions">
+          {#if headerExtra && view === "chart"}{@render headerExtra()}{/if}
           <button class="mini-btn" aria-pressed={view === "table"} onclick={() => (view = view === "table" ? "chart" : "table")}>{view === "table" ? "Chart" : "Table"}</button>
           {#if view === "table"}<button class="mini-btn" onclick={() => download(table(data))}>CSV</button>{/if}
         </div>

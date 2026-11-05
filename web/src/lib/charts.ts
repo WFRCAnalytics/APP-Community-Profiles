@@ -226,8 +226,127 @@ export function lines({ series, pal, format, tickFormat = format, xFormat = Stri
   const chart = Plot.plot(base(pal, {
     width, height: innerHeight(height, series.length, 230), marginRight: 46, marginLeft: 52, marginTop: 22, marginBottom: 26,
     x: { label: null, tickFormat: xFormat as any, ticks, type: "linear", nice: false, tickSize: 3 },
-    y: { grid: true, label: null, tickFormat: tickFormat as any, zero, nice: true, tickSize: 0 },
+    y: { grid: true, label: null, tickFormat: tickFormat as any, zero, nice: true, tickSize: 0, insetBottom: 24 },
     marks,
   }));
   return withLegend(series.map((s) => ({ label: s.label, color: s.color })), chart, "line");
+}
+
+// ---- donut -----------------------------------------------------------------------------------------------
+
+// Categories take their own colours (Okabe-Ito, minus the blue and orange that mean selected and compared area), so a ring is
+// told apart from the other ring by position, not by hue. Two areas are drawn as two rings: the outer is the selected area.
+export const CATEGORY_COLORS = ["#009E73", "#E69F00", "#56B4E9", "#CC79A7", "#8E6BB8", "#7A8497", "#B07A4B", "#4C7A6B", "#C9B21E"];
+
+// An annular sector between radii r0 and r1, from angle a0 to a1 (radians, clockwise from 12 o'clock).
+export function arcPath(cx: number, cy: number, r0: number, r1: number, a0: number, a1: number): string {
+  const full = a1 - a0 >= Math.PI * 2 - 1e-6;
+  const end = full ? a0 + Math.PI * 2 - 1e-4 : a1;
+  const pt = (a: number, r: number) => `${(cx + r * Math.sin(a)).toFixed(2)},${(cy - r * Math.cos(a)).toFixed(2)}`;
+  const large = end - a0 > Math.PI ? 1 : 0;
+  return `M${pt(a0, r1)}A${r1},${r1} 0 ${large} 1 ${pt(end, r1)}L${pt(end, r0)}A${r0},${r0} 0 ${large} 0 ${pt(a0, r0)}Z`;
+}
+
+export function donut({ rows, order, seriesOrder, pal, format, width, height }: {
+  rows: BarRow[]; order?: string[]; seriesOrder?: string[]; pal: Palette; format: Fmt; width: number; height?: number;
+}) {
+  const cats = order ?? [...new Set(rows.map((r) => r.category))];
+  const series = seriesOrder ?? [...new Set(rows.map((r) => r.series))];
+  const value = (c: string, s: string) => rows.find((r) => r.category === c && r.series === s)?.value ?? 0;
+  const colour = (i: number) => CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+  const areaColor = areaColors(pal, series.length);
+  const h = Math.max(120, height ?? 200);
+  const size = Math.max(100, Math.min(h - 4, width * 0.46));
+  const cx = size / 2, cy = size / 2;
+  const rings = series.slice(0, 2);
+  const outer = size / 2 - 2;
+  const thickness = rings.length > 1 ? outer * 0.26 : outer * 0.34;
+  const gap = 3;
+
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.style.flex = "none";
+  rings.forEach((s, ri) => {
+    const r1 = outer - ri * (thickness + gap), r0 = r1 - thickness;
+    const track = document.createElementNS(NS, "path");
+    track.setAttribute("d", arcPath(cx, cy, r0, r1, 0, Math.PI * 2));
+    track.setAttribute("fill", pal.grid);
+    track.setAttribute("opacity", "0.5");
+    svg.append(track);
+    let a = 0;
+    cats.forEach((c, i) => {
+      const v = value(c, s);
+      if (!(v > 0)) return;
+      const a1 = a + v * Math.PI * 2;
+      const slice = document.createElementNS(NS, "path");
+      slice.setAttribute("d", arcPath(cx, cy, r0, r1, a, Math.min(a1, Math.PI * 2)));
+      slice.setAttribute("fill", colour(i));
+      slice.setAttribute("stroke", pal.surface);
+      slice.setAttribute("stroke-width", "1.5");
+      const title = document.createElementNS(NS, "title");
+      title.textContent = `${s}
+${c}: ${format(v)}`;
+      slice.append(title);
+      svg.append(slice);
+      a = a1;
+    });
+  });
+  // The leading category of the selected area in the middle.
+  const first = series[0];
+  let top = 0;
+  cats.forEach((c, i) => { if (value(c, first) > value(cats[top], first)) top = i; });
+  const inner = outer - (rings.length - 1) * (thickness + gap) - thickness;
+  const centre = document.createElementNS(NS, "text");
+  centre.setAttribute("x", String(cx));
+  centre.setAttribute("y", String(cy + 1));
+  centre.setAttribute("text-anchor", "middle");
+  centre.setAttribute("fill", pal.ink);
+  centre.setAttribute("font-weight", "700");
+  centre.setAttribute("font-size", String(Math.max(12, Math.min(22, inner * 0.42))));
+  centre.setAttribute("font-family", "var(--f-display)");
+  centre.textContent = format(value(cats[top], first));
+  const sub = document.createElementNS(NS, "text");
+  sub.setAttribute("x", String(cx));
+  sub.setAttribute("y", String(cy + Math.max(14, inner * 0.38)));
+  sub.setAttribute("text-anchor", "middle");
+  sub.setAttribute("fill", pal.ink2);
+  sub.setAttribute("font-size", "10.5");
+  const label = cats[top];
+  sub.textContent = label.length > 16 ? `${label.slice(0, 15)}…` : label;
+  svg.append(centre, sub);
+
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "display:flex;align-items:center;gap:14px;height:100%;min-height:0;";
+  wrap.append(svg);
+  const legendEl = document.createElement("div");
+  legendEl.style.cssText = "flex:1;min-width:0;display:grid;gap:3px;font-size:12px;overflow:auto;max-height:100%;";
+  if (rings.length > 1) {
+    const head = document.createElement("div");
+    head.style.cssText = "display:grid;grid-template-columns:12px 1fr auto auto;gap:6px;color:var(--muted);font-size:11px;";
+    head.innerHTML = `<span></span><span></span>${rings.map((s, i) => `<span style="display:flex;align-items:center;gap:4px;justify-content:flex-end;"><i style="width:8px;height:8px;border-radius:50%;background:${areaColor[i]};display:inline-block"></i>${s}</span>`).join("")}`;
+    legendEl.append(head);
+  }
+  cats.forEach((c, i) => {
+    const row = document.createElement("div");
+    row.style.cssText = `display:grid;grid-template-columns:12px 1fr ${rings.map(() => "auto").join(" ")};gap:6px;align-items:center;`;
+    const sw = document.createElement("i");
+    sw.style.cssText = `width:10px;height:10px;border-radius:3px;background:${colour(i)};display:inline-block;`;
+    const name = document.createElement("span");
+    name.textContent = c;
+    name.title = c;
+    name.style.cssText = "min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);";
+    row.append(sw, name);
+    for (const s of rings) {
+      const v = document.createElement("b");
+      v.textContent = format(value(c, s));
+      v.style.cssText = "font-variant-numeric:tabular-nums;font-weight:600;text-align:right;color:var(--text);";
+      row.append(v);
+    }
+    legendEl.append(row);
+  });
+  wrap.append(legendEl);
+  return wrap;
 }

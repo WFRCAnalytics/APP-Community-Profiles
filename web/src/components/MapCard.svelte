@@ -9,18 +9,20 @@
   import { BY_ID, INDICATORS } from "../lib/indicators";
   import { MapController, type Legend } from "../lib/map";
   import { theme } from "../lib/theme.svelte";
+  import Dropdown from "./Dropdown.svelte";
 
   const FRONT: [[number, number], [number, number]] = [[-113.25, 39.55], [-110.85, 41.95]];
   const STATE: [[number, number], [number, number]] = [[-114.1, 36.95], [-108.95, 42.05]];
 
-  let { compact = false }: { compact?: boolean } = $props();
+  // simple: the overview panel, the same map without the areas-or-tracts switch.
+  // idX and plural are bindable so the panel can title itself.
+  let { simple = false, idX = $bindable("median_income"), plural = $bindable("") }: { simple?: boolean; idX?: string; plural?: string } = $props();
   let el: HTMLDivElement | undefined = $state();
   let controller = $state.raw<MapController>();
   let legend = $state.raw<Legend | null>(null);
   let valuesX = $state.raw<Map<string, number | null>>(new Map());
   let valuesY = $state.raw<Map<string, number | null>>(new Map());
   let marks = $state.raw<{ sel: [number | null, number | null]; cmp: [number | null, number | null] }>({ sel: [null, null], cmp: [null, null] });
-  let idX = $state("median_income");
   let idY = $state("");
   let layer = $state<"areas" | "tracts">("areas");
   // "auto" frames the Wasatch Front, or all of Utah when the selected (or compared) area is the state or lies outside the Front;
@@ -119,33 +121,29 @@
   }
   const selCell = $derived(cell(marks.sel[0], marks.sel[1]));
   const cmpCell = $derived(cell(marks.cmp[0], marks.cmp[1]));
+  $effect(() => { plural = layerPlural; });
   const span = $derived(legend ? legend.edges[legend.edges.length - 1] - legend.edges[0] : 0);
 </script>
 
 <div class="mapcard">
   <div class="canvas" bind:this={el} role="application" aria-label="Map of {layerPlural}, shaded by {indX.label}{indY ? ` and ${indY.label}` : ''}. Use the search to pick an area with the keyboard."></div>
 
-  {#if !compact}
   <div class="top">
-    <div class="pill wide"><span>Colour by</span>
-      <select bind:value={idX} aria-label="Colour the map by">{#each mapInds as i}<option value={i.id}>{i.label}</option>{/each}</select></div>
-    <div class="row2">
-      <div class="pill wide"><span>and</span>
-        <select bind:value={idY} aria-label="Add a second variable for a bivariate map">
-          <option value="">add a second variable</option>
-          {#each mapInds.filter((i) => i.id !== idX) as i}<option value={i.id}>{i.label}</option>{/each}
-        </select></div>
+    {#if !simple}
       <div class="pill seg" role="group" aria-label="Map layer">
         <button aria-pressed={layer === "areas"} onclick={() => (layer = "areas")}>{layerPlural.replace(/^./, (c) => c.toUpperCase())}</button>
         <button aria-pressed={layer === "tracts"} onclick={() => (layer = "tracts")}>Tracts</button>
       </div>
-    </div>
+    {/if}
+    <button class="pill btn" onclick={() => (extent = effective === "front" ? "state" : "front")}>{effective === "front" ? "Show all of Utah" : "Zoom to Wasatch Front"}</button>
   </div>
-  <button class="pill btn zoomer" onclick={() => (extent = effective === "front" ? "state" : "front")}>{effective === "front" ? "Show all of Utah" : "Zoom to Wasatch Front"}</button>
-  {/if}
 
-  {#if legend && !compact}
-    <div class="maplegend" aria-live="polite">
+  <div class="maplegend" aria-live="polite">
+    <div class="vars">
+      <div class="vr"><span>Colour by</span><Dropdown bind:value={idX} options={mapInds.map((i) => ({ id: i.id, label: i.label }))} label="Colour the map by" /></div>
+      <div class="vr"><span>and</span><Dropdown bind:value={idY} options={[{ id: "", label: "No second variable" }, ...mapInds.filter((i) => i.id !== idX).map((i) => ({ id: i.id, label: i.label }))]} label="Add a second variable for a bivariate map" /></div>
+    </div>
+    {#if legend}
       {#if legend.bi}
         <div class="bi">
           <div class="grid">
@@ -171,26 +169,22 @@
           {#if app.compare}<div><i class="dot cmp"></i><span>{app.compare.label}</span><b>{fmtX(marks.cmp[0])}</b></div>{/if}
         </div>
       {/if}
-    </div>
-  {/if}
+    {/if}
+  </div>
 </div>
 
 <style>
   .mapcard { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; background: var(--raised); }
   .canvas { position: absolute; inset: 0; }
-  .top { position: absolute; left: 10px; width: min(430px, calc(100% - 20px)); top: 10px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
-  .row2 { display: flex; gap: 6px; align-items: center; }
-  .wide { flex: 1; min-width: 0; }
-  .wide select { flex: 1; min-width: 0; max-width: none; }
-  .zoomer { position: absolute; right: 10px; bottom: 30px; z-index: 3; }
+  .top { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; align-items: center; z-index: 3; }
   .pill { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; box-shadow: var(--shadow); overflow: hidden; }
-  .pill span { font-size: 0.72rem; color: var(--muted); padding-left: 12px; white-space: nowrap; }
-  .pill select { border: 0; background: transparent; padding: 7px 22px 7px 6px; font-size: 0.78rem; font-weight: 600; color: var(--text); cursor: pointer; text-overflow: ellipsis; }
-  .pill select option { background: var(--surface); color: var(--text); }
+  .vars { display: grid; gap: 4px; margin-bottom: 8px; }
+  .vr { min-width: 0; display: flex; align-items: center; gap: 6px; }
+  .vr span { width: 52px; flex: none; font-size: 0.7rem; }
   .btn { padding: 7px 12px; font-size: 0.78rem; font-weight: 600; color: var(--text); cursor: pointer; }
   .seg button { border: 0; background: transparent; padding: 7px 12px; font-size: 0.78rem; font-weight: 600; color: var(--muted); cursor: pointer; }
   .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
-  .maplegend { position: absolute; left: 10px; bottom: 36px; width: 214px; z-index: 3; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; font-size: 0.75rem; color: var(--muted); }
+  .maplegend { position: absolute; left: 10px; bottom: 36px; width: min(250px, calc(100% - 20px)); max-height: calc(100% - 90px); z-index: 3; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; font-size: 0.75rem; color: var(--muted); }
   .title { font-weight: 600; color: var(--text); font-size: 0.78rem; margin-bottom: 6px; line-height: 1.25; }
   .scale { position: relative; padding-top: 9px; }
   .bar { display: flex; gap: 2px; }
@@ -213,5 +207,5 @@
   .grid i.cmp { outline: 2px dashed var(--cmp); outline-offset: 1px; }
   .ax { position: absolute; font-size: 0.66rem; white-space: nowrap; }
   .ax.x { left: 16px; bottom: 0; }
-  .ax.y { left: 0; bottom: 16px; transform-origin: left bottom; transform: rotate(-90deg) translateX(0); }
+  .ax.y { max-width: 78px; overflow: hidden; text-overflow: ellipsis; left: 0; bottom: 16px; transform-origin: left bottom; transform: rotate(-90deg) translateX(0); }
 </style>

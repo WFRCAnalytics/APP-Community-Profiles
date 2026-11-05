@@ -39,13 +39,13 @@ test("search picks an area and the compare picker suggests areas of the same kin
   await page.goto("/#type=county&id=49035");
   await ready(page);
   await page.getByRole("button", { name: /Search or browse areas/ }).click();
-  await page.getByRole("combobox").fill("provo");
+  await page.getByRole("combobox", { name: "Search for an area" }).fill("provo");
   await page.getByRole("option", { name: /^Provo/ }).first().click();
   await expect(page.getByRole("heading", { level: 2 })).toContainText("Provo");
   await page.goto("/#type=county&id=49035");
   await ready(page);
   await page.getByRole("button", { name: /Compare with another area/ }).click();
-  const first = page.getByRole("option").first();
+  const first = page.locator("#picker-list").getByRole("option").first();
   await expect(page.getByText("Counties like Salt Lake County")).toBeVisible();
   await expect(first).toContainText("County");
   await page.getByRole("option", { name: /^Utah State/ }).click();
@@ -63,9 +63,9 @@ test("every chart has a table view, and the indicators table downloads as CSV", 
   expect(download.suggestedFilename()).toMatch(/salt-lake-county-2024-profile\.csv/);
 });
 
-test("the methods page renders in the app", async ({ page }) => {
+test("the documentation page renders in the app", async ({ page }) => {
   await page.goto("/#page=methods");
-  await expect(page.getByRole("heading", { level: 2, name: /methods and sources/i })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("heading", { level: 2, name: /documentation/i })).toBeVisible({ timeout: 60_000 });
 });
 
 test("a method chip explains itself on hover", async ({ page }) => {

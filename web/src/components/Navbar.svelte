@@ -19,7 +19,7 @@
     <Icon name="chevron" size={15} />
   </button>
   <div class="spacer"></div>
-  <button class="btn-ghost" onclick={() => (app.page = app.page === "methods" ? "" : "methods")}><Icon name="info" size={15} /><span>{app.page === "methods" ? "Back to the data" : "Methods"}</span></button>
+  <button class="btn-ghost" onclick={() => (app.page = app.page === "methods" ? "" : "methods")}><Icon name="info" size={15} /><span>{app.page === "methods" ? "Back to the data" : "Documentation"}</span></button>
   <button class="btn-ghost" onclick={() => theme.cycle()} aria-label="Theme: {themeName}" title="Theme: {themeName} (click to change)"><Icon name={themeIcon} size={15} /></button>
   <a class="btn-ghost" href="https://github.com/WFRCAnalytics/APP-Community-Profiles" target="_blank" rel="noopener" aria-label="Source code and data on GitHub" title="Source code and data on GitHub"><Icon name="github" size={15} /></a>
 </header>

@@ -28,7 +28,7 @@
 <div class="page" id="methods">
   <article class="m">
     <header>
-      <h2>Methods and sources</h2>
+      <h2>Documentation</h2>
       <p>Where the numbers come from, how {site.organization} planning areas are built from Census geography, and how much weight each figure can bear.</p>
     </header>
 

@@ -21,7 +21,7 @@ Counties, cities and the state are always Census published. The WFRC region (the
 | Topic | Source | Years | Finest geography used |
 |---|---|---|---|
 | People, households, housing, income, education, commuting | American Community Survey (ACS) 5-year estimates, Census Bureau | 2005–2009 through 2020–2024 | Block group (from the 2009–2013 period); county, city and tract before that |
-| Allocation weights | Decennial Census block counts (2010 and 2020) | 2010, 2020 | Block |
+| Allocation weights | Decennial Census counts of people, households and housing units in each block (2010 and 2020) | 2010, 2020 | Block |
 | Annual population | Population Estimates Program, Census Bureau | 2010–2024 | County, city |
 | Jobs, workers, commute flows | LEHD Origin-Destination Employment Statistics (LODES8), Census Bureau | 2002–2023 | Block |
 | Employment, establishments, wages by industry | Quarterly Census of Employment and Wages (QCEW), Bureau of Labor Statistics | 2014–2025 | County |
@@ -32,7 +32,7 @@ An ACS 5-year estimate pools five years of survey responses, so "2020–2024" is
 ## How the planning areas are built
 
 1. **Assign blocks to areas.** Each Census block belongs to an area if its internal point falls inside the area's boundary.
-2. **Split block groups.** The ACS publishes counts for block groups, which are larger than blocks. A block group that is only partly inside an area is split by the share of its Decennial Census block counts that fall inside: people for person tables, households for household tables and housing units for housing tables. Where a block group has no counts (for example new development since the Census), the next available count, and finally land area, is used.
+2. **Split block groups.** The ACS publishes counts for block groups, which are larger than blocks. A block group that is only partly inside an area is split by how many people live in each of its blocks, using the Decennial Census count for every block: the share of the block group's population that lives in blocks inside the area. Household tables use the number of households in each block and housing tables the number of housing units, so the weight matches what the table counts. It is the count of people, households or housing units in each block, not the number of blocks, that sets the share. Where a block group has no counts (for example new development since the Census), the next available count, and finally land area, is used.
 3. **Sum.** Values for the pieces are added up. Margins of error are combined by adding squares and taking the square root, scaled by the share used.
 4. **Label.** If every block group is wholly inside the area the sum is exact and is labelled a WFRC aggregate. Otherwise it is a WFRC estimate. The WFRC region (five whole counties) is exact, and Morgan RPO is the same as Morgan County, so it uses the county's published values.
 

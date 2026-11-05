@@ -77,7 +77,7 @@ again.
 | `validate` | Check every configured ACS table and geography against each vintage | `data/meta/variables.parquet`, `data/meta/acs-availability.md` |
 | `acs` | Download whole ACS 5-year tables (2009 to latest) for state, county, place, tract and block group | `data/acs/<topic>/<geo_type>.parquet` |
 | `geographies` | Build the list of selectable areas | `data/meta/geographies.parquet` |
-| `crosswalk` | Decennial block counts and TIGER block points → share of each ACS block group inside each WFRC area | `data/crosswalk/…`, `data/meta/boundary_quality.parquet` |
+| `crosswalk` | Decennial counts of people, households and housing units by block, and TIGER block points → share of each ACS block group inside each WFRC area | `data/crosswalk/…`, `data/meta/boundary_quality.parquet` |
 | `aggregate` | Apply the shares to ACS block groups to build the WFRC areas' tables | `data/acs/<topic>/{aog,mpo,rpo,fws}.parquet` |
 | `pep` | Annual population estimates for state, counties, places and whole-county WFRC areas | `data/pep/*.parquet` |
 | `lodes` | LEHD jobs by workplace (WAC), workers by residence (RAC) and commute flows (OD), 2002 to latest | `data/lodes/{wac,rac,od}/<geo_type>.parquet` |
@@ -92,7 +92,7 @@ is the only GeoJSON. Output is deterministic (ordered, zstd), and a size guard i
 ### How the WFRC areas are built
 
 A block belongs to an area when its internal point is inside the polygon. Each ACS block group is split between areas by the
-Decennial block counts (people, households or housing units, chosen per table in the config; land area is the last resort).
+the Decennial Census count of people, households or housing units in each block (chosen per table in the config; land area is the last resort). The weight is the population of each block, not the number of blocks.
 Margins of error add the block group margins in quadrature, scaled by the share, which is conservative for large areas.
 Medians are interpolated from allocated brackets and labeled `derived`. Poverty, group quarters, school enrollment and
 disability are not published at block group, so those tables are split from tracts (`unit: tract` in the config); the app says so.

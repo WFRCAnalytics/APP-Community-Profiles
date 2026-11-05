@@ -1,6 +1,6 @@
 <script lang="ts">
-  // A share-of-total chart for a distribution defined in specs.ts. A distribution of three to five categories is drawn as a donut
-  // by default; two categories or more than five read better as bars. A switch in the header changes it either way. A compared area is a second ring or a second bar.
+  // A share-of-total chart for a distribution defined in specs.ts. A distribution of up to five categories is drawn as a donut
+  // by default and a longer one as bars. A switch in the header changes it either way. A compared area is a second ring or a second bar.
   import { app } from "../lib/app.svelte";
   import { bars, donut } from "../lib/charts";
   import { fmtPct } from "../lib/format";
@@ -23,7 +23,7 @@
   // svelte-ignore state_referenced_locally
   const n = typeof spec === "function" ? 99 : spec.categories.length;
   // svelte-ignore state_referenced_locally
-  const initial = view ?? (n >= 3 && n <= 5 && !sort ? "donut" : "bars");
+  const initial = view ?? (n >= 2 && n <= 5 && !sort ? "donut" : "bars");
   let mode = $state<string>(initial);
 
   const pct0 = (d: number | null | undefined) => fmtPct(d, 0);

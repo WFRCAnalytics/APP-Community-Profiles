@@ -247,13 +247,13 @@ export function arcPath(cx: number, cy: number, r0: number, r1: number, a0: numb
   return `M${pt(a0, r1)}A${r1},${r1} 0 ${large} 1 ${pt(end, r1)}L${pt(end, r0)}A${r0},${r0} 0 ${large} 0 ${pt(a0, r0)}Z`;
 }
 
-export function donut({ rows, order, seriesOrder, pal, format, width, height }: {
-  rows: BarRow[]; order?: string[]; seriesOrder?: string[]; pal: Palette; format: Fmt; width: number; height?: number;
+export function donut({ rows, order, seriesOrder, pal, format, width, height, colors }: {
+  rows: BarRow[]; order?: string[]; seriesOrder?: string[]; pal: Palette; format: Fmt; width: number; height?: number; colors?: string[];
 }) {
   const cats = order ?? [...new Set(rows.map((r) => r.category))];
   const series = seriesOrder ?? [...new Set(rows.map((r) => r.series))];
   const value = (c: string, s: string) => rows.find((r) => r.category === c && r.series === s)?.value ?? 0;
-  const colour = (i: number) => CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+  const colour = (i: number) => colors?.[i] ?? CATEGORY_COLORS[i % CATEGORY_COLORS.length];
   const areaColor = areaColors(pal, series.length);
   const h = Math.max(120, height ?? 200);
   const size = Math.max(100, Math.min(h - 4, width * 0.46));

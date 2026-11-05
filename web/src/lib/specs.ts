@@ -1,14 +1,22 @@
 // Distribution charts, defined once: categories over ACS variable codes, and the builders that turn them
 // into chart rows (a share of a total, with the margin of error, for the selected and compared areas).
-import { acsVariables, acsLabels, sumOf, shareMoe, lodesValues, lodesVariables } from "./data.js";
-import { fmtInt, fmtPct, METHODS, methodOf } from "./format.js";
+import type { Db } from "./db";
+import { acsLabels, acsVariables, lodesValues, lodesVariables, shareMoe, sumOf, type Ref } from "./data";
+import { fmtInt, METHODS, methodOf } from "./format";
 
-const code = (table, n) => `${table}_${String(n).padStart(3, "0")}`;
-const codes = (table, ...n) => n.map((i) => code(table, i));
-const span = (table, a, b) => Array.from({ length: b - a + 1 }, (_, i) => code(table, a + i));
+export interface AreaRef extends Ref {
+  label: string;
+}
+export interface Category { label: string; vars: string[] }
+export interface Spec { topic: string; den: string[]; minus?: string[]; categories: Category[] }
+export interface ShareRow { category: string; series: string; value: number; count?: number; moe?: number | null; note?: string }
+
+const code = (table: string, n: number) => `${table}_${String(n).padStart(3, "0")}`;
+const codes = (table: string, ...n: number[]) => n.map((i) => code(table, i));
+const span = (table: string, a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => code(table, a + i));
 
 // Sex by age, merged to 5-year groups (the Census splits 15-24 and 60-69 more finely).
-const AGE_GROUPS = [
+const AGE_GROUPS: [string, number[], number[]][] = [
   ["Under 5", [3], [27]], ["5–9", [4], [28]], ["10–14", [5], [29]], ["15–19", [6, 7], [30, 31]],
   ["20–24", [8, 9, 10], [32, 33, 34]], ["25–29", [11], [35]], ["30–34", [12], [36]], ["35–39", [13], [37]],
   ["40–44", [14], [38]], ["45–49", [15], [39]], ["50–54", [16], [40]], ["55–59", [17], [41]],
@@ -18,7 +26,7 @@ const AGE_GROUPS = [
 export const AGES = AGE_GROUPS.map((g) => g[0]);
 
 // topic, total variable(s) and categories. `minus` removes rows that are not part of the base.
-export const SPECS = {
+export const SPECS: Record<string, Spec> = {
   ageBands: { topic: "population", den: codes("B01001", 1), categories: [
     { label: "Under 18", vars: [...codes("B01001", 3, 4, 5, 6), ...codes("B01001", 27, 28, 29, 30)] },
     { label: "18 to 64", vars: [...span("B01001", 7, 19), ...span("B01001", 31, 43)] },
@@ -38,7 +46,7 @@ export const SPECS = {
     { label: "5 to 9 units", vars: codes("B25024", 6) }, { label: "10 to 19 units", vars: codes("B25024", 7) },
     { label: "20 or more units", vars: codes("B25024", 8, 9) }, { label: "Mobile home", vars: codes("B25024", 10) },
     { label: "Boat, RV, van, etc.", vars: codes("B25024", 11) }] },
-  householdType: { topic: "households", table: "B11012", den: codes("B11012", 1), categories: [
+  householdType: { topic: "households", den: codes("B11012", 1), categories: [
     { label: "Married couple", vars: codes("B11012", 2) }, { label: "Cohabiting couple", vars: codes("B11012", 5) },
     { label: "Female householder, no partner", vars: codes("B11012", 8) }, { label: "Male householder, no partner", vars: codes("B11012", 13) }] },
   income: { topic: "income", den: codes("B19001", 1), categories: [
@@ -69,7 +77,7 @@ export const SPECS = {
     { label: "45 to 59", vars: codes("B08303", 11) }, { label: "60 minutes or more", vars: codes("B08303", 12, 13) }] },
 };
 
-const unique = (xs) => [...new Set(xs)];
+const unique = <T,>(xs: T[]) => [...new Set(xs)];
 
 // Short display names for the 20 NAICS sectors, keyed by LODES variable (CNS01...) and by NAICS code (QCEW),
 // so chart axes do not need a quarter of the card for labels.
@@ -83,25 +91,25 @@ const SECTORS = [
   ["CNS16", "62", "Health care and social assistance"], ["CNS17", "71", "Arts, entertainment, recreation"],
   ["CNS18", "72", "Accommodation and food services"], ["CNS19", "81", "Other services"], ["CNS20", "92", "Public administration"],
 ];
-export const SECTOR_BY_CNS = Object.fromEntries(SECTORS.map(([cns, , name]) => [cns, name]));
-export const SECTOR_BY_NAICS = Object.fromEntries(SECTORS.map(([, naics, name]) => [naics, name]));
+export const SECTOR_BY_CNS: Record<string, string> = Object.fromEntries(SECTORS.map(([cns, , name]) => [cns, name]));
+export const SECTOR_BY_NAICS: Record<string, string> = Object.fromEntries(SECTORS.map(([, naics, name]) => [naics, name]));
 
 // Share rows for each area: [{category, series, value, count, moe, note}]. An empty result means the table does
 // not exist for this vintage (for example household type in 2015 to 2018).
-export async function distribution(handle, spec, refs, vintage, categories = spec.categories) {
+export async function distribution(handle: Db, spec: Spec, refs: AreaRef[], vintage: number, categories: Category[] = spec.categories): Promise<ShareRow[]> {
   const vars = unique([...categories.flatMap((c) => c.vars), ...spec.den, ...(spec.minus ?? [])]);
   const map = await acsVariables(handle, spec.topic, refs, vintage, vars);
-  const rows = [];
+  const rows: ShareRow[] = [];
   for (const ref of refs) {
     const total = sumOf(map, ref.id, spec.den);
     const minus = spec.minus ? sumOf(map, ref.id, spec.minus) : { value: 0, moe: 0 };
-    const den = total.any ? total.value - (minus.value ?? 0) : null;
+    const den = total.any ? (total.value ?? 0) - (minus.value ?? 0) : null;
     const denMoe = total.moe == null ? null : Math.sqrt(total.moe ** 2 + (minus.moe ?? 0) ** 2);
     for (const cat of categories) {
       const s = sumOf(map, ref.id, cat.vars);
       if (!s.any || !den) continue;
       rows.push({
-        category: cat.label, series: ref.label, value: s.value / den, count: s.value,
+        category: cat.label, series: ref.label, value: (s.value ?? 0) / den, count: s.value ?? 0,
         moe: shareMoe(s.value, den, s.moe, denMoe),
         note: `${fmtInt(s.value)} (${METHODS[methodOf(Math.max(s.rank, total.rank))].short.toLowerCase()})`,
       });
@@ -111,12 +119,12 @@ export async function distribution(handle, spec, refs, vintage, categories = spe
 }
 
 // Vehicles available by tenure: shares of all households, one row per vehicle count and tenure.
-export async function vehicles(handle, refs, vintage) {
+export async function vehicles(handle: Db, refs: AreaRef[], vintage: number) {
   const owner = [code("B25044", 3), ...codes("B25044", 4, 5, 6, 7, 8)];
   const renter = [code("B25044", 10), ...codes("B25044", 11, 12, 13, 14, 15)];
   const labels = ["No vehicle", "1 vehicle", "2 vehicles", "3 vehicles", "4 vehicles", "5 or more"];
   const map = await acsVariables(handle, "households", refs, vintage, [...owner, ...renter, code("B25044", 1)]);
-  const out = {};
+  const out: Record<string, { category: string; series: string; value: number }[]> = {};
   for (const ref of refs) {
     const den = sumOf(map, ref.id, codes("B25044", 1)).value;
     out[ref.id] = den ? labels.flatMap((label, i) => [
@@ -128,39 +136,39 @@ export async function vehicles(handle, refs, vintage) {
 }
 
 // Pyramid rows (shares of the area's population) for one area.
-export async function pyramidRows(handle, ref, vintage) {
+export async function pyramidRows(handle: Db, ref: AreaRef, vintage: number): Promise<{ age: string; sex: "Male" | "Female"; value: number }[]> {
   const vars = AGE_GROUPS.flatMap(([, m, f]) => [...m.map((n) => code("B01001", n)), ...f.map((n) => code("B01001", n))]);
   const map = await acsVariables(handle, "population", [ref], vintage, [...vars, code("B01001", 1)]);
   const total = sumOf(map, ref.id, codes("B01001", 1)).value;
   if (!total) return [];
   return AGE_GROUPS.flatMap(([age, m, f]) => [
-    { age, sex: "Male", value: sumOf(map, ref.id, m.map((n) => code("B01001", n))).value / total },
-    { age, sex: "Female", value: sumOf(map, ref.id, f.map((n) => code("B01001", n))).value / total },
+    { age, sex: "Male" as const, value: (sumOf(map, ref.id, m.map((n) => code("B01001", n))).value ?? 0) / total },
+    { age, sex: "Female" as const, value: (sumOf(map, ref.id, f.map((n) => code("B01001", n))).value ?? 0) / total },
   ]);
 }
 
 // Year-built categories change between vintages, so they are read from that vintage's variable labels
 // (newest first).
-export async function yearBuiltCategories(handle, vintage) {
+export async function yearBuiltCategories(handle: Db, vintage: number): Promise<Category[]> {
   const labels = await acsLabels(handle, vintage, "B25034");
   return labels.filter((l) => l.variable !== code("B25034", 1))
-    .map((l) => ({ label: l.label.split(" > ").pop().replace(/^Built /, ""), vars: [l.variable] }));
+    .map((l) => ({ label: l.label.split(" > ").pop()!.replace(/^Built /, ""), vars: [l.variable] }));
 }
 
 // ---- LODES -----------------------------------------------------------------------------------------------
 
-let lodesLabels;
-export async function lodesGroups(handle) {
+let lodesLabels: Awaited<ReturnType<typeof lodesVariables>> | undefined;
+export async function lodesGroups(handle: Db) {
   lodesLabels ??= await lodesVariables(handle);
   return lodesLabels;
 }
 
 // Share of jobs (WAC) or workers (RAC) by one LODES breakdown: group is industry, age, earnings, race,
 // ethnicity, education, sex, firm_age or firm_size.
-export async function lodesDistribution(handle, kind, refs, year, group) {
+export async function lodesDistribution(handle: Db, kind: "wac" | "rac", refs: AreaRef[], year: number, group: string): Promise<ShareRow[]> {
   const labels = (await lodesGroups(handle)).filter((l) => l.source === "wac/rac" && l.group === group);
   const map = await lodesValues(handle, kind, refs, year);
-  const rows = [];
+  const rows: ShareRow[] = [];
   for (const ref of refs) {
     const total = map.get(`${ref.id}|C000`);
     if (!total) continue;
@@ -174,10 +182,9 @@ export async function lodesDistribution(handle, kind, refs, year, group) {
 }
 
 // Order categories by the first series' value, largest first.
-export function sortByFirst(rows, descending = true) {
+export function sortByFirst(rows: { series: string; category: string; value: number }[], descending = true) {
   const first = rows.length ? rows[0].series : null;
   const value = new Map(rows.filter((r) => r.series === first).map((r) => [r.category, r.value]));
-  return [...value.keys()].sort((a, b) => (descending ? value.get(b) - value.get(a) : value.get(a) - value.get(b)));
+  return [...value.keys()].sort((a, b) => (descending ? value.get(b)! - value.get(a)! : value.get(a)! - value.get(b)!));
 }
 
-export { fmtPct };

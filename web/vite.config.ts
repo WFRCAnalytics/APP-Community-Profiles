@@ -62,7 +62,7 @@ function dataPlugin(): Plugin {
 export default defineConfig({
   base: process.env.BASE ?? "./",
   plugins: [svelte(), dataPlugin()],
-  server: { port: 5173, host: true }, // host: true listens on IPv4 and IPv6, so both localhost and 127.0.0.1 work
+  server: { port: 5173, host: true, fs: { allow: [".."] } }, // host: true listens on IPv4 and IPv6, so both localhost and 127.0.0.1 work
   preview: { port: 4173, host: true },
   build: { target: "es2022", chunkSizeWarningLimit: 1500 },
   test: { include: ["src/**/*.test.ts"], environment: "node" },

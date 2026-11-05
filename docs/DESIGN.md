@@ -11,6 +11,26 @@ Decided with the maintainer after reviewing layout prototypes (canvas "Community
 - **Every tab is one screen**: no page scroll at 1440 by 900; panels are fixed grids that scale. Narrow screens stack and may scroll.
 - Rounded panels (14 to 16px), Lucide icons, Bricolage Grotesque headings, Instrument Sans body, blue-tinted neutral chrome (education-explorer's "Atlas" tokens). Colour is for the data.
 
+## Choosing areas
+
+- **The navbar search is the area picker.** The field shows the current area as a chip; opening it shows filter chips (Region, MPO, RPO, Workshop areas, Counties, Cities and towns), type-ahead and a browsable list. Every row has a Compare action.
+- **Compare is any area against any other** (county with county, city with county, planning area with the state). Utah is only the first benchmark offered, not the only one.
+- No separate kind and area selects.
+
+## The map
+
+- The map is not a permanent column. It is its own tab, large enough to use, with any variable, an optional second variable (bivariate), counties, cities or tracts, and a Wasatch Front or all-of-Utah extent. The Overview carries a smaller locator map.
+- Real basemap (OpenFreeMap), county and place names, selected outline in blue, compared outline dashed orange, legend overlaid with markers for the selected and compared areas.
+
+## Years and sources
+
+- The control is a **Year** (2009 to 2024), not "ACS 5-year period". A year means the ACS 5-year estimate ending that year (2024 is 2020 to 2024); 2010 and 2020 also use the Decennial Census where it publishes the figure (the pipeline does not carry decennial tables yet).
+- **Sources are specific, never one long footnote.** Every panel names its source and the span behind the year shown ("Source: 2020–2024 American Community Survey", "Source: LEHD LODES8, 2023", "BLS QCEW, 2024"). The footer states the source for the year currently shown.
+
+## Method chips
+
+Published, Aggregate and Estimate are colour-tinted chips (green, blue, amber; separate dark-mode tints) and the explanation appears on hover or focus on the chip itself. No separate key or legend elsewhere.
+
 ## Colour grammar
 
 - Selected area blue (`#0072B2`), compared area orange-brown (`#BD4B00`), everywhere including the map outlines and tile compare lines. Okabe-Ito chart palette; separate light and dark steps.

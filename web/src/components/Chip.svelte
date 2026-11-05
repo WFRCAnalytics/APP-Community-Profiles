@@ -4,4 +4,6 @@
   const m = $derived(METHODS[method]);
 </script>
 
-<span class="chip chip-{method}" title="{m.label}. {m.note}" aria-label="{m.label}. {m.note}" role="note">{m.short}</span>
+<!-- Tinted by method; the explanation shows on hover or keyboard focus, on the chip itself. -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<span class="chip chip-{method}" tabindex="0" data-tip={m.note} aria-label="{m.label}. {m.note}" role="note">{m.short}</span>

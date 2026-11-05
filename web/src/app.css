@@ -180,9 +180,15 @@ button, input, select { font: inherit; color: inherit; }
 .tile-compare b { margin-left: auto; padding-left: 6px; white-space: nowrap; color: var(--cmp-text); font-variant-numeric: tabular-nums; font-weight: 700; }
 
 /* how a value was made: the border style differs as well as the label, so it is not colour alone */
-.chip { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: 0.68rem; font-weight: 600; line-height: 1.55; border: 1px solid var(--ink-2); color: var(--ink-2); white-space: nowrap; background: transparent; cursor: help; }
-.chip-aggregated { border-style: double; border-width: 3px; padding: 0 5px; }
-.chip-allocated, .chip-derived { border-style: dashed; }
+/* method chips: tinted by how the value was made (green published, blue aggregate, amber estimate), explained on hover */
+.chip { position: relative; display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 0.68rem; font-weight: 600; line-height: 1.55; border: 1px solid var(--chip-line); color: var(--chip-ink); background: var(--chip-bg); white-space: nowrap; cursor: help; }
+.chip-direct { --chip-bg: #e4f3e9; --chip-ink: #1d6b3b; --chip-line: #a8d8b9; }
+.chip-aggregated { --chip-bg: #e3eff9; --chip-ink: #1b5e8a; --chip-line: #a9cbe3; }
+.chip-allocated, .chip-derived { --chip-bg: #fff0d3; --chip-ink: #85560a; --chip-line: #efce86; }
+:root[data-theme="dark"] .chip-direct { --chip-bg: #16382a; --chip-ink: #8fd9ab; --chip-line: #2c6a49; }
+:root[data-theme="dark"] .chip-aggregated { --chip-bg: #12354d; --chip-ink: #8fcbe6; --chip-line: #2a6286; }
+:root[data-theme="dark"] .chip-allocated, :root[data-theme="dark"] .chip-derived { --chip-bg: #3d2f10; --chip-ink: #f0cf86; --chip-line: #7a6021; }
+.chip:hover::after, .chip:focus-visible::after { content: attr(data-tip); position: absolute; left: 0; bottom: calc(100% + 7px); width: 230px; white-space: normal; background: #1b2a47; color: #fff; font-size: 0.75rem; font-weight: 500; line-height: 1.35; padding: 7px 10px; border-radius: 9px; z-index: 60; pointer-events: none; box-shadow: 0 6px 18px rgba(20, 28, 45, 0.25); }
 
 .tabs { position: sticky; top: 0; z-index: 6; display: flex; gap: 2px; padding: 0 12px; background: var(--surface); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: thin; }
 .tabs button { flex: none; border: 0; background: transparent; padding: 12px 10px 10px; font-size: 0.85rem; font-weight: 500; color: var(--ink-2); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }

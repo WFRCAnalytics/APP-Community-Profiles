@@ -91,6 +91,8 @@
         const f = fc?.features.find((q: any) => q.properties.id === id);
         return f ? [{ ...f, properties: { ...f.properties, role } }] : [];
       };
+      const nums = [...vx.values()].map((v) => v.value).filter((n): n is number => n != null);
+      const spanV = nums.length ? nums.reduce((a, b) => Math.max(a, b), -Infinity) - nums.reduce((a, b) => Math.min(a, b), Infinity) : 1;
       const px = new Map([...vx].map(([id, v]) => [id, v.value])), py = vy ? new Map([...vy].map(([id, v]) => [id, v.value])) : undefined;
       valuesX = px;
       valuesY = py ?? new Map();
@@ -102,7 +104,14 @@
         layer: tracts ? "tracts" : "areas",
         shapes: named,
         focus: { type: "FeatureCollection", features: [...pick(selShapes, sel.id, "sel"), ...(cmp && cmp.type !== "state" ? pick(cmpShapes, cmp.id, "cmp") : [])] },
-        values: px, values2: py, period,
+        values: px, values2: py, period, noun: tracts ? "tracts" : layerPlural,
+        short: (v: number) => tick(v, x.format, spanV),
+        diff: (v: number, m: number) => {
+          if (x.format === "pct") { const d = (v - m) * 100; return Math.abs(d) < 0.05 ? "At the median" : `${Math.abs(d).toFixed(1)} pts ${d > 0 ? "above" : "below"} median`; }
+          const r = m ? (v - m) / Math.abs(m) : 0;
+          return Math.abs(r) < 0.005 ? "At the median" : `${Math.abs(r * 100).toFixed(Math.abs(r) < 0.1 ? 1 : 0)}% ${r > 0 ? "above" : "below"} median`;
+        },
+        bi: y ? { x: { label: x.label, format: FORMATS[x.format] }, y: { label: y.label, format: FORMATS[y.format] } } : undefined,
         details: y ? undefined : new Map([...vx].map(([id, v]) => [id, { moe: v.moe, method: v.method }])),
         names: tracts ? new Map([...vx.keys()].map((id) => [id, `Census tract ${id.slice(5)}`])) : app.names,
         format: FORMATS[x.format], label: y ? `${x.label} and ${y.label}` : x.label,

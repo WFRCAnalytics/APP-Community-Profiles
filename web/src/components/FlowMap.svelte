@@ -83,16 +83,29 @@
     const n = (o: string, d: string) => rows.find((r) => r.origin_id === o && r.dest_id === d)?.jobs ?? 0;
     const color = "var(--accent)";
     if (t.kind === "flow") {
-      if (t.origin === me) return { title: `Residents who work in ${name(t.dest)}`, rows: [{ value: fmtInt(t.count), color, sub: `workers, ${pct(summary.workers ? t.count / summary.workers : null)} of resident workers` }] };
-      return { title: `Workers who live in ${name(t.origin)}`, rows: [{ value: fmtInt(t.count), color, sub: `workers, ${pct(summary.jobs ? t.count / summary.jobs : null)} of jobs here` }] };
+      const out = t.origin === me, other = out ? t.dest : t.origin, back = n(t.dest, t.origin);
+      const total = out ? summary.workers : summary.jobs;
+      const both = { kind: "bars" as const, head: ["Both directions"] as [string], rows: [
+        { label: out ? "Commute out" : "Commute in", value: t.count, text: fmtInt(t.count) },
+        { label: out ? "Commute in" : "Commute out", value: back, text: fmtInt(back) },
+      ] };
+      return {
+        hero: true,
+        title: out ? `Residents who work in ${name(other)}` : `Workers who live in ${name(other)}`,
+        rows: [{ value: fmtInt(t.count), color, sub: out ? "residents work there" : "workers live there" }],
+        visuals: [{ kind: "stack", head: [out ? "Where residents work" : "Where workers live"], parts: [{ label: name(other), value: t.count }, { label: "Elsewhere", value: Math.max(0, total - t.count) }] }, both],
+      };
     }
-    if (t.id === me) return { title: here, rows: [{ value: fmtInt(summary.both), color, sub: "live and work here" }] };
+    if (t.id === me) return { title: here, rows: [{ value: fmtInt(summary.both), color, sub: "live and work here" }], visuals: [
+      { kind: "stack", head: ["Where residents work"], parts: [{ label: "Here", value: summary.both }, { label: "Elsewhere", value: summary.outflow }] },
+      { kind: "stack", head: ["Who holds the jobs here"], parts: [{ label: "Residents", value: summary.both }, { label: "Commute in", value: summary.inflow }] },
+    ] };
+    const inn = n(t.id, me), outn = n(me, t.id), net = inn - outn;
     return {
-      title: t.name,
-      rows: [
-        { label: `Live here, work in ${here}`, value: fmtInt(n(t.id, me)), color },
-        { label: `Live in ${here}, work here`, value: fmtInt(n(me, t.id)), color: "var(--muted)" },
-      ],
+      title: t.name, hero: true,
+      rows: [{ value: fmtInt(inn + outn), color, sub: "commuters in both directions" }],
+      visuals: [{ kind: "bars", head: ["Each way"], rows: [{ label: "Commute in", value: inn, text: fmtInt(inn) }, { label: "Commute out", value: outn, text: fmtInt(outn) }],
+        note: net === 0 ? "Equal in both directions" : `Net ${fmtInt(Math.abs(net))} ${net > 0 ? "into" : "out of"} ${here}` }],
     };
   }
 

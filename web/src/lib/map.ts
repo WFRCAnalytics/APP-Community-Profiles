@@ -8,7 +8,8 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 maplibregl.setWorkerUrl(new URL(workerUrl, document.baseURI).href);
 
 export const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
-import { makeTooltip } from "./charts";
+import { makeTooltip, type TipData } from "./charts";
+import { change, median, type TipVisual } from "./tipcharts";
 import type { Method } from "./format";
 import { BIVARIATE, COMPARED, NO_DATA, RAMPS, SELECTED, biColour, colourFor, quantileBreaks, type Mode } from "./classes";
 export { BIVARIATE, COMPARED, SELECTED, RAMPS, colourFor, quantileBreaks };
@@ -36,7 +37,11 @@ export interface MapView {
   values2?: Map<string, number | null>; // a second variable draws a bivariate map
   history?: Map<string, { x: number; y: number }[]>; // each area's value in every period, for the trend line in the hover tooltip
   details?: Map<string, { moe: number | null; method: Method }>; // margin of error and method of each area's value, for the hover tooltip
-  period?: number; // the period the map shows, ringed on that trend line
+  period?: number; // the period the map shows, marked on that trend line
+  noun?: string; // what the areas are called in the tooltip ("counties")
+  short?: (v: number) => string; // compact figures for the tooltip axis ($48K)
+  diff?: (v: number, median: number) => string; // "28% above median"
+  bi?: { x: { label: string; format: (v: number | null | undefined) => string }; y: { label: string; format: (v: number | null | undefined) => string } }; // the two variables of a bivariate map
   bounds?: [[number, number], [number, number]]; // fit here instead of to the selected areas
   names: Map<string, string>;
   format: (v: number | null | undefined) => string;
@@ -44,6 +49,11 @@ export interface MapView {
   fitKey: string; // refit the map when this changes
   onSelect?: (id: string, shift: boolean) => void;
 }
+
+const ordinal = (n: number) => {
+  const r = n % 100, s = ["th", "st", "nd", "rd"];
+  return `${n}${s[(r - 20) % 10] ?? s[r] ?? s[0]}`;
+};
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
@@ -186,18 +196,80 @@ export class MapController {
         if (!f || !this.view || this.view.layer !== layer) return;
         map.getCanvas().style.cursor = layer === "areas" && this.view.onSelect ? "pointer" : "";
         const id = String(f.properties.id);
-        const v = this.view.values.get(id), det = this.view.details?.get(id);
-        const points = this.view.history?.get(id);
-        const trend = points ? { points, at: this.view.period } : undefined;
-        // Census tracts were redrawn in 2020, so a trend across that year joins two sets of boundaries.
-        const foot = layer === "tracts" && points?.some((p) => p.x < 2020) && points.some((p) => p.x >= 2020) ? "Tract boundaries changed in 2020" : undefined;
-        this.tooltip.showTip(e.originalEvent, { title: this.view.names.get(id) ?? id, rows: [{ value: v == null ? "No data" : this.view.format(v), color: "var(--accent)", sub: v == null ? undefined : this.view.label, moe: v == null || det?.moe == null ? undefined : `±${this.view.format(det.moe)}`, method: v == null ? undefined : det?.method }], trend, foot });
+        this.tooltip.showTip(e.originalEvent, this.tip(id, layer));
       });
       map.on("mouseleave", `${layer}-fill`, () => { this.tooltip.hideTip(); map.getCanvas().style.cursor = ""; });
       map.on("click", `${layer}-fill`, (e) => {
         if (layer === "areas" && this.view?.onSelect && e.features?.[0]) this.view.onSelect(String(e.features[0].properties.id), e.originalEvent.shiftKey);
       });
     }
+  }
+
+  // Beyond the number: how far the area is from the typical one and where it sits among all of them, and its trend against the median area.
+  private tip(id: string, layer: "areas" | "tracts"): TipData {
+    const view = this.view!;
+    const v = view.values.get(id), title = view.names.get(id) ?? id;
+    if (view.values2 && view.bi) return this.biTip(id, title);
+    if (v == null) return { title, rows: [{ value: "No data", color: "var(--accent)" }] };
+    const det = view.details?.get(id);
+    const row = { value: view.format(v), color: "var(--accent)", sub: [view.label, view.period ? `${view.period - 4}–${view.period}` : ""].filter(Boolean).join(", "), moe: det?.moe == null ? undefined : `±${view.format(det.moe)}`, method: det?.method };
+    const visuals: TipVisual[] = [];
+    const all = this.distribution(), short = view.short ?? view.format;
+    if (all.values.length >= 3) {
+      visuals.push({ kind: "rank", head: [`Among ${all.values.length} ${view.noun ?? "areas"}`, view.diff?.(v, all.median)], values: all.values, value: v, median: all.median, short });
+    }
+    const points = view.history?.get(id);
+    if (points && points.length > 1) {
+      const typical = this.typical(), span = (x: number) => `${x - 4}–${String(x).slice(2)}`;
+      const mine = change(points), theirs = change(typical);
+      visuals.push({ kind: "trend", head: [`Since ${span(points[0].x)}`, mine ?? undefined], points, typical, at: view.period, key: theirs ? `Median area ${theirs}` : undefined });
+    }
+    // Census tracts were redrawn in 2020, so a trend across that year joins two sets of boundaries.
+    const foot = layer === "tracts" && points?.some((p) => p.x < 2020) && points.some((p) => p.x >= 2020) ? "Tract boundaries changed in 2020" : undefined;
+    return { title, rows: [row], visuals, foot, hero: true };
+  }
+
+  // A bivariate map: both values, the third of the areas each falls in, and the cell of the key.
+  private biTip(id: string, title: string): TipData {
+    const view = this.view!, bi = view.bi!, cuts = this.biCuts;
+    const a = view.values.get(id), b = view.values2!.get(id);
+    const third = (x: number | null | undefined, c: number[] | undefined) => {
+      if (x == null || !c) return "";
+      return ["Lowest third", "Middle third", "Top third"][Math.min(2, c.filter((q) => x >= q).length)];
+    };
+    const k = (x: number, c: number[]) => Math.min(2, c.filter((q) => x >= q).length);
+    const cell: [number, number] | null = a != null && b != null && cuts ? [2 - k(b, cuts.b), k(a, cuts.a)] : null;
+    const colors = [...BIVARIATE[this.mode]].reverse().map((r) => [...r]);
+    return { title, rows: [], hero: true, visuals: [{ kind: "bivar", cell, colors, metrics: [
+      { label: bi.x.label, value: a == null ? "No data" : bi.x.format(a), level: third(a, cuts?.a) },
+      { label: bi.y.label, value: b == null ? "No data" : bi.y.format(b), level: third(b, cuts?.b) },
+    ] }] };
+  }
+
+  private biCuts: { a: number[]; b: number[] } | null = null;
+
+  private spread: { src: MapView["values"]; values: number[]; median: number } | null = null;
+  private distribution() {
+    const view = this.view!;
+    if (this.spread?.src !== view.values) {
+      const values = [...view.values.values()].filter((x): x is number => x != null);
+      this.spread = { src: view.values, values, median: median(values) };
+    }
+    return this.spread;
+  }
+
+  // The median of every area in each period, the benchmark line on the trend.
+  private typicalOf: { src: NonNullable<MapView["history"]>; line: { x: number; y: number }[] } | null = null;
+  private typical() {
+    const history = this.view?.history;
+    if (!history) return undefined;
+    if (this.typicalOf?.src !== history) {
+      const by = new Map<number, number[]>();
+      for (const pts of history.values()) for (const p of pts) (by.get(p.x) ?? by.set(p.x, []).get(p.x)!).push(p.y);
+      const line = [...by].filter(([, ys]) => ys.length >= 3).sort((a, b) => a[0] - b[0]).map(([x, ys]) => ({ x, y: median(ys) }));
+      this.typicalOf = { src: history, line };
+    }
+    return this.typicalOf.line;
   }
 
   update(view: MapView) {
@@ -214,6 +286,7 @@ export class MapController {
     const bi = !!view.values2;
     const cuts = quantileBreaks([...view.values.values()], bi ? 3 : 5);
     const cuts2 = bi ? quantileBreaks([...view.values2!.values()], 3) : [];
+    this.biCuts = bi ? { a: cuts, b: cuts2 } : null;
     const ids = view.shapes.features.map((f) => String(f.properties?.id));
     // The shapes only change with the layer, the extent or the selection; a new year only changes the colours, which fade.
     const key = `${view.layer}|${ids.length}|${ids[0]}|${ids.at(-1)}|${view.focus.features.map((f) => `${f.properties?.id}${f.properties?.role}`).join()}`;

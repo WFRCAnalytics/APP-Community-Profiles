@@ -51,6 +51,7 @@ A floating icon rail switches between ten screens (Overview, Map, People, Househ
 | `lib/indicators.ts`, `lib/specs.ts` | The headline indicators and the distribution charts, defined once as ACS variable codes |
 | `lib/format.ts` | Number formats and the method labels |
 | `lib/charts.ts`, `lib/place.ts`, `lib/map.ts`, `lib/classes.ts` | Plot charts (year highlight, pyramid), the place silhouette, the MapLibre choropleth (one or two variables) and its classes |
+| `lib/flows.ts`, `lib/flowmap.ts`, `components/FlowMap.svelte` | The commute flow map (Commute, Where they go): live-and-work, commute in and out from LODES OD rows (`flows.ts`, unit tested), and the Flowmap.gl layer over its own MapLibre map (`flowmap.ts`; deck.gl and Flowmap.gl load only when it opens). Keep `@deck.gl/*` and `@luma.gl/*` at 9.3.5: with 9.4.x Flowmap.gl 9.4.0 draws but nothing can be hovered or clicked |
 | `lib/app.svelte.ts`, `lib/hash.ts`, `lib/theme.svelte.ts` | State, the shareable URL hash (`#type=…&id=…&cmp=…&v=…&tab=…`) and light, dark or system theme |
 | `components/` | Navbar, area picker, rail, context bar, panels (`ChartCard`, `ShareCard`, `TrendCard`, `PyramidCard`, `SeriesCard`), tiles, map card |
 | `tabs/` | One file per screen |
@@ -83,7 +84,7 @@ again.
 | `lodes` | LEHD jobs by workplace (WAC), workers by residence (RAC) and commute flows (OD), 2002 to latest | `data/lodes/{wac,rac,od}/<geo_type>.parquet` |
 | `qcew` | BLS establishments, employment and wages by county, ownership and industry | `data/qcew/*.parquet` |
 | `qa` | Check the crosswalk reproduces published county totals in every vintage | `data/meta/crosswalk-qa.md` |
-| `export` | Simplified GeoJSON for the web maps | `data/web/<geo_type>.geojson` |
+| `export` | Simplified GeoJSON for the web maps, and a point inside each area that has commute flows (where the flow map anchors its lines) | `data/web/<geo_type>.geojson`, `data/meta/centroids.parquet` |
 
 `all` runs them in that order. ACS files are long format (`geo_id, geo_type, vintage, variable, estimate, moe, flag, method`).
 Geography files are GeoParquet; spatial work runs in DuckDB with the spatial extension. The simplified GeoJSON in `data/web/`

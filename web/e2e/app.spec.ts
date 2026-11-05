@@ -133,3 +133,44 @@ test("each tab has topic sub-tabs, kept in the address, and the Commute flow map
   await page.getByRole("tab", { name: "Where they go" }).click();
   await expect(page.getByRole("region", { name: "Commute flow map" })).toBeVisible();
 });
+
+test("the Commute flow map shows live-and-work, commute in and out, draws the lines and has a table", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/#type=county&id=49035&tab=commute&sub=flows");
+  await ready(page);
+  const panel = page.getByRole("region", { name: "Commute flow map" });
+  for (const label of ["Live and work here", "Commute in", "Commute out", "Net commuters"]) await expect(panel.getByText(label, { exact: true })).toBeVisible();
+  await expect(panel.getByText(/of resident workers/).first()).toBeVisible();
+  // MapLibre draws one canvas and deck.gl (Flowmap.gl) a second one on top.
+  await expect(panel.locator("canvas")).toHaveCount(2, { timeout: 30_000 });
+  const both = panel.getByRole("button", { name: "Both" });
+  await expect(both).toHaveAttribute("aria-pressed", "true");
+  await panel.getByRole("button", { name: "Where residents work" }).click();
+  await expect(both).toHaveAttribute("aria-pressed", "false");
+  await panel.getByRole("button", { name: "Table", exact: true }).click();
+  const table = panel.getByRole("table");
+  await expect(table.getByRole("columnheader", { name: "Lives in" })).toBeVisible();
+  await expect(table.getByRole("row", { name: /Utah County/ }).first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("the Commute flow map says so for areas without commute flows", async ({ page }) => {
+  await page.goto("/#type=state&id=49&tab=commute&sub=flows");
+  await ready(page);
+  await expect(page.getByRole("region", { name: "Commute flow map" }).getByText(/Commute flows are published for/)).toBeVisible();
+});
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`no axe violations on the Commute flow map in ${scheme} mode`, async ({ browser }) => {
+    const context = await browser.newContext({ colorScheme: scheme, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    const errors = watchErrors(page);
+    await page.goto("/#type=county&id=49035&tab=commute&sub=flows");
+    await ready(page);
+    await expect(page.getByRole("region", { name: "Commute flow map" }).locator("canvas")).toHaveCount(2, { timeout: 30_000 });
+    const result = await new AxeBuilder({ page }).disableRules(["scrollable-region-focusable"]).analyze();
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)).toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+}

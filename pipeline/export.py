@@ -2,13 +2,17 @@
 
 GeoParquet stays the stored format; browsers read GeoJSON, so this stage derives it. Each feature has an
 `id` property equal to the geo_id used in every data file. Geometries are simplified for the screen.
+
+It also writes meta/centroids.parquet (geo_id, geo_type, lon, lat): a point inside each area of a type that
+has commute flows, where the flow map anchors its lines. The point is on the surface, not the plain centroid,
+which falls outside crescent or split areas.
 """
 from __future__ import annotations
 
 import json
 
 from . import tiger
-from .db import connect, sql_path
+from .db import connect, sql_path, write_parquet
 from .paths import BOUNDARIES, DATA, META
 from .util import load_config, update_manifest, write_if_changed
 
@@ -20,6 +24,13 @@ def collection(con, query: str) -> bytes:
     features = [{"type": "Feature", "properties": {"id": geo_id}, "geometry": json.loads(geom)}
                 for geo_id, geom in sorted(rows)]
     return json.dumps({"type": "FeatureCollection", "features": features}, separators=(",", ":")).encode("utf-8")
+
+
+def centroids(con, sources: dict[str, str], geo_types: list[str]):
+    """One row per area of the given types: a point guaranteed to lie inside it."""
+    parts = [f"SELECT geo_id, '{t}' AS geo_type, ST_X(p) AS lon, ST_Y(p) AS lat FROM "
+             f"(SELECT geo_id, ST_PointOnSurface(geometry::GEOMETRY) AS p FROM ({sources[t]}))" for t in geo_types]
+    return " UNION ALL ".join(parts)
 
 
 def app_meta(cfg: dict) -> bytes:
@@ -51,3 +62,6 @@ def run(refresh: bool = False) -> None:
         manifest[geo_type] = {"bytes": len(data)}
         print(f"{geo_type}: {len(data) / 1e6:.2f} MB")
     update_manifest("web_export", manifest)
+    od_types = cfg["lodes"]["od_geographies"]
+    write_parquet(con, centroids(con, sources, od_types), META / "centroids.parquet", "geo_type, geo_id")
+    print(f"centroids: {', '.join(od_types)}")

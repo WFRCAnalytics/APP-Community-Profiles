@@ -221,6 +221,13 @@ export const odFlows = (h: Db, type: string, id: string, year: number) =>
     SELECT origin_id, dest_id, S000::DOUBLE AS jobs FROM read_parquet('${dataUrl(`lodes/od/${type}.parquet`)}')
     WHERE year = ${+year} AND (origin_id = ${lit(id)} OR dest_id = ${lit(id)})`);
 
+// A point inside each area of a type that has commute flows (computed by the pipeline's export step), keyed by geo_id.
+export async function centroids(h: Db, type: string) {
+  const rows = await sql<{ geo_id: string; lon: number; lat: number }>(h, `
+    SELECT geo_id, lon, lat FROM read_parquet('${dataUrl("meta/centroids.parquet")}') WHERE geo_type = ${lit(type)}`);
+  return new Map(rows.map((r) => [r.geo_id, { lon: r.lon, lat: r.lat }]));
+}
+
 // Where an area's workers live (origins) or where its residents work (destinations), top N, same type.
 export function odTop(h: Db, type: string, id: string, year: number, direction: "origins" | "destinations", limit = 10) {
   const [near, far] = direction === "origins" ? ["dest_id", "origin_id"] : ["origin_id", "dest_id"];

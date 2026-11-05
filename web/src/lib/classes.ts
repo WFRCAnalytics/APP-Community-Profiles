@@ -7,7 +7,16 @@ export const RAMPS = {
 export const NO_DATA = { light: "#DCE0E3", dark: "#22384A" };
 export const SELECTED = { light: "#0A6CA0", dark: "#5CC4E8" };
 export const COMPARED = { light: "#C85327", dark: "#F0916B" };
+// Hover highlight on the flow map: amber, because blue and brick already mean selected and compared.
+export const HIGHLIGHT = { light: "#C98A00", dark: "#E6B53A" };
 export type Mode = "light" | "dark";
+
+// Flow lines, fewest jobs first. Light mode runs from a mid teal to deep navy so thin lines read on a pale basemap; dark mode
+// fades up to the theme accent, so the busiest routes glow in it.
+export const FLOW_RAMPS = {
+  light: ["#5AAAB2", "#2F86A0", "#1E5F85", "#102F52"],
+  dark: ["#4A5B80", "#7186AD", "#9DB0D8", "#C9D6F2"], // ends on the dark theme accent (--accent)
+} as const;
 
 
 export function quantileBreaks(values: (number | null | undefined)[], classes = 5): number[] {

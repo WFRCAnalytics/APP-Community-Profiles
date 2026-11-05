@@ -164,8 +164,9 @@ Two sources, kept apart and labelled: **LEHD LODES8** counts jobs by workplace a
 | Time leaving home | bars | `B08302` | New |
 | Vehicles available to workers | bars | `B08141` | New |
 | Mode by workplace | bars (people who work here, by how they arrive) | `B08601` (from 2010) | Ready |
-| Live and work here | three numbers: live and work here, come in, go out; share who stay | LODES OD | Ready |
-| Where workers live | top areas of the same kind, bars; later a flow map | LODES OD | Ready, New (flow map) |
+| Live and work here | four figures with counts and shares: live and work here, commute in, commute out, net; in the flow map panel | LODES OD | Ready |
+| Commute flow map | curved lines between the area and the areas of its kind where its workers live and work (both, one direction, top 50 to all routes); selected area outlined; table view; flows to the rest of the state and other states listed beside it | LODES OD, `meta/centroids.parquet` | Ready |
+| Where workers live | top areas of the same kind, bars | LODES OD | Ready |
 | Where residents work | top destinations | LODES OD | Ready |
 | Net commuting | in minus out, over time | LODES OD, years 2002 to 2023 | Derive |
 | Commute by earnings and by race | bars of mode by group | `B08119`; race and ethnicity iterations `B08105A` to `B08105I` | New |

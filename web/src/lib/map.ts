@@ -7,12 +7,12 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 // The worker is served as a file of its own, so it loads the same in dev, preview and the built site.
 maplibregl.setWorkerUrl(new URL(workerUrl, document.baseURI).href);
 
-const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
+export const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
 import { BIVARIATE, COMPARED, NO_DATA, RAMPS, SELECTED, biColour, colourFor, quantileBreaks, type Mode } from "./classes";
 export { BIVARIATE, COMPARED, SELECTED, RAMPS, colourFor, quantileBreaks };
 export type { Mode };
 
-const BLANK = (mode: Mode) => ({
+export const BLANK = (mode: Mode) => ({
   version: 8 as const,
   sources: {},
   layers: [{ id: "bg", type: "background" as const, paint: { "background-color": mode === "dark" ? "#0A1F2E" : "#EEF2F5" } }],
@@ -43,7 +43,7 @@ export interface MapView {
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
 // A map control button, drawn like the zoom and compass buttons, that returns the map to its starting view.
-class ResetViewControl implements maplibregl.IControl {
+export class ResetViewControl implements maplibregl.IControl {
   private el?: HTMLDivElement;
   constructor(private onReset: () => void) {}
   onAdd() {

@@ -2,7 +2,7 @@
 // basemap. It has a map of its own (the choropleth controller in map.ts is built around shaded polygons). deck.gl and Flowmap.gl
 // are large, so they are fetched only when this map is first opened.
 import * as maplibregl from "maplibre-gl";
-import { makeTooltip } from "./charts";
+import { makeTooltip, type TipData } from "./charts";
 import { FLOW_RAMPS, HIGHLIGHT, SELECTED, type Mode } from "./classes";
 import type { MapFlow } from "./flows";
 import { BLANK, STYLES, addViewControls, boundsOf } from "./map";
@@ -20,7 +20,7 @@ export interface FlowView {
   shapes: GeoJSON.FeatureCollection;   // outlines of every area of the type
   focus: GeoJSON.FeatureCollection;    // the selected area
   fitKey: string;                      // refit the map when this changes
-  tip: (t: FlowTip) => string;
+  tip: (t: FlowTip) => TipData | string;
   onSelect: (id: string) => void;
 }
 

@@ -2,14 +2,14 @@
 // into chart rows (a share of a total, with the margin of error, for the selected and compared areas).
 import type { Db } from "./db";
 import { acsLabels, acsVariables, lodesValues, lodesVariables, shareMoe, sumOf, type Ref } from "./data";
-import { fmtInt, METHODS, methodOf } from "./format";
+import { fmtInt, methodOf, type Method } from "./format";
 
 export interface AreaRef extends Ref {
   label: string;
 }
 export interface Category { label: string; vars: string[] }
 export interface Spec { topic: string; den: string[]; minus?: string[]; categories: Category[] }
-export interface ShareRow { category: string; series: string; value: number; count?: number; moe?: number | null; note?: string }
+export interface ShareRow { category: string; series: string; value: number; count?: number; moe?: number | null; note?: string; method?: Method }
 
 const code = (table: string, n: number) => `${table}_${String(n).padStart(3, "0")}`;
 const codes = (table: string, ...n: number[]) => n.map((i) => code(table, i));
@@ -187,7 +187,7 @@ export async function distribution(handle: Db, spec: Spec, refs: AreaRef[], vint
       rows.push({
         category: cat.label, series: ref.label, value: (s.value ?? 0) / den, count: s.value ?? 0,
         moe: shareMoe(s.value, den, s.moe, denMoe),
-        note: `${fmtInt(s.value)} (${METHODS[methodOf(Math.max(s.rank, total.rank))].short.toLowerCase()})`,
+        note: fmtInt(s.value), method: methodOf(Math.max(s.rank, total.rank)),
       });
     }
   }

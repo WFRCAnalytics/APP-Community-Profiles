@@ -8,6 +8,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 maplibregl.setWorkerUrl(new URL(workerUrl, document.baseURI).href);
 
 export const STYLES = { light: "https://tiles.openfreemap.org/styles/positron", dark: "https://tiles.openfreemap.org/styles/dark" };
+import { makeTooltip } from "./charts";
 import { BIVARIATE, COMPARED, NO_DATA, RAMPS, SELECTED, biColour, colourFor, quantileBreaks, type Mode } from "./classes";
 export { BIVARIATE, COMPARED, SELECTED, RAMPS, colourFor, quantileBreaks };
 export type { Mode };
@@ -95,7 +96,7 @@ export class MapController {
   onLegend: (l: Legend | null) => void = () => {};
   private fitted = "";
   private lastFit: { bounds: maplibregl.LngLatBounds; padding: number } | null = null;
-  private popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8, className: "map-popup" });
+  private tooltip: ReturnType<typeof makeTooltip>;
   private styleToken = 0;
   private handlersBound = false;
 
@@ -104,6 +105,8 @@ export class MapController {
     this.map = new maplibregl.Map({
       container, style: BLANK(mode) as any, center: [-111.9, 40.7], zoom: 8, attributionControl: { compact: true },
     });
+    this.tooltip = makeTooltip(this.map.getContainer());
+    this.map.getContainer().append(this.tooltip.tip);
     addViewControls(this.map, () => this.resetView(), () => this.zoomToSelected());
     this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: "imperial" }), "bottom-left");
     this.map.on("error", (e) => console.warn("map:", e.error?.message ?? e));
@@ -180,15 +183,9 @@ export class MapController {
         map.getCanvas().style.cursor = layer === "areas" && this.view.onSelect ? "pointer" : "";
         const id = String(f.properties.id);
         const v = this.view.values.get(id);
-        const box = document.createElement("div");
-        const strong = document.createElement("strong");
-        strong.textContent = this.view.names.get(id) ?? id;
-        const small = document.createElement("div");
-        small.textContent = `${this.view.label}: ${v == null ? "no data" : this.view.format(v)}`;
-        box.append(strong, small);
-        this.popup.setLngLat(e.lngLat).setDOMContent(box).addTo(map);
+        this.tooltip.showTip(e.originalEvent, { title: this.view.names.get(id) ?? id, rows: [{ value: v == null ? "No data" : this.view.format(v), color: "var(--accent)", sub: v == null ? undefined : this.view.label }] });
       });
-      map.on("mouseleave", `${layer}-fill`, () => { this.popup.remove(); map.getCanvas().style.cursor = ""; });
+      map.on("mouseleave", `${layer}-fill`, () => { this.tooltip.hideTip(); map.getCanvas().style.cursor = ""; });
       map.on("click", `${layer}-fill`, (e) => {
         if (layer === "areas" && this.view?.onSelect && e.features?.[0]) this.view.onSelect(String(e.features[0].properties.id), e.originalEvent.shiftKey);
       });

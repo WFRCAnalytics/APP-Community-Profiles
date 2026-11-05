@@ -20,11 +20,11 @@ export type Method = "direct" | "aggregated" | "allocated" | "derived";
 
 // How a value was made, in words a reader needs. `rank` orders them so the weakest claim wins when
 // several rows are combined: a published value beats an aggregate, an aggregate beats an estimate.
-export const METHODS: Record<Method, { label: string; short: string; rank: number; note: string }> = {
-  direct: { label: "Census published", short: "Published", rank: 0, note: "Published by the Census Bureau for exactly this area." },
-  aggregated: { label: "WFRC aggregate", short: "Aggregate", rank: 1, note: "An exact sum of whole Census blocks or block groups inside this area." },
-  allocated: { label: "WFRC estimate", short: "Estimate", rank: 2, note: "A WFRC estimate: split from block groups that are only partly inside this area, using Census block counts." },
-  derived: { label: "WFRC estimate", short: "Estimate", rank: 2, note: "Median interpolated from allocated bracket counts; no margin of error." },
+export const METHODS: Record<Method, { label: string; short: string; letter: string; rank: number; note: string }> = {
+  direct: { label: "Census published", short: "Published", letter: "P", rank: 0, note: "Published by the Census Bureau for exactly this area." },
+  aggregated: { label: "WFRC aggregate", short: "Aggregate", letter: "A", rank: 1, note: "An exact sum of whole Census blocks or block groups inside this area." },
+  allocated: { label: "WFRC estimate", short: "Estimate", letter: "E", rank: 2, note: "A WFRC estimate: split from block groups that are only partly inside this area, using Census block counts." },
+  derived: { label: "WFRC estimate", short: "Estimate", letter: "E", rank: 2, note: "Median interpolated from allocated bracket counts; no margin of error." },
 };
 export const methodOf = (rank: number): Method => (["direct", "aggregated", "allocated"] as const)[Math.min(rank, 2)];
 

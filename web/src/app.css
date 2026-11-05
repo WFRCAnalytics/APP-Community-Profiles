@@ -258,14 +258,24 @@ button.cmp-pill:hover { background: var(--surface-2); }
   .play { order: 3; }
 }
 
-/* Observable Plot tips take the same surface, border and text as the donut tip, so they are dark in dark mode too (Plot's default is white). */
-.chart svg [aria-label="tip"] { --plot-background: var(--surface); color: var(--muted); }
-.chart svg [aria-label="tip"] path { stroke: var(--muted); stroke-opacity: 1; }
 
-/* Donut tooltip, drawn to match Observable Plot's tip: surface box, thin slate border, a notch toward the mark. */
-.dtip { position: absolute; z-index: 5; pointer-events: none; background: var(--surface); border: 1px solid var(--muted); padding: 7px 10px; font: 400 12px/1.35 var(--f-body); color: var(--muted); white-space: pre; }
-.dtip::before { content: ""; position: absolute; top: -6px; left: 14px; width: 9px; height: 9px; background: var(--surface); border-left: 1px solid var(--muted); border-top: 1px solid var(--muted); transform: rotate(45deg); }
+/* The tooltip on every chart and map: a bold title, then rows of label and value, the value in the series colour (--c). */
+.dtip { position: absolute; z-index: 5; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 8px 11px 9px; font: 400 12px/1.35 var(--f-body); color: var(--muted); max-width: 340px; min-width: 96px; width: max-content; }
+.dtip::before { content: ""; position: absolute; top: -6px; left: 14px; width: 9px; height: 9px; background: var(--surface); border-left: 1px solid var(--border); border-top: 1px solid var(--border); transform: rotate(45deg); }
 .dtip.flip::before { left: auto; right: 14px; }
+.dtip .tt { font: 600 13px/1.25 var(--f-display); color: var(--text); margin-bottom: 4px; }
+.dtip .tr { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+.dtip .tk { width: 8px; height: 8px; border-radius: 2px; background: var(--c); align-self: center; flex: none; }
+.dtip .tl, .dtip .ts { white-space: nowrap; }
+.dtip .tl { color: var(--muted); }
+.dtip .tv { margin-left: auto; padding-left: 14px; font: 700 13px/1.3 var(--f-body); font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--c, var(--text)) 78%, var(--text)); }
+.dtip .tr.solo .tv { margin-left: 0; padding-left: 0; font-size: 18px; line-height: 1.15; }
+.dtip .ts { font-size: 11px; color: var(--muted); }
+.dtip .tb { margin-left: 4px; padding: 0 5px; font-size: 0.66rem; line-height: 1.4; cursor: default; align-self: center; }
+.draft { flex: none; font: 700 0.72rem/1.5 var(--f-body); padding: 1px 9px; border-radius: 999px; border: 1px solid var(--chip-line); color: var(--chip-ink); background: var(--chip-bg); --chip-bg: #fff0d3; --chip-ink: #85560a; --chip-line: #efce86; }
+:root[data-theme="dark"] .draft { --chip-bg: #3d2f10; --chip-ink: #f0cf86; --chip-line: #7a6021; }
+.dtip .tf { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+.dtip .tt + .tf { margin-top: 0; padding-top: 0; border-top: 0; }
 .dtip[hidden] { display: none; }
 
 /* Map controls: zoom and compass top right, the scale bar bottom left, themed. */

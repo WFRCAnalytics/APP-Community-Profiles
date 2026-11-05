@@ -7,6 +7,7 @@
   import { centroids, geojson, odFlows } from "../lib/data";
   import { buildFlows, ROUTE_LIMITS, summarizeFlows, type Direction, type OdRow } from "../lib/flows";
   import { FlowMapController, type FlowTip } from "../lib/flowmap";
+  import type { TipData } from "../lib/charts";
   import { fmtCompact, fmtInt, fmtPct } from "../lib/format";
   import { site } from "../lib/site";
   import { theme } from "../lib/theme.svelte";
@@ -75,16 +76,24 @@
   const pct = (x: number | null) => (x == null ? "" : fmtPct(x, 0));
   const jobs = (n: number) => `${fmtInt(n)} ${n === 1 ? "job" : "jobs"}`;
 
-  function tip(t: FlowTip): string {
+  // The area's own name is not repeated: it is the title of the panel and the outlined shape on the map.
+  function tip(t: FlowTip): TipData | string {
     if (!data || !summary) return "";
     const me = data.id, here = name(me), rows = data.rows;
     const n = (o: string, d: string) => rows.find((r) => r.origin_id === o && r.dest_id === d)?.jobs ?? 0;
+    const color = "var(--accent)";
     if (t.kind === "flow") {
-      if (t.origin === me) return `${here} residents who work in ${name(t.dest)}\n${fmtInt(t.count)} workers, ${pct(summary.workers ? t.count / summary.workers : null)} of resident workers`;
-      return `${name(t.origin)} residents who work in ${here}\n${fmtInt(t.count)} workers, ${pct(summary.jobs ? t.count / summary.jobs : null)} of jobs here`;
+      if (t.origin === me) return { title: `Residents who work in ${name(t.dest)}`, rows: [{ value: fmtInt(t.count), color, sub: `workers, ${pct(summary.workers ? t.count / summary.workers : null)} of resident workers` }] };
+      return { title: `Workers who live in ${name(t.origin)}`, rows: [{ value: fmtInt(t.count), color, sub: `workers, ${pct(summary.jobs ? t.count / summary.jobs : null)} of jobs here` }] };
     }
-    if (t.id === me) return `${here}\n${fmtInt(summary.both)} live and work here`;
-    return `${t.name}\n${fmtInt(n(t.id, me))} live here and work in ${here}\n${fmtInt(n(me, t.id))} live in ${here} and work here`;
+    if (t.id === me) return { title: here, rows: [{ value: fmtInt(summary.both), color, sub: "live and work here" }] };
+    return {
+      title: t.name,
+      rows: [
+        { label: `Live here, work in ${here}`, value: fmtInt(n(t.id, me)), color },
+        { label: `Live in ${here}, work here`, value: fmtInt(n(me, t.id)), color: "var(--muted)" },
+      ],
+    };
   }
 
   $effect(() => {

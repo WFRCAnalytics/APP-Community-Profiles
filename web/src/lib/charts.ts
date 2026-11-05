@@ -7,6 +7,7 @@
 // orange-brown, so the two can be told apart (`areaColors`). The population
 // pyramid keeps the industry convention instead: men blue on the left, women pink on the right.
 import * as Plot from "@observablehq/plot";
+import { METHODS, type Method } from "./format";
 import type { Palette } from "./theme.svelte";
 
 export type Fmt = (v: number | null | undefined) => string;
@@ -36,6 +37,11 @@ export function legend(items: { label: string; color: string }[], shape: "rect" 
   return el;
 }
 
+const wrapPlain = (chart: Element) => {
+  const wrap = document.createElement("div");
+  wrap.append(chart);
+  return wrap;
+};
 const withLegend = (items: { label: string; color: string }[], chart: Element, shape: "rect" | "line" | "dash") => {
   const wrap = document.createElement("div");
   if (items.length > 1) wrap.append(legend(items, shape));
@@ -76,7 +82,7 @@ export function areaLegend(series: string[], pal: Palette): HTMLElement {
   return el;
 }
 
-export interface BarRow { category: string; series: string; value: number; note?: string; moe?: number | null }
+export interface BarRow { category: string; series: string; value: number; note?: string; method?: Method; moe?: number | null }
 
 // ---- bars ------------------------------------------------------------------------------------------------
 
@@ -103,7 +109,6 @@ export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat
   const chars = Math.floor((marginLeft - 8) / 6.2);
   // Short lists wrap long labels onto two lines; dense lists cut them (the tooltip has the full name).
   const fit = (d: string) => (dense ? (d.length > chars ? `${d.slice(0, Math.max(4, chars - 1))}…` : d) : wrapLabel(d, chars));
-  const tipText = (d: BarRow) => `${d.category}\n${d.series}: ${format(d.value)}${d.note ? `\n${d.note}` : ""}`;
   const marks: any[] = [
     Plot.ruleX([0], { stroke: pal.ink2, strokeOpacity: 0.5 }),
     Plot.barX(rows, {
@@ -111,7 +116,7 @@ export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat
       fill: (d: BarRow) => (byCat ? catColor(d.category) : color[d.series]),
       fillOpacity: (d: BarRow) => (byCat && grouped && d.series !== series[0] ? 0.4 : 1),
       stroke: (d: BarRow) => (byCat && grouped && d.series !== series[0] ? catColor(d.category) : "none"), strokeWidth: 1.2,
-      rx: 3, title: tipText, tip: true, insetTop: grouped ? 1 : 3, insetBottom: grouped ? 1 : 3,
+      rx: 3, ariaLabel: tipLabel("b"), insetTop: grouped ? 1 : 3, insetBottom: grouped ? 1 : 3,
     }),
   ];
   if (labels) {
@@ -127,13 +132,19 @@ export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat
     fy: grouped ? { domain: cats, label: null, tickSize: 0, padding: 0.18, tickFormat: (d: string) => fit(d) } : undefined,
     marks,
   }));
+  // Hovering a bar shows every area's value for its category; the area names only appear when two are compared.
+  const tipFor = (_: string, i: number): TipData => {
+    const d = rows[i];
+    const same = grouped ? series.flatMap((s) => rows.filter((r) => r.category === d.category && r.series === s)) : [d];
+    return { title: d.category, rows: same.map((r) => ({ label: grouped ? r.series : undefined, value: format(r.value), sub: r.note, method: r.method, color: byCat ? catColor(r.category) : color[r.series] })) };
+  };
   if (byCat) {
     const wrapC = document.createElement("div");
     if (grouped) wrapC.append(areaLegend(series, pal));
     wrapC.append(chart);
-    return wrapC;
+    return tipOverMarks(wrapC, chart, tipFor);
   }
-  return withLegend(series.map((s) => ({ label: s, color: color[s] })), chart, "rect");
+  return tipOverMarks(withLegend(series.map((s) => ({ label: s, color: color[s] })), chart, "rect"), chart, tipFor);
 }
 
 // Stacked horizontal bars: rows [{category, series, value}] stacked per category with a gap between fills.
@@ -150,12 +161,16 @@ export function stacked({ rows, order, seriesOrder, pal, colors, format, tickFor
     marks: [
       Plot.barX(rows, {
         x: "value", y: "category", fill: (d: BarRow) => color[d.series], stroke: pal.surface, strokeWidth: 2, rx: 3,
-        order: seriesOrder, title: (d: BarRow) => `${d.category}\n${d.series}: ${format(d.value)}`, tip: true,
+        order: seriesOrder, ariaLabel: tipLabel("s"),
       }),
       Plot.ruleX([0], { stroke: pal.ink2, strokeOpacity: 0.5 }),
     ],
   }));
-  return withLegend(seriesOrder.map((s) => ({ label: s, color: color[s] })), chart, "rect");
+  const tipFor = (_: string, i: number): TipData => {
+    const d = rows[i];
+    return { title: d.category, rows: [{ label: d.series, value: format(d.value), color: color[d.series], sub: d.note, method: d.method }] };
+  };
+  return tipOverMarks(withLegend(seriesOrder.map((s) => ({ label: s, color: color[s] })), chart, "rect"), chart, tipFor);
 }
 
 // ---- population pyramid ----------------------------------------------------------------------------------
@@ -174,7 +189,7 @@ export function pyramid({ rows, compare, ages, pal, format, tickFormat = format,
     Plot.ruleX([0], { stroke: pal.ink2, strokeOpacity: 0.5 }),
     Plot.barX(rows, {
       x: signed, y: "age", fill, rx: 2, insetTop: 1.5, insetBottom: 1.5,
-      title: (d: PyramidRow) => `${label}, ages ${d.age}\n${d.sex}: ${format(d.value)} of the population`, tip: true,
+      ariaLabel: tipLabel("a"),
     }),
     Plot.text(["Men"], { x: -max, text: (d: string) => d, frameAnchor: "top", dy: -16, textAnchor: "start", fill: pal.ink2, fontWeight: 600 }),
     Plot.text(["Women"], { x: max, text: (d: string) => d, frameAnchor: "top", dy: -16, textAnchor: "end", fill: pal.ink2, fontWeight: 600 }),
@@ -182,7 +197,7 @@ export function pyramid({ rows, compare, ages, pal, format, tickFormat = format,
   if (compare) {
     marks.push(Plot.barX(compare, {
       x: signed, y: "age", fill: "none", stroke: pal.ink, strokeWidth: 1.4, strokeDasharray: "3 2", rx: 2, insetTop: 0.5, insetBottom: 0.5,
-      title: (d: PyramidRow) => `${compareLabel}, ages ${d.age}\n${d.sex}: ${format(d.value)}`, tip: true,
+      ariaLabel: tipLabel("c"),
     }));
   }
   const h = innerHeight(height, compare ? 2 : 1, ages.length * 19 + 52);
@@ -192,18 +207,27 @@ export function pyramid({ rows, compare, ages, pal, format, tickFormat = format,
     y: { domain: [...ages].reverse(), label: null, tickSize: 0 },
     marks,
   }));
-  if (!compare) return chart;
+  // Hovering a bar shows men and women for that age band; the area names only appear when two areas are compared.
+  const tipFor = (mark: string, i: number): TipData => {
+    const age = (mark === "c" ? compare![i] : rows[i]).age;
+    const pair = (set: PyramidRow[], who: string | null) => (["Male", "Female"] as const).map((sex) => ({
+      label: who ? `${who}, ${sex === "Male" ? "men" : "women"}` : sex === "Male" ? "Men" : "Women",
+      value: format(set.find((r) => r.age === age && r.sex === sex)?.value), color: sex === "Male" ? pal.male : pal.female,
+    }));
+    return { title: `Ages ${age}`, rows: [...pair(rows, compare ? label : null), ...(compare ? pair(compare, compareLabel ?? "Compared") : [])], foot: "Share of the population" };
+  };
+  if (!compare) return tipOverMarks(wrapPlain(chart), chart, tipFor);
   const wrap = legend([{ label: "Men", color: pal.male }, { label: "Women", color: pal.female }, { label: `${compareLabel} (outline)`, color: pal.ink }], "rect");
   const keys = wrap.querySelectorAll(".key");
   keys[2]?.classList.replace("key-rect", "key-dash");
   (keys[2] as HTMLElement | undefined)?.style.removeProperty("background");
   wrap.append(chart);
-  return wrap;
+  return tipOverMarks(wrap, chart, tipFor);
 }
 
 // ---- lines -----------------------------------------------------------------------------------------------
 
-export interface Point { x: number; y: number; lo?: number | null; hi?: number | null; note?: string }
+export interface Point { x: number; y: number; lo?: number | null; hi?: number | null; note?: string; method?: Method }
 export interface LineSeries { label: string; color: string; points: Point[] }
 
 // Keep as many tick values as fit (at least `gap` px apart), always including the last one so the latest period is labelled.
@@ -236,7 +260,6 @@ export function lines({ series, pal, format, tickFormat = format, xFormat = Stri
   const split = marked.length > 1 && (topY - Math.min(...marked.map((p) => p.y))) / spread < 0.2;
   const aboveLabel = (d: any) => !split || d.y >= topY;
   const guideX = marked.length ? Math.max(...marked.map((p) => p.x)) : undefined;
-  const tip = (d: (typeof flat)[number]) => `${d.series}\n${tipX(d.x)}: ${format(d.y)}${d.lo != null && d.hi != null ? `\n±${format((d.hi - d.lo) / 2)}` : ""}${d.note ? `\n${d.note}` : ""}`;
   const faded = highlight != null;
   const marks: any[] = [
     Plot.ruleY(zero ? [0] : [], { stroke: pal.ink2, strokeOpacity: 0.5 }),
@@ -249,7 +272,6 @@ export function lines({ series, pal, format, tickFormat = format, xFormat = Stri
     Plot.text(marked.filter(aboveLabel), { x: "x", y: "y", text: (d: any) => format(d.y), dy: -13, fill: pal.ink, fontWeight: 700, fontSize: 12, stroke: pal.surface, strokeWidth: 3, paintOrder: "stroke" }),
     Plot.text(marked.filter((d: any) => !aboveLabel(d)), { x: "x", y: "y", text: (d: any) => format(d.y), dy: 17, fill: pal.ink, fontWeight: 700, fontSize: 12, stroke: pal.surface, strokeWidth: 3, paintOrder: "stroke" }),
     Plot.ruleX(flat, Plot.pointerX({ x: "x", py: "y", stroke: pal.ink2, strokeOpacity: 0.4 })),
-    Plot.tip(flat, Plot.pointerX({ x: "x", y: "y", title: tip })),
   ].filter(Boolean);
   const ticks = thinTicks(xTicks ?? flat.map((p) => p.x), width - 90);
   const chart = Plot.plot(base(pal, {
@@ -258,7 +280,67 @@ export function lines({ series, pal, format, tickFormat = format, xFormat = Stri
     y: { grid: true, label: null, tickFormat: tickFormat as any, zero, nice: true, tickSize: 0, insetBottom: 24 },
     marks,
   }));
-  return withLegend(series.map((s) => ({ label: s.label, color: s.color })), chart, "line");
+  // Hovering shows the year with every line's value there; the area names only appear when two are compared.
+  const xs = [...new Set(flat.map((p) => p.x))].sort((a, b) => a - b);
+  const out = withLegend(series.map((s) => ({ label: s.label, color: s.color })), chart, "line");
+  const { tip, showTip, hideTip } = makeTooltip(out);
+  out.style.position = "relative";
+  out.append(tip);
+  const scale = (chart as any).scale("x");
+  chart.addEventListener("pointermove", (e: Event) => {
+    const box = chart.getBoundingClientRect();
+    const [d0, d1] = scale.domain, [r0, r1] = scale.range;
+    const at = d0 + (((e as MouseEvent).clientX - box.left - r0) / (r1 - r0)) * (d1 - d0);
+    const x = xs.reduce((best, v) => (Math.abs(v - at) < Math.abs(best - at) ? v : best), xs[0]);
+    const here = series.flatMap((s) => { const p = s.points.find((q) => q.x === x); return p ? [{ s, p }] : []; });
+    if (!here.length) { hideTip(); return; }
+    const multi = series.length > 1;
+    showTip(e as PointerEvent, {
+      title: tipX(x),
+      rows: here.map(({ s, p }) => ({
+        label: multi ? s.label : undefined, value: format(p.y), color: s.color,
+        sub: p.lo != null && p.hi != null ? `±${format((p.hi - p.lo) / 2)}` : undefined, method: p.method,
+      })),
+      foot: here.find(({ p }) => p.note)?.p.note,
+    });
+  });
+  chart.addEventListener("pointerleave", hideTip);
+  return out;
+}
+
+// One tooltip for every chart and map: a title, then one row per value. A row has an optional label and swatch (only needed when
+// two areas or categories share the tooltip) and a value drawn in the series colour. The area name is not repeated for a single
+// area, because it is already at the top of the page.
+export interface TipRow { label?: string; value: string; color?: string; sub?: string; method?: Method }
+export interface TipData { title?: string; rows: TipRow[]; foot?: string }
+
+const el = (tag: string, cls: string, text?: string) => {
+  const e = document.createElement(tag);
+  e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+};
+
+export function renderTip(tip: HTMLElement, d: string | TipData) {
+  tip.replaceChildren();
+  if (typeof d === "string") {
+    const [first, ...rest] = d.split("\n");
+    tip.append(el("div", "tt", first), ...rest.map((r) => el("div", "tf", r)));
+    return;
+  }
+  if (d.title) tip.append(el("div", "tt", d.title));
+  const solo = d.rows.length === 1 && !d.rows[0].label;
+  for (const r of d.rows) {
+    const row = el("div", solo ? "tr solo" : "tr");
+    if (r.color) row.style.setProperty("--c", r.color);
+    if (r.color && !solo) row.append(el("i", "tk"));
+    if (r.label) row.append(el("span", "tl", r.label));
+    row.append(el("span", "tv", r.value));
+    if (r.sub) row.append(el("span", "ts", r.sub));
+    if (r.method) row.append(el("span", `chip chip-${r.method} tb`, METHODS[r.method].letter));
+    tip.append(row);
+  }
+  if (d.foot) tip.append(el("div", "tf", d.foot));
 }
 
 // A hover tooltip drawn like Observable Plot's: a surface box, a thin slate border, a notch toward the mark.
@@ -267,8 +349,8 @@ export function makeTooltip(host: HTMLElement) {
   tip.className = "dtip";
   tip.setAttribute("role", "presentation");
   tip.hidden = true;
-  const showTip = (e: PointerEvent, text: string) => {
-    tip.textContent = text;
+  const showTip = (e: PointerEvent | MouseEvent, data: string | TipData) => {
+    renderTip(tip, data);
     tip.hidden = false;
     const box = host.getBoundingClientRect();
     const w = tip.offsetWidth, h = tip.offsetHeight;
@@ -282,6 +364,27 @@ export function makeTooltip(host: HTMLElement) {
   };
   const hideTip = () => { tip.hidden = true; };
   return { tip, showTip, hideTip };
+}
+
+// Hover tooltips for Observable Plot marks. A mark tags each of its elements with `tipLabel(mark, row)`; a pointer over one
+// shows `tipFor(mark, row)`. The tag is moved off aria-label, which screen readers would read out.
+const tipLabel = (mark: string) => (_: unknown, i: number) => `tip:${mark}:${i}`;
+function tipOverMarks(host: HTMLElement, chart: Element, tipFor: (mark: string, row: number) => TipData | null) {
+  const { tip, showTip, hideTip } = makeTooltip(host);
+  host.style.position = "relative";
+  host.append(tip);
+  chart.querySelectorAll("[aria-label^='tip:']").forEach((n) => {
+    n.setAttribute("data-tip", n.getAttribute("aria-label")!.slice(4));
+    n.removeAttribute("aria-label");
+  });
+  chart.addEventListener("pointermove", (e) => {
+    const hit = (e.target as Element).closest("[data-tip]")?.getAttribute("data-tip");
+    const [mark, row] = hit?.split(":") ?? [];
+    const data = hit ? tipFor(mark, +row) : null;
+    if (data) showTip(e as PointerEvent, data); else hideTip();
+  });
+  chart.addEventListener("pointerleave", hideTip);
+  return host;
 }
 
 // ---- 100% bar --------------------------------------------------------------------------------------------
@@ -315,10 +418,8 @@ export function stacked100({ rows, order, seriesOrder, pal, format, width, heigh
       const seg = document.createElement("div");
       seg.style.cssText = `width:${v * 100}%;background:${colour(i)};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:${i === 0 || colour(i) === pal.male ? "#fff" : "#131A27"};white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums;`;
       if (v * width > 46) seg.textContent = format(v);
-      const note = rows.find((r) => r.category === c && r.series === s)?.note;
-      seg.addEventListener("pointermove", (e) => showTip(e, `${c}
-${s}: ${format(v)}${note ? `
-${note}` : ""}`));
+      const src = rows.find((r) => r.category === c && r.series === s), note = src?.note;
+      seg.addEventListener("pointermove", (e) => showTip(e, { title: c, rows: [{ label: series.length > 1 ? s : undefined, value: format(v), color: series.length > 1 ? areaColor[Math.min(series.indexOf(s), areaColor.length - 1)] : colour(i), sub: note, method: src?.method }] }));
       seg.addEventListener("pointerleave", hideTip);
       bar.append(seg);
     });
@@ -396,11 +497,9 @@ export function donut({ rows, order, seriesOrder, pal, format, width, height, co
       slice.setAttribute("fill", colour(i));
       slice.setAttribute("stroke", pal.surface);
       slice.setAttribute("stroke-width", "1.5");
-      const note = rows.find((r) => r.category === c && r.series === s)?.note;
+      const src = rows.find((r) => r.category === c && r.series === s), note = src?.note;
       slice.style.cursor = "default";
-      slice.addEventListener("pointermove", (e) => showTip(e, `${c}
-${s}: ${format(v)}${note ? `
-${note}` : ""}`));
+      slice.addEventListener("pointermove", (e) => showTip(e, { title: c, rows: [{ label: series.length > 1 ? s : undefined, value: format(v), color: series.length > 1 ? areaColor[Math.min(series.indexOf(s), areaColor.length - 1)] : colour(i), sub: note, method: src?.method }] }));
       slice.addEventListener("pointerleave", hideTip);
       svg.append(slice);
       a = a1;

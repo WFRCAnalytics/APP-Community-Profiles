@@ -28,7 +28,7 @@
       label: r.label, color: "",
       points: data.filter((d) => d.id === r.id).map((d) => ({
         x: d.vintage, y: d.value!, lo: d.moe == null ? null : d.value! - d.moe, hi: d.moe == null ? null : d.value! + d.moe,
-        note: METHODS[d.method].label,
+        method: d.method,
       })),
     })).filter((s) => s.points.length);
   }

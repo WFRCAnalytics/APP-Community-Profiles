@@ -99,7 +99,7 @@ button { cursor: pointer; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .dot.sel { background: var(--sel); }
 .dot.cmp { background: var(--cmp); }
-.popover { position: absolute; left: 156px; top: 62px; width: min(580px, calc(100vw - 24px)); height: min(540px, calc(100vh - 80px)); z-index: 50; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; }
+.popover { position: fixed; z-index: 50; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; }
 .popover .head { padding: 12px 14px 8px; display: flex; flex-direction: column; gap: 10px; }
 .popover .q { display: flex; align-items: center; gap: 8px; border: 1px solid var(--focus); background: var(--surface); border-radius: 10px; padding: 8px 12px; }
 .popover .q input { flex: 1; border: 0; background: transparent; outline: none; min-width: 0; }
@@ -116,7 +116,7 @@ button { cursor: pointer; }
 .results li .act { font-size: 0.75rem; border: 1px solid var(--border); border-radius: 8px; padding: 2px 9px; background: var(--surface); }
 .results .none { padding: 16px 14px; color: var(--muted); }
 .popover .foot2 { padding: 8px 14px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
-.scrim { position: absolute; inset: 0; z-index: 45; }
+.scrim { position: fixed; inset: 0; z-index: 45; }
 
 /* ---------- context bar ---------- */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
@@ -242,7 +242,6 @@ button { cursor: pointer; }
   .brand { display: none; }
   .field-btn { margin-left: 0; flex: 1; width: auto; }
   .btn-ghost span { display: none; }
-  .popover { left: 8px; top: 62px; }
   .year { width: 100%; }
   .tip:hover::after { display: none; }
   .tiles, .cols6 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; max-width: none !important; }

@@ -17,6 +17,14 @@
   let kind = $state("all");
   let active = $state(0);
   let input: HTMLInputElement | undefined = $state();
+  // The popup sits directly under the search field, with the same left edge and the same width.
+  let anchor = $state({ left: 156, top: 62, width: 580 });
+  function measure() {
+    const r = document.getElementById("area-field")?.getBoundingClientRect();
+    if (!r) return;
+    const left = Math.max(8, r.left), width = Math.min(r.width, window.innerWidth - left - 8);
+    anchor = { left, top: r.bottom + 6, width };
+  }
 
   type Row = { kind: "group"; label: string } | { kind: "area"; geo: Geography };
   const label = (g: Geography) => displayName(g) + (g.kind && g.kind !== "city" && g.geo_type === "place" ? ` (${g.kind})` : "");
@@ -25,6 +33,7 @@
   $effect(() => {
     if (!mode) return;
     query = "";
+    measure();
     kind = mode === "compare" ? "suggested" : "all";
     active = 0;
     tick().then(() => input?.focus());
@@ -73,10 +82,12 @@
   const note = $derived(mode === "compare" ? "Same kind first, then the larger areas around it" : `${app.geos.length} areas: region, MPO, RPO, workshop areas, counties, cities and towns`);
 </script>
 
+<svelte:window onresize={measure} />
+
 {#if mode}
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   <div class="scrim" onclick={() => (app.picker = null)}></div>
-  <div class="popover" role="dialog" aria-label={mode === "compare" ? "Choose an area to compare with" : "Choose an area"}>
+  <div class="popover" style="left:{anchor.left}px;top:{anchor.top}px;width:{anchor.width}px;height:min(540px, calc(100vh - {anchor.top + 16}px))" role="dialog" aria-label={mode === "compare" ? "Choose an area to compare with" : "Choose an area"}>
     <div class="head">
       <div class="q">
         <Icon name="search" size={15} />

@@ -1,0 +1,273 @@
+// Data access: every query the app makes against the committed parquet files.
+import { dataUrl, sql, type Db } from "./db";
+import { methodOf, type Method } from "./format";
+import { variablesOf, type GeoType, type Indicator } from "./indicators";
+
+export interface Ref {
+  type: GeoType | string;
+  id: string;
+}
+
+export interface Geography {
+  geo_id: string;
+  geo_type: GeoType;
+  geo_name: string;
+  kind: string;
+  organization: string | null;
+  notes: string | null;
+}
+
+export interface IndicatorValue {
+  value: number | null;
+  moe: number | null;
+  method: Method;
+  flag: string | null;
+  num?: number | null;
+  den?: number | null;
+}
+
+const lit = (s: unknown) => `'${String(s).replace(/'/g, "''")}'`;
+const list = (xs: unknown[]) => xs.map(lit).join(", ");
+const groupByType = (refs: Ref[]) => {
+  const g = new Map<string, string[]>();
+  for (const r of refs) g.set(r.type, [...(g.get(r.type) ?? []), r.id]);
+  return g;
+};
+
+// ---- lookups ---------------------------------------------------------------------------------------------
+
+export const registry = (h: Db) =>
+  sql<Geography>(h, `SELECT geo_id, geo_type, geo_name, kind, organization, notes
+                     FROM read_parquet('${dataUrl("meta/geographies.parquet")}') ORDER BY geo_name`);
+
+export async function acsVintages(h: Db): Promise<number[]> {
+  const rows = await sql(h, `SELECT DISTINCT vintage FROM read_parquet('${dataUrl("meta/variables.parquet")}') ORDER BY vintage`);
+  return rows.map((r) => r.vintage);
+}
+
+export const acsLabels = (h: Db, vintage: number, table: string) =>
+  sql<{ variable: string; label: string }>(h, `SELECT variable, label FROM read_parquet('${dataUrl("meta/variables.parquet")}')
+                                               WHERE vintage = ${+vintage} AND "table" = ${lit(table)} ORDER BY variable`);
+
+// ---- ACS -------------------------------------------------------------------------------------------------
+
+export interface AcsRow {
+  geo_id: string;
+  variable: string;
+  estimate: number | null;
+  moe: number | null;
+  method: string;
+  flag: string | null;
+}
+
+// Raw ACS variables for some areas in one vintage: Map("id|variable") -> row.
+export async function acsVariables(h: Db, topic: string, refs: Ref[], vintage: number, variables: string[]) {
+  const out = new Map<string, AcsRow>();
+  await Promise.all([...groupByType(refs)].map(async ([type, ids]) => {
+    const rows = await sql<AcsRow>(h, `
+      SELECT geo_id, variable, estimate::DOUBLE AS estimate, moe::DOUBLE AS moe, method, flag
+      FROM read_parquet('${dataUrl(`acs/${topic}/${type}.parquet`)}')
+      WHERE vintage = ${+vintage} AND geo_id IN (${list(ids)}) AND variable IN (${list(variables)})`);
+    for (const r of rows) out.set(`${r.geo_id}|${r.variable}`, r);
+  }));
+  return out;
+}
+
+// The sum of some variables in a Map from acsVariables, with its margin of error.
+export function sumOf(map: Map<string, AcsRow>, id: string, variables: string[]) {
+  let total: number | null = null, sq = 0, rank = 0, any = false, moeNull = false;
+  for (const variable of variables) {
+    const r = map.get(`${id}|${variable}`);
+    if (!r || r.estimate == null) continue;
+    any = true;
+    total = (total ?? 0) + r.estimate;
+    if (r.moe == null) moeNull = true; else sq += r.moe ** 2;
+    rank = Math.max(rank, r.method === "direct" ? 0 : r.method === "aggregated" ? 1 : 2);
+  }
+  return { value: total, moe: any && !moeNull ? Math.sqrt(sq) : null, rank, any };
+}
+
+// Margin of error of a proportion num/den (Census handbook formula).
+export function shareMoe(num: number | null, den: number | null, numMoe: number | null, denMoe: number | null) {
+  if (num == null || !den || numMoe == null) return null;
+  const p = num / den;
+  const inner = numMoe ** 2 - (denMoe == null ? 0 : p ** 2 * denMoe ** 2);
+  const radicand = inner > 0 ? inner : numMoe ** 2 + (denMoe == null ? 0 : p ** 2 * denMoe ** 2);
+  return Math.sqrt(radicand) / den;
+}
+
+interface AggRow {
+  num: number | null; num_moe: number | null;
+  den: number | null; den_moe: number | null;
+  minus_: number | null; minus_moe: number | null;
+  rank: number; flag: string | null;
+}
+
+export function summarize(ind: Indicator, row: AggRow): IndicatorValue {
+  const num = row.num;
+  if (ind.type !== "share") {
+    return { value: num, moe: row.num_moe ?? null, method: methodOf(row.rank ?? 0), flag: row.flag ?? null };
+  }
+  const den = (row.den ?? 0) - (row.minus_ ?? 0);
+  const denMoe = row.den_moe == null ? null : Math.sqrt(row.den_moe ** 2 + (row.minus_moe ?? 0) ** 2);
+  return {
+    value: den > 0 && num != null ? num / den : null,
+    moe: shareMoe(num, den, row.num_moe, denMoe),
+    method: methodOf(row.rank ?? 0), flag: row.flag ?? null, num, den,
+  };
+}
+
+export const AGG_COLUMNS = (ind: Indicator) => {
+  const num = list(ind.num), den = list(ind.den ?? []), minus = list(ind.minus ?? []);
+  const part = (name: string, vars: string | null) => vars
+    ? `sum(estimate) FILTER (WHERE variable IN (${vars}))::DOUBLE AS ${name},
+       sqrt(sum(power(moe, 2)) FILTER (WHERE variable IN (${vars})))::DOUBLE AS ${name}_moe`
+    : `NULL::DOUBLE AS ${name}, NULL::DOUBLE AS ${name}_moe`;
+  return [part("num", num), part("den", den || null), part("minus_", minus || null)].join(",\n");
+};
+
+const METHOD_RANK = `max(CASE method WHEN 'direct' THEN 0 WHEN 'aggregated' THEN 1 ELSE 2 END)::INTEGER AS rank`;
+
+// Indicator values for areas in one vintage: Map(id) -> value. `refs` null means every area of `type` (map layers).
+export async function indicatorValues(h: Db, ind: Indicator, refs: Ref[] | null, vintage: number, type: string | null = null) {
+  const out = new Map<string, IndicatorValue>();
+  const targets: [string | null, string[] | null][] = refs ? [...groupByType(refs)] : [[type, null]];
+  await Promise.all(targets.map(async ([t, ids]) => {
+    const rows = await sql<AggRow & { geo_id: string }>(h, `
+      SELECT geo_id, ${AGG_COLUMNS(ind)}, ${METHOD_RANK}, max(flag) AS flag
+      FROM read_parquet('${dataUrl(`acs/${ind.topic}/${t}.parquet`)}')
+      WHERE vintage = ${+vintage} ${ids ? `AND geo_id IN (${list(ids)})` : ""} AND variable IN (${list(variablesOf(ind))})
+      GROUP BY geo_id`);
+    for (const r of rows) out.set(r.geo_id, summarize(ind, r));
+  }));
+  return out;
+}
+
+// Indicator history across vintages: [{id, vintage, value, moe, method}].
+export async function indicatorSeries(h: Db, ind: Indicator, refs: Ref[]) {
+  const out: (IndicatorValue & { id: string; vintage: number })[] = [];
+  await Promise.all([...groupByType(refs)].map(async ([t, ids]) => {
+    const rows = await sql<AggRow & { geo_id: string; vintage: number }>(h, `
+      SELECT geo_id, vintage, ${AGG_COLUMNS(ind)}, ${METHOD_RANK}, max(flag) AS flag
+      FROM read_parquet('${dataUrl(`acs/${ind.topic}/${t}.parquet`)}')
+      WHERE geo_id IN (${list(ids)}) AND variable IN (${list(variablesOf(ind))})
+      GROUP BY geo_id, vintage`);
+    for (const r of rows) out.push({ id: r.geo_id, vintage: r.vintage, ...summarize(ind, r) });
+  }));
+  return out.filter((r) => r.value != null).sort((a, b) => a.vintage - b.vintage);
+}
+
+// ---- population estimates --------------------------------------------------------------------------------
+
+const PEP_FILE: Record<string, string> = { state: "state", county: "county", place: "place", aog: "areas", mpo: "areas", rpo: "areas", fws: "areas" };
+
+// Annual population estimates [{id, year, value, vintage}] for the areas that have them (others return none).
+export async function pepSeries(h: Db, refs: Ref[]) {
+  const out: { id: string; year: number; value: number; vintage: number }[] = [];
+  const byFile = new Map<string, string[]>();
+  for (const r of refs) if (PEP_FILE[r.type]) byFile.set(PEP_FILE[r.type], [...(byFile.get(PEP_FILE[r.type]) ?? []), r.id]);
+  await Promise.all([...byFile].map(async ([file, ids]) => {
+    out.push(...await sql<(typeof out)[number]>(h, `SELECT geo_id AS id, year, estimate::DOUBLE AS value, vintage
+                              FROM read_parquet('${dataUrl(`pep/${file}.parquet`)}')
+                              WHERE geo_id IN (${list(ids)}) ORDER BY year`));
+  }));
+  return out;
+}
+
+// ---- LODES -----------------------------------------------------------------------------------------------
+
+export async function lodesYears(h: Db): Promise<number[]> {
+  const rows = await sql(h, `SELECT DISTINCT year FROM read_parquet('${dataUrl("lodes/wac/county.parquet")}') ORDER BY year`);
+  return rows.map((r) => r.year);
+}
+
+// Jobs (kind "wac") or workers (kind "rac") by variable for one year: Map("id|variable") -> number.
+export async function lodesValues(h: Db, kind: "wac" | "rac", refs: Ref[], year: number) {
+  const out = new Map<string, number>();
+  await Promise.all([...groupByType(refs)].map(async ([type, ids]) => {
+    const rows = await sql(h, `SELECT geo_id, variable, jobs::DOUBLE AS jobs
+                               FROM read_parquet('${dataUrl(`lodes/${kind}/${type}.parquet`)}')
+                               WHERE year = ${+year} AND geo_id IN (${list(ids)})`);
+    for (const r of rows) out.set(`${r.geo_id}|${r.variable}`, r.jobs);
+  }));
+  return out;
+}
+
+// Total jobs/workers over the years: [{id, year, value}].
+export async function lodesSeries(h: Db, kind: "wac" | "rac", refs: Ref[]) {
+  const out: { id: string; year: number; value: number }[] = [];
+  await Promise.all([...groupByType(refs)].map(async ([type, ids]) => {
+    out.push(...await sql<(typeof out)[number]>(h, `SELECT geo_id AS id, year, jobs::DOUBLE AS value
+                              FROM read_parquet('${dataUrl(`lodes/${kind}/${type}.parquet`)}')
+                              WHERE variable = 'C000' AND geo_id IN (${list(ids)}) ORDER BY year`));
+  }));
+  return out;
+}
+
+export const lodesVariables = (h: Db) =>
+  sql<{ source: string; variable: string; group: string; label: string }>(
+    h, `SELECT source, variable, "group", label FROM read_parquet('${dataUrl("meta/lodes_variables.parquet")}')`);
+
+// Flows into and out of an area for one year, from the OD file of its own geography type.
+export const odFlows = (h: Db, type: string, id: string, year: number) =>
+  sql<{ origin_id: string; dest_id: string; jobs: number }>(h, `
+    SELECT origin_id, dest_id, S000::DOUBLE AS jobs FROM read_parquet('${dataUrl(`lodes/od/${type}.parquet`)}')
+    WHERE year = ${+year} AND (origin_id = ${lit(id)} OR dest_id = ${lit(id)})`);
+
+// Where an area's workers live (origins) or where its residents work (destinations), top N, same type.
+export function odTop(h: Db, type: string, id: string, year: number, direction: "origins" | "destinations", limit = 10) {
+  const [near, far] = direction === "origins" ? ["dest_id", "origin_id"] : ["origin_id", "dest_id"];
+  return sql<{ other: string; jobs: number }>(h, `
+    SELECT ${far} AS other, S000::DOUBLE AS jobs FROM read_parquet('${dataUrl(`lodes/od/${type}.parquet`)}')
+    WHERE year = ${+year} AND ${near} = ${lit(id)} ORDER BY S000 DESC LIMIT ${+limit}`);
+}
+
+// ---- QCEW ------------------------------------------------------------------------------------------------
+
+const QCEW_FILE: Record<string, string> = { state: "state", county: "county", aog: "areas", rpo: "areas", mpo: "areas", fws: "areas" };
+
+export async function qcewYears(h: Db): Promise<number[]> {
+  const rows = await sql(h, `SELECT DISTINCT year FROM read_parquet('${dataUrl("qcew/county.parquet")}') ORDER BY year`);
+  return rows.map((r) => r.year);
+}
+
+export interface QcewIndustry {
+  industry: string;
+  flag?: string;
+  [variable: string]: string | number | undefined;
+}
+
+// Private-sector employment, establishments and pay by industry sector for one area and year.
+// Returns [] when BLS publishes nothing for this kind of area (QCEW stops at the county).
+export async function qcewIndustries(h: Db, ref: Ref, year: number): Promise<QcewIndustry[]> {
+  if (!(ref.type in QCEW_FILE)) return [];
+  const rows = await sql(h, `
+    SELECT industry, variable, value::DOUBLE AS value, flag
+    FROM read_parquet('${dataUrl(`qcew/${QCEW_FILE[ref.type]}.parquet`)}')
+    WHERE geo_id = ${lit(ref.id)} AND year = ${+year} AND ownership = '5'`);
+  const by = new Map<string, QcewIndustry>();
+  for (const r of rows) {
+    const o: QcewIndustry = by.get(r.industry) ?? { industry: r.industry };
+    o[r.variable] = r.value;
+    if (r.flag) o.flag = r.flag;
+    by.set(r.industry, o);
+  }
+  return [...by.values()];
+}
+
+export const qcewCodes = (h: Db) =>
+  sql<{ kind: string; code: string; label: string }>(h, `SELECT kind, code, label FROM read_parquet('${dataUrl("meta/qcew_codes.parquet")}')`);
+
+export const hasQcew = (type: string) => type in QCEW_FILE;
+export const hasPep = (type: string) => type in PEP_FILE;
+
+// ---- map geometry ----------------------------------------------------------------------------------------
+
+const geoCache = new Map<string, Promise<any>>();
+export function geojson(type: string) {
+  if (!geoCache.has(type)) geoCache.set(type, fetch(dataUrl(`web/${type}.geojson`)).then((r) => {
+    if (!r.ok) throw new Error(`No map for ${type}`);
+    return r.json();
+  }));
+  return geoCache.get(type)!;
+}

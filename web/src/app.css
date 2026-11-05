@@ -75,6 +75,7 @@ button { cursor: pointer; }
 .app { display: grid; grid-template-rows: 56px minmax(0, 1fr); height: 100%; min-width: 0; }
 .nav { display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); position: relative; z-index: 30; min-width: 0; }
 .logo { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; flex: none; }
+.wfrc-logo { height: 30px; width: auto; flex: none; display: block; }
 .brand { font: 700 1.06rem var(--f-display); white-space: nowrap; }
 .nav .spacer { flex: 1; }
 .btn-ghost { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: var(--r-ctl); padding: 6px 10px; font-size: 0.8125rem; white-space: nowrap; }
@@ -206,7 +207,10 @@ button { cursor: pointer; }
 .mapcard { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; background: var(--raised); }
 .maplibregl-popup-content { background: var(--surface) !important; color: var(--text) !important; font: 400 0.8rem/1.4 var(--f-body); padding: 7px 10px !important; border-radius: 8px !important; box-shadow: var(--shadow) !important; }
 .maplibregl-popup-tip { display: none; }
-.maplibregl-ctrl-attrib { background: color-mix(in srgb, var(--surface) 85%, transparent) !important; color: var(--muted) !important; font-size: 0.68rem; }
+.maplibregl-ctrl-attrib, .maplibregl-ctrl-attrib.maplibregl-compact, .maplibregl-ctrl-attrib.maplibregl-compact-show { background-color: color-mix(in srgb, var(--surface) 92%, transparent) !important; color: var(--muted) !important; font-size: 0.68rem; border: 1px solid var(--border); }
+/* The attribution toggle keeps no background of its own, so the collapsed and expanded boxes are the same colour; its icon is lightened in dark mode. */
+.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button, .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button { background-color: transparent !important; }
+:root[data-theme="dark"] .maplibregl-ctrl-attrib-button { filter: invert(1) brightness(1.2); }
 .maplibregl-ctrl-attrib a { color: var(--text) !important; }
 .maplibregl-ctrl-group { background: var(--surface) !important; border: 1px solid var(--border); box-shadow: var(--shadow) !important; }
 :root[data-theme="dark"] .maplibregl-ctrl-icon { filter: invert(1) hue-rotate(180deg) brightness(1.3); }

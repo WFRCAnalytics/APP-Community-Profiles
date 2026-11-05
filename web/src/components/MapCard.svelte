@@ -23,11 +23,24 @@
   let idX = $state("median_income");
   let idY = $state("");
   let layer = $state<"areas" | "tracts">("areas");
-  let extent = $state<"front" | "state">("front");
+  // "auto" frames the Wasatch Front, or all of Utah when the selected (or compared) area is the state or lies outside the Front;
+  // the button overrides it until another area is chosen.
+  let extent = $state<"auto" | "front" | "state">("auto");
+  let effective = $state<"front" | "state">("front");
+  $effect(() => { app.id; app.cmp; extent = "auto"; });
+  const inFront = (f: any) => {
+    let w = Infinity, e = -Infinity, so = Infinity, n = -Infinity;
+    const walk = (c: any) => (typeof c[0] === "number" ? (w = Math.min(w, c[0]), e = Math.max(e, c[0]), so = Math.min(so, c[1]), n = Math.max(n, c[1])) : c.forEach(walk));
+    walk(f.geometry.coordinates);
+    const cx = (w + e) / 2, cy = (so + n) / 2;
+    return cx > FRONT[0][0] && cx < FRONT[1][0] && cy > FRONT[0][1] && cy < FRONT[1][1] && e - w < 2.2;
+  };
   const indX = $derived(BY_ID[idX]);
   const indY = $derived(idY ? BY_ID[idY] : null);
   const mapInds = INDICATORS.filter((i) => i.map);
   const mode = $derived(theme.resolved);
+  const PLURAL: Record<string, string> = { county: "counties", place: "cities and towns", fws: "workshop areas", rpo: "RPOs", mpo: "MPOs", aog: "regions", state: "states" };
+  const layerPlural = $derived(PLURAL[["state", "aog", "mpo", "rpo"].includes(app.type) ? "county" : app.type] ?? app.typeInfo.plural);
 
   const tick = (v: number, f: FormatId, span: number) =>
     f === "money" ? (v >= 10000 ? `$${Math.round(v / 1000)}K` : `$${Math.round(v).toLocaleString("en-US")}`) : f === "pct" ? fmtPct(v, span < 0.1 ? 1 : 0) : f === "int" ? fmtCompact(v) : FORMATS[f](v);
@@ -48,7 +61,8 @@
     const c = controller;
     if (!c || !app.ready || !app.selected) return;
     const x = indX, y = indY, tracts = layer === "tracts", sel = app.selected, cmp = app.compare, ext = extent;
-    const type = tracts ? "tract" : sel.type, period = tracts ? app.latestVintage : app.v, db = app.db!;
+    // Areas that are one or two polygons (the state, the region, the MPO, the RPOs) are shown against the counties.
+    const type = tracts ? "tract" : ["state", "aog", "mpo", "rpo"].includes(sel.type) ? "county" : sel.type, period = tracts ? app.latestVintage : app.v, db = app.db!;
     const mine = ++token;
     (async () => {
       const [vx, vy, vmx, vmy, shapes, selShapes, cmpShapes] = await Promise.all([
@@ -57,6 +71,9 @@
         geojson(type), geojson(sel.type), cmp ? geojson(cmp.type) : null,
       ]);
       if (mine !== token) return;
+      const focusFeatures = [selShapes, cmpShapes].flatMap((fc, i) => (fc ? fc.features.filter((f: any) => f.properties.id === (i === 0 ? sel.id : cmp?.id)) : []));
+      const eff: "front" | "state" = ext === "auto" ? (sel.type === "state" || focusFeatures.some((f: any) => !inFront(f)) ? "state" : "front") : ext;
+      effective = eff;
       const named = {
         ...shapes,
         features: shapes.features.map((f: any) => ({ ...f, properties: { ...f.properties, name: shortName(app.names.get(f.properties.id) ?? "") } })),
@@ -79,8 +96,8 @@
         values: px, values2: py,
         names: tracts ? new Map([...vx.keys()].map((id) => [id, `Census tract ${id.slice(5)}`])) : app.names,
         format: FORMATS[x.format], label: y ? `${x.label} and ${y.label}` : x.label,
-        bounds: ext === "front" ? FRONT : STATE,
-        fitKey: `${ext}|${type}`,
+        bounds: eff === "front" ? FRONT : STATE,
+        fitKey: `${eff}|${type}|${sel.id}|${cmp?.id ?? ""}`,
         onSelect: tracts ? undefined : (id, shift) => (shift && id !== app.id ? (app.cmp = id) : app.select(id)),
       });
     })().catch((e) => console.error(e));
@@ -106,7 +123,7 @@
 </script>
 
 <div class="mapcard">
-  <div class="canvas" bind:this={el} role="application" aria-label="Map of {app.typeInfo.plural}, shaded by {indX.label}{indY ? ` and ${indY.label}` : ''}. Use the search to pick an area with the keyboard."></div>
+  <div class="canvas" bind:this={el} role="application" aria-label="Map of {layerPlural}, shaded by {indX.label}{indY ? ` and ${indY.label}` : ''}. Use the search to pick an area with the keyboard."></div>
 
   {#if !compact}
   <div class="top">
@@ -119,12 +136,12 @@
           {#each mapInds.filter((i) => i.id !== idX) as i}<option value={i.id}>{i.label}</option>{/each}
         </select></div>
       <div class="pill seg" role="group" aria-label="Map layer">
-        <button aria-pressed={layer === "areas"} onclick={() => (layer = "areas")}>{app.typeInfo.plural.replace(/^./, (c) => c.toUpperCase())}</button>
+        <button aria-pressed={layer === "areas"} onclick={() => (layer = "areas")}>{layerPlural.replace(/^./, (c) => c.toUpperCase())}</button>
         <button aria-pressed={layer === "tracts"} onclick={() => (layer = "tracts")}>Tracts</button>
       </div>
     </div>
   </div>
-  <button class="pill btn zoomer" onclick={() => (extent = extent === "front" ? "state" : "front")}>{extent === "front" ? "Show all of Utah" : "Zoom to Wasatch Front"}</button>
+  <button class="pill btn zoomer" onclick={() => (extent = effective === "front" ? "state" : "front")}>{effective === "front" ? "Show all of Utah" : "Zoom to Wasatch Front"}</button>
   {/if}
 
   {#if legend && !compact}

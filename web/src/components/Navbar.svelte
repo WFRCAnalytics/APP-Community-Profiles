@@ -1,6 +1,8 @@
 <script lang="ts">
   import { app } from "../lib/app.svelte";
   import { theme } from "../lib/theme.svelte";
+  import logoColor from "../assets/wfrc-color.png";
+  import logoWhite from "../assets/wfrc-white.png";
   import Icon from "./Icon.svelte";
 
   const themeName = $derived(theme.pref === "system" ? "Auto" : theme.pref === "light" ? "Light" : "Dark");
@@ -8,7 +10,7 @@
 </script>
 
 <header class="nav">
-  <div class="logo"><Icon name="layout" size={17} /></div>
+  <img class="wfrc-logo" src={theme.resolved === "dark" ? logoWhite : logoColor} alt="Wasatch Front Regional Council" width="53" height="30" />
   <h1 class="brand">Community profiles</h1>
   <button class="field-btn" aria-haspopup="dialog" aria-expanded={app.picker === "area"} onclick={() => (app.picker = app.picker === "area" ? null : "area")}>
     <Icon name="search" size={15} />

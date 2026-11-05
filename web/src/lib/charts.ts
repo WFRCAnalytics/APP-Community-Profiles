@@ -264,6 +264,27 @@ export function donut({ rows, order, seriesOrder, pal, format, width, height }: 
   const gap = 3;
 
   const NS = "http://www.w3.org/2000/svg";
+  // The tooltip looks like Observable Plot's: a surface-coloured box with a thin slate border and a notch pointing at the mark.
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "position:relative;display:flex;align-items:center;gap:14px;height:100%;min-height:0;";
+  const tip = document.createElement("div");
+  tip.className = "dtip";
+  tip.setAttribute("role", "presentation");
+  tip.hidden = true;
+  const showTip = (e: PointerEvent, text: string) => {
+    tip.textContent = text;
+    tip.hidden = false;
+    const box = wrap.getBoundingClientRect();
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = e.clientX - box.left - 19, y = e.clientY - box.top + 16;
+    const flip = x + w > box.width - 4;
+    if (flip) x = Math.max(4, e.clientX - box.left - w + 19);
+    tip.classList.toggle("flip", flip);
+    if (y + h > box.height) y = Math.max(0, e.clientY - box.top - h - 14);
+    tip.style.left = `${Math.max(0, x)}px`;
+    tip.style.top = `${y}px`;
+  };
+  const hideTip = () => { tip.hidden = true; };
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
   svg.setAttribute("width", String(size));
@@ -286,10 +307,12 @@ export function donut({ rows, order, seriesOrder, pal, format, width, height }: 
       slice.setAttribute("fill", colour(i));
       slice.setAttribute("stroke", pal.surface);
       slice.setAttribute("stroke-width", "1.5");
-      const title = document.createElementNS(NS, "title");
-      title.textContent = `${s}
-${c}: ${format(v)}`;
-      slice.append(title);
+      const note = rows.find((r) => r.category === c && r.series === s)?.note;
+      slice.style.cursor = "default";
+      slice.addEventListener("pointermove", (e) => showTip(e, `${c}
+${s}: ${format(v)}${note ? `
+${note}` : ""}`));
+      slice.addEventListener("pointerleave", hideTip);
       svg.append(slice);
       a = a1;
     });
@@ -318,9 +341,7 @@ ${c}: ${format(v)}`;
   sub.textContent = label.length > 16 ? `${label.slice(0, 15)}…` : label;
   svg.append(centre, sub);
 
-  const wrap = document.createElement("div");
-  wrap.style.cssText = "display:flex;align-items:center;gap:14px;height:100%;min-height:0;";
-  wrap.append(svg);
+  wrap.append(svg, tip);
   const legendEl = document.createElement("div");
   legendEl.style.cssText = "flex:1;min-width:0;display:grid;gap:3px;font-size:12px;overflow:auto;max-height:100%;";
   if (rings.length > 1) {

@@ -248,3 +248,9 @@ button { cursor: pointer; }
   .ctx { gap: 10px; }
   .play { order: 3; }
 }
+
+/* Donut tooltip, drawn to match Observable Plot's tip: surface box, thin slate border, a notch toward the mark. */
+.dtip { position: absolute; z-index: 5; pointer-events: none; background: var(--surface); border: 1px solid var(--muted); padding: 7px 10px; font: 400 12px/1.35 var(--f-body); color: var(--muted); white-space: pre; }
+.dtip::before { content: ""; position: absolute; top: -6px; left: 14px; width: 9px; height: 9px; background: var(--surface); border-left: 1px solid var(--muted); border-top: 1px solid var(--muted); transform: rotate(45deg); }
+.dtip.flip::before { left: auto; right: 14px; }
+.dtip[hidden] { display: none; }

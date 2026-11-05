@@ -140,6 +140,14 @@ To test in a real browser, `scripts/tools` already carries `puppeteer-core`: ope
   downloads, boundary snapshots or crosswalk tables.
 - To feature the profiles on the home page, set `featured: true` on the catalog entry.
 
+## Reproducibility
+
+Tested on 2026-11-04: from a fresh clone with no `profiles/raw/` and a new virtual environment, `uv sync`
+followed by `uv run profiles all` (a Census API key in `.env`) downloaded everything again, rebuilt all 127
+tracked files in `profiles/data/` and passed the QA checks. Every parquet and GeoJSON file came out
+byte-identical to the committed copy. It takes about an hour and a half, mostly the ACS downloads, and leaves
+about 1.1 GB in `profiles/raw/`. The pipeline writes a file only when its bytes change, so a rerun leaves no git diff.
+
 ## Notes
 
 - `duckdb` is pinned in `pyproject.toml`. If `LOAD spatial` fails with an Application Control policy

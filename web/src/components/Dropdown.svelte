@@ -27,7 +27,7 @@
 </script>
 
 <div class="dd" bind:this={root}>
-  <button type="button" class="face" aria-haspopup="listbox" aria-expanded={open} aria-label={label} onclick={toggle} onkeydown={key}>
+  <button type="button" class="face" aria-haspopup="listbox" aria-expanded={open} aria-label="{label}: {current?.label ?? "Choose"}" onclick={toggle} onkeydown={key}>
     <span class="txt">{current?.label ?? "Choose"}</span>
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
   </button>

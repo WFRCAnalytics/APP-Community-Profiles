@@ -115,7 +115,7 @@
     const type = d.type, focus = { type: "FeatureCollection" as const, features: d.shapes.features.filter((f: any) => f.properties.id === d.id) };
     c.update({
       places, flows: l.flows, selId: d.id, shapes: d.shapes, focus, tip,
-      fitKey: `${type}|${d.id}|${direction}|${limit}`,
+      fitKey: `${type}|${d.id}`, // not the direction or route count: changing those keeps the view the reader has framed
       onSelect: (id) => app.select(id),
     });
   });

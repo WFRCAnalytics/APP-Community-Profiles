@@ -37,7 +37,7 @@ def test_rest_point_uses_the_largest_piece_and_handles_no_areas():
 
 def test_rest_point_prefers_the_weighted_centre_but_not_in_a_gap():
     import numpy as np
-    from shapely.geometry import Point, box
+    from shapely.geometry import box
     state = box(0, 0, 100, 100)
     areas = [box(40, 0, 60, 100)]                      # leaves a west and an east half, 40 wide each
     w = (np.array([80.0, 90.0]), np.array([20.0, 25.0]), np.array([1.0, 1.0]))

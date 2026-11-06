@@ -12,10 +12,12 @@ dependencies = [
     "geopandas",  # only for pygris
     "pandas",
     "pyarrow",
+    "pyproj",
     "pygris",
     "python-dotenv",
     "pyyaml",
     "requests",
+    "shapely",
 ]
 
 [dependency-groups]

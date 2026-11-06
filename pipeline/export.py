@@ -10,20 +10,23 @@ which falls outside crescent or split areas.
 For each of those types it also writes a row for the pseudo-area `other-ut` ("Rest of Utah"): the commuters whose other end is a
 Utah block outside every area of the type. Its geometry is the state minus the union of the areas, and its point is the pole of
 inaccessibility of the largest piece of that remainder, shrunk by `export.rest_margin_m` so the point never sits on an area's edge.
+When the block files are on disk the point is instead the centre of the jobs and resident workers in those blocks (latest LODES
+year), provided that centre lies inside the shrunk remainder; otherwise it falls back to the pole of inaccessibility.
 """
 from __future__ import annotations
 
 import json
 
+import numpy as np
 import pandas as pd
 import shapely
 from pyproj import Transformer
 from shapely.geometry import Point
 from shapely.ops import polylabel, transform
 
-from . import tiger
+from . import lodes, tiger
 from .db import connect, sql_path, write_parquet
-from .paths import BOUNDARIES, DATA, META
+from .paths import BOUNDARIES, DATA, META, RAW
 from .util import load_config, update_manifest, write_if_changed
 
 PRECISION = 1e-5     # degrees, about 1 m
@@ -43,35 +46,77 @@ def centroids(con, sources: dict[str, str], geo_types: list[str]):
     return " UNION ALL ".join(parts)
 
 
-def rest_point(state, areas: list, margin: float):
+def rest_point(state, areas: list, margin: float, weighted: tuple | None = None):
     """A point in the part of `state` outside every one of `areas` (shapely geometries in a metric CRS), or None when no part of
-    the remainder is wider than twice `margin`. Slivers left by boundaries that do not quite match vanish with the shrink."""
+    the remainder is wider than twice `margin`. Slivers left by boundaries that do not quite match vanish with the shrink.
+
+    `weighted` is (x, y, weight) arrays for the places the Rest of Utah traffic starts and ends. Their weighted mean is used when it
+    lies inside the shrunk remainder; when it falls in a gap or too near an area's edge the point is the pole of inaccessibility of
+    the largest piece, which is always clear of every edge."""
     rest = state.difference(shapely.union_all(areas)) if areas else state
     core = rest.buffer(-margin)
     pieces = [g for g in getattr(core, "geoms", [core]) if not g.is_empty]
     if not pieces:
         return None
+    if weighted is not None:
+        x, y, w = weighted
+        if len(w) and w.sum() > 0:
+            mean = Point((x * w).sum() / w.sum(), (y * w).sum() / w.sum())
+            if core.contains(mean):
+                return mean
     return polylabel(max(pieces, key=lambda g: g.area), tolerance=margin / 20)
 
 
-def rest_of_state(con, sources: dict[str, str], geo_types: list[str], other_id: str, crs: int, margin: float) -> pd.DataFrame:
+def rest_weights(con, cfg: dict, to_m) -> dict[str, tuple]:
+    """Per geography type, the 2020 block points outside every area of the type with their jobs plus resident workers in the latest
+    LODES year: {type: (x, y, weight)} in the metric CRS. Empty when the block crosswalk or the LODES files are not on disk."""
+    lc = cfg["lodes"]
+    year = max(lc["years"])
+    area_blocks = RAW / "derived" / "block_area_2020.parquet"
+    blocks = RAW / "tiger" / f"blocks_{cfg['state']['abbr']}_{cfg['decennial'][2020]['tiger_year']}.parquet"
+    files = {k: lodes.url(lc, k, year)[1] for k in ("wac", "rac")}
+    if not (area_blocks.exists() and blocks.exists() and all(f.exists() for f in files.values()) and lodes.url(lc, "xwalk")[1].exists()):
+        print("rest of state: block weights not on disk, using the geometric point only")
+        return {}
+    lodes.build_block_geo(con, lodes.url(lc, "xwalk")[1], area_blocks)
+    con.execute(f"""
+        CREATE OR REPLACE TEMP TABLE block_jobs AS
+        SELECT block, sum(jobs) AS jobs FROM (
+            SELECT w_geocode AS block, C000 AS jobs FROM read_csv('{sql_path(files["wac"])}', types = {{'w_geocode': 'VARCHAR'}})
+            UNION ALL SELECT h_geocode, C000 FROM read_csv('{sql_path(files["rac"])}', types = {{'h_geocode': 'VARCHAR'}})) GROUP BY block""")
+    out = {}
+    for t in lc["od_geographies"]:
+        rows = con.execute(f"""
+            SELECT ST_X(b.geometry::GEOMETRY), ST_Y(b.geometry::GEOMETRY), j.jobs
+            FROM read_parquet('{sql_path(blocks)}') b JOIN block_jobs j USING (block)
+            WHERE j.jobs > 0 AND b.block NOT IN (SELECT block FROM block_geo WHERE geo_type = '{t}')""").fetchall()
+        if rows:
+            lon, lat, w = (np.array(c, dtype=float) for c in zip(*rows))
+            x, y = to_m(lon, lat)
+            out[t] = (np.asarray(x), np.asarray(y), w)
+    return out
+
+
+def rest_of_state(con, cfg: dict, sources: dict[str, str]) -> pd.DataFrame:
     """One `other-ut` row per geography type that leaves a remainder: geo_id, geo_type, lon, lat."""
-    to_m = Transformer.from_crs(4326, crs, always_xy=True).transform
-    to_deg = Transformer.from_crs(crs, 4326, always_xy=True).transform
+    ex = cfg["export"]
+    to_m = Transformer.from_crs(4326, ex["metric_crs"], always_xy=True).transform
+    to_deg = Transformer.from_crs(ex["metric_crs"], 4326, always_xy=True).transform
 
     def load(source: str) -> list:
         rows = con.execute(f"SELECT ST_AsWKB(geometry::GEOMETRY) FROM ({source})").fetchall()
         return [transform(to_m, shapely.from_wkb(bytes(r[0]))) for r in rows]
 
     state = shapely.union_all(load(sources["state"]))
+    weights = rest_weights(con, cfg, to_m)
     out = []
-    for t in geo_types:
-        p = rest_point(state, load(sources[t]), margin)
+    for t in cfg["lodes"]["od_geographies"]:
+        p = rest_point(state, load(sources[t]), ex["rest_margin_m"], weights.get(t))
         if p is None:
             print(f"rest of state: no remainder for {t}")
             continue
         lon, lat = transform(to_deg, Point(p)).coords[0]
-        out.append({"geo_id": other_id, "geo_type": t, "lon": lon, "lat": lat})
+        out.append({"geo_id": cfg["lodes"]["other_id"], "geo_type": t, "lon": lon, "lat": lat})
         print(f"rest of state: {t} at {lon:.4f}, {lat:.4f}")
     return pd.DataFrame(out, columns=["geo_id", "geo_type", "lon", "lat"])
 
@@ -106,8 +151,7 @@ def run(refresh: bool = False) -> None:
         print(f"{geo_type}: {len(data) / 1e6:.2f} MB")
     update_manifest("web_export", manifest)
     od_types = cfg["lodes"]["od_geographies"]
-    ex = cfg["export"]
-    rest = rest_of_state(con, sources, od_types, cfg["lodes"]["other_id"], ex["metric_crs"], ex["rest_margin_m"])
+    rest = rest_of_state(con, cfg, sources)
     con.register("rest_df", rest)
     write_parquet(con, centroids(con, sources, od_types) + " UNION ALL SELECT geo_id, geo_type, lon, lat FROM rest_df",
                   META / "centroids.parquet", "geo_type, geo_id")

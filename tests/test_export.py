@@ -50,3 +50,11 @@ def test_rest_point_prefers_the_weighted_centre_but_not_in_a_gap():
     r = export.rest_point(state, areas, margin=5, weighted=near)
     assert r.distance(areas[0]) >= 5 - 1e-6
     assert export.rest_point(state, areas, margin=2, weighted=(np.array([]), np.array([]), np.array([]))) is not None
+
+
+def test_rest_shape_is_the_state_minus_the_areas_without_slivers():
+    from shapely.geometry import box
+    state = box(0, 0, 100, 100)
+    shape = export.rest_shape(state, [box(0, 0, 40, 100), box(40, 0, 99.5, 30)], margin=5)   # the second leaves a 0.5-wide sliver
+    assert abs(shape.area - 60 * 70) < 1               # the 60 x 70 block in the north east; the sliver is gone
+    assert export.rest_shape(box(0, 0, 10, 10), [box(0, 0, 5, 10), box(5, 0, 10, 10)], margin=1).is_empty

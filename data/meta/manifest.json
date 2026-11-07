@@ -576,6 +576,21 @@
     "place": {
       "bytes": 439040
     },
+    "rest-aog": {
+      "bytes": 22888
+    },
+    "rest-fws": {
+      "bytes": 23817
+    },
+    "rest-mpo": {
+      "bytes": 15640
+    },
+    "rest-place": {
+      "bytes": 237969
+    },
+    "rest-rpo": {
+      "bytes": 20486
+    },
     "rpo": {
       "bytes": 24214
     },

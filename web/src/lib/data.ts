@@ -303,6 +303,14 @@ export const hasPep = (type: string) => type in PEP_FILE;
 // ---- map geometry ----------------------------------------------------------------------------------------
 
 const geoCache = new Map<string, Promise<any>>();
+// The part of the state outside every area of a type (the "Rest of Utah" of the flow map), one feature; empty when the areas cover the state.
+const EMPTY_SHAPES: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+const restCache = new Map<string, Promise<GeoJSON.FeatureCollection>>();
+export function restShape(type: string): Promise<GeoJSON.FeatureCollection> {
+  if (!restCache.has(type)) restCache.set(type, fetch(dataUrl(`web/rest-${type}.geojson`)).then((r) => (r.ok ? r.json() : EMPTY_SHAPES)).catch(() => EMPTY_SHAPES));
+  return restCache.get(type)!;
+}
+
 export function geojson(type: string) {
   if (!geoCache.has(type)) geoCache.set(type, fetch(dataUrl(`web/${type}.geojson`)).then((r) => {
     if (!r.ok) throw new Error(`No map for ${type}`);

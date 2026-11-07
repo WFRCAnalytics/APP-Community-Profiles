@@ -4,7 +4,7 @@
   import { untrack } from "svelte";
   import { app } from "../lib/app.svelte";
   import { FLOW_RAMPS } from "../lib/classes";
-  import { centroids, geojson, odFlows } from "../lib/data";
+  import { centroids, geojson, odFlows, restShape } from "../lib/data";
   import { buildFlows, ROUTE_LIMITS, summarizeFlows, type Direction, type OdRow } from "../lib/flows";
   import { FlowMapController, type FlowTip } from "../lib/flowmap";
   import type { TipData } from "../lib/charts";
@@ -35,7 +35,7 @@
   const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   let failed = $state("");
   // The rows on screen. A new year or area replaces them only when the new ones arrive, so the map does not blank in between.
-  let data = $state.raw<{ id: string; type: string; year: number; rows: OdRow[]; places: Map<string, { lon: number; lat: number }>; shapes: GeoJSON.FeatureCollection } | null>(null);
+  let data = $state.raw<{ id: string; type: string; year: number; rows: OdRow[]; places: Map<string, { lon: number; lat: number }>; shapes: GeoJSON.FeatureCollection; rest: GeoJSON.FeatureCollection } | null>(null);
 
   const sel = $derived(app.selected);
   const supported = $derived(!!sel && OD_TYPES.includes(sel.type));
@@ -56,8 +56,8 @@
     if (!app.ready || !sel || !OD_TYPES.includes(sel.type) || !lodes) return;
     const { id, type } = sel, year = lodes, db = app.db!, mine = ++token;
     (async () => {
-      const [rows, places, shapes] = await Promise.all([odFlows(db, type, id, year), centroids(db, type), geojson(type)]);
-      if (mine === token) { data = { id, type, year, rows, places, shapes }; failed = ""; }
+      const [rows, places, shapes, rest] = await Promise.all([odFlows(db, type, id, year), centroids(db, type), geojson(type), restShape(type)]);
+      if (mine === token) { data = { id, type, year, rows, places, shapes, rest }; failed = ""; }
     })().catch((e) => { if (mine === token) failed = String(e?.message ?? e); });
   });
 
@@ -117,7 +117,7 @@
     if (!c || !d || !l) return;
     const type = d.type, focus = { type: "FeatureCollection" as const, features: d.shapes.features.filter((f: any) => f.properties.id === d.id) };
     c.update({
-      places, flows: l.flows, selId: d.id, shapes: d.shapes, focus, tip, animate: moving,
+      places, flows: l.flows, selId: d.id, shapes: d.shapes, focus, rest: d.rest, tip, animate: moving,
       fitKey: `${type}|${d.id}`, // not the direction or route count: changing those keeps the view the reader has framed
       onSelect: (id) => app.select(id),
     });
@@ -220,7 +220,7 @@
       {/if}
     </div>
     <p class="src">
-      Source: LEHD LODES8 {lodes}, jobs counted where the worker lives and where the job is. Jobs outside {site.state.name} are not in this data. Click an area to select it.{app.compare ? " The map follows the main area, not the compared one." : ""}
+      Source: LEHD LODES8 {lodes}, jobs counted where the worker lives and where the job is. Jobs outside {site.state.name} are not in this data. Click an area to select it.{data?.rest.features.length ? ` The dashed outline is the rest of ${site.state.name}, outside every area of this kind; the point is where lines to it end.` : ""}{app.compare ? " The map follows the main area, not the compared one." : ""}
     </p>
   {/if}
 </section>

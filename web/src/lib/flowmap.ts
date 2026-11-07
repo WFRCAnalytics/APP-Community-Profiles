@@ -19,6 +19,7 @@ export interface FlowView {
   selId: string;
   shapes: GeoJSON.FeatureCollection;   // outlines of every area of the type
   focus: GeoJSON.FeatureCollection;    // the selected area
+  rest: GeoJSON.FeatureCollection;     // the state outside every area of the type, drawn dashed
   fitKey: string;                      // refit the map when this changes
   animate: boolean;                    // moving dashes along the routes instead of solid lines
   tip: (t: FlowTip) => TipData | string;
@@ -86,9 +87,11 @@ export class FlowMapController {
     const layers = map.getStyle().layers;
     const lastShape = layers.reduce((n, l, i) => (l.type === "symbol" ? n : i), -1);
     const before = layers.slice(lastShape + 1).find((l) => l.type === "symbol")?.id;
-    for (const id of ["flow-areas", "flow-focus"]) map.addSource(id, { type: "geojson", data: EMPTY });
+    for (const id of ["flow-rest", "flow-areas", "flow-focus"]) map.addSource(id, { type: "geojson", data: EMPTY });
     const dark = this.mode === "dark";
     if (dark) map.addLayer({ id: "flow-scrim", type: "background", paint: { "background-color": "#0A1F2E", "background-opacity": 0.38 } }, before);
+    map.addLayer({ id: "flow-rest-fill", type: "fill", source: "flow-rest", paint: { "fill-color": dark ? "#5b7184" : "#aab7c4", "fill-opacity": dark ? 0.2 : 0.28 } }, before);
+    map.addLayer({ id: "flow-rest-line", type: "line", source: "flow-rest", paint: { "line-color": dark ? "#9db2c4" : "#5d7188", "line-width": 1.6, "line-dasharray": [3, 2] } }, before);
     map.addLayer({ id: "flow-areas-line", type: "line", source: "flow-areas", paint: { "line-color": dark ? "#5b7184" : "#aab7c4", "line-width": 0.7, "line-opacity": 0.7 } }, before);
     map.addLayer({ id: "flow-focus-fill", type: "fill", source: "flow-focus", paint: { "fill-color": SELECTED[this.mode], "fill-opacity": dark ? 0.2 : 0.14 } }, before);
     map.addLayer({ id: "flow-focus-line", type: "line", source: "flow-focus", paint: { "line-color": SELECTED[this.mode], "line-width": 2.2 }, layout: { "line-join": "round" } }, before);
@@ -105,6 +108,7 @@ export class FlowMapController {
     const src = (id: string, data: GeoJSON.FeatureCollection) => (this.map.getSource(id) as maplibregl.GeoJSONSource | undefined)?.setData(data);
     src("flow-areas", view.shapes);
     src("flow-focus", view.focus);
+    src("flow-rest", view.rest);
     if (this.overlay && this.FlowmapLayer) this.overlay.setProps({ layers: [this.layer(view)] });
     this.measure(view);
     if (view.fitKey !== this.fitted && this.bounds) { this.fitted = view.fitKey; this.fit(false); }

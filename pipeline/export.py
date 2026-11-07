@@ -4,7 +4,7 @@ GeoParquet stays the stored format; browsers read GeoJSON, so this stage derives
 `id` property equal to the geo_id used in every data file. Geometries are simplified for the screen.
 
 It also writes meta/centroids.parquet (geo_id, geo_type, lon, lat): a point inside each area of a type that
-has commute flows, where the flow map anchors its lines. The point is on the surface, not the plain centroid,
+has commute flows, where the flow map anchors its lines, and web/rest-<geo_type>.geojson with the shape of each type's remainder. The point is on the surface, not the plain centroid,
 which falls outside crescent or split areas.
 
 For each of those types it also writes a row for the pseudo-area `other-ut` ("Rest of Utah"): the commuters whose other end is a
@@ -20,6 +20,7 @@ import json
 import numpy as np
 import pandas as pd
 import shapely
+import shapely.geometry
 from pyproj import Transformer
 from shapely.geometry import Point
 from shapely.ops import polylabel, transform
@@ -67,6 +68,13 @@ def rest_point(state, areas: list, margin: float, weighted: tuple | None = None)
     return polylabel(max(pieces, key=lambda g: g.area), tolerance=margin / 20)
 
 
+def rest_shape(state, areas: list, margin: float):
+    """The part of `state` outside every one of `areas`, opened by a fifth of the margin so slivers left by boundaries that do not
+    quite match (a few hundred metres wide) are dropped. Empty when nothing is left."""
+    rest = state.difference(shapely.union_all(areas)) if areas else state
+    return rest.buffer(-margin / 5).buffer(margin / 5)
+
+
 def rest_weights(con, cfg: dict, to_m) -> dict[str, tuple]:
     """Per geography type, the 2020 block points outside every area of the type with their jobs plus resident workers in the latest
     LODES year: {type: (x, y, weight)} in the metric CRS. Empty when the block crosswalk or the LODES files are not on disk."""
@@ -97,8 +105,9 @@ def rest_weights(con, cfg: dict, to_m) -> dict[str, tuple]:
     return out
 
 
-def rest_of_state(con, cfg: dict, sources: dict[str, str]) -> pd.DataFrame:
-    """One `other-ut` row per geography type that leaves a remainder: geo_id, geo_type, lon, lat."""
+def rest_of_state(con, cfg: dict, sources: dict[str, str]) -> tuple[pd.DataFrame, dict]:
+    """The `other-ut` point of every geography type that leaves a remainder (geo_id, geo_type, lon, lat), and the remainders as a
+    GeoJSON collection with one feature per type (`id` is the type), simplified like the other web geometry."""
     ex = cfg["export"]
     to_m = Transformer.from_crs(4326, ex["metric_crs"], always_xy=True).transform
     to_deg = Transformer.from_crs(ex["metric_crs"], 4326, always_xy=True).transform
@@ -109,16 +118,20 @@ def rest_of_state(con, cfg: dict, sources: dict[str, str]) -> pd.DataFrame:
 
     state = shapely.union_all(load(sources["state"]))
     weights = rest_weights(con, cfg, to_m)
-    out = []
+    margin = ex["rest_margin_m"]
+    out, features = [], []
     for t in cfg["lodes"]["od_geographies"]:
-        p = rest_point(state, load(sources[t]), ex["rest_margin_m"], weights.get(t))
+        areas = load(sources[t])
+        p = rest_point(state, areas, margin, weights.get(t))
         if p is None:
             print(f"rest of state: no remainder for {t}")
             continue
         lon, lat = transform(to_deg, Point(p)).coords[0]
         out.append({"geo_id": cfg["lodes"]["other_id"], "geo_type": t, "lon": lon, "lat": lat})
+        shape = shapely.set_precision(transform(to_deg, rest_shape(state, areas, margin)).simplify(ex["simplify"][t]), PRECISION)
+        features.append({"type": "Feature", "properties": {"id": t}, "geometry": shapely.geometry.mapping(shape)})
         print(f"rest of state: {t} at {lon:.4f}, {lat:.4f}")
-    return pd.DataFrame(out, columns=["geo_id", "geo_type", "lon", "lat"])
+    return pd.DataFrame(out, columns=["geo_id", "geo_type", "lon", "lat"]), {"type": "FeatureCollection", "features": features}
 
 
 def app_meta(cfg: dict) -> bytes:
@@ -149,9 +162,13 @@ def run(refresh: bool = False) -> None:
         write_if_changed(dest, data)
         manifest[geo_type] = {"bytes": len(data)}
         print(f"{geo_type}: {len(data) / 1e6:.2f} MB")
-    update_manifest("web_export", manifest)
     od_types = cfg["lodes"]["od_geographies"]
-    rest = rest_of_state(con, cfg, sources)
+    rest, remainders = rest_of_state(con, cfg, sources)
+    for f in remainders["features"]:
+        data = json.dumps({"type": "FeatureCollection", "features": [f]}, separators=(",", ":")).encode("utf-8")
+        write_if_changed(DATA / "web" / f"rest-{f['properties']['id']}.geojson", data)
+        manifest[f"rest-{f['properties']['id']}"] = {"bytes": len(data)}
+    update_manifest("web_export", manifest)
     con.register("rest_df", rest)
     write_parquet(con, centroids(con, sources, od_types) + " UNION ALL SELECT geo_id, geo_type, lon, lat FROM rest_df",
                   META / "centroids.parquet", "geo_type, geo_id")

@@ -4,8 +4,9 @@ GeoParquet stays the stored format; browsers read GeoJSON, so this stage derives
 `id` property equal to the geo_id used in every data file. Geometries are simplified for the screen.
 
 It also writes meta/centroids.parquet (geo_id, geo_type, lon, lat): a point inside each area of a type that
-has commute flows, where the flow map anchors its lines, and web/rest-<geo_type>.geojson with the shape of each type's remainder. The point is on the surface, not the plain centroid,
-which falls outside crescent or split areas.
+has commute flows, where the flow map anchors its lines, and web/rest-<geo_type>.geojson with the shape of each type's remainder.
+An area's point is the centre of its own jobs and resident workers (latest LODES year) when that lies inside the area, so the lines
+start where its people are. Otherwise it is a point on the surface, not the plain centroid, which falls outside crescent or split areas.
 
 For each of those types it also writes a row for the pseudo-area `other-ut` ("Rest of Utah"): the commuters whose other end is a
 Utah block outside every area of the type. Its geometry is the state minus the union of the areas, and its point is the pole of
@@ -40,10 +41,21 @@ def collection(con, query: str) -> bytes:
     return json.dumps({"type": "FeatureCollection", "features": features}, separators=(",", ":")).encode("utf-8")
 
 
-def centroids(con, sources: dict[str, str], geo_types: list[str]):
-    """One row per area of the given types: a point guaranteed to lie inside it."""
-    parts = [f"SELECT geo_id, '{t}' AS geo_type, ST_X(p) AS lon, ST_Y(p) AS lat FROM "
-             f"(SELECT geo_id, ST_PointOnSurface(geometry::GEOMETRY) AS p FROM ({sources[t]}))" for t in geo_types]
+def centroids(con, sources: dict[str, str], geo_types: list[str], weighted: bool = False):
+    """One row per area of the given types: a point guaranteed to lie inside it. With `weighted` (the block_geo and block_xy tables
+    from block_weights) it is the centre of the area's jobs and resident workers when that lies inside the area, so the lines of a
+    sprawling or crescent-shaped area start where its people are; otherwise, or when that centre is outside, a point on the surface."""
+    parts = []
+    for t in geo_types:
+        if weighted:
+            centre = f"""LEFT JOIN (SELECT g.geo_id, sum(x.lon * x.jobs) / sum(x.jobs) AS clon, sum(x.lat * x.jobs) / sum(x.jobs) AS clat
+                                    FROM block_geo g JOIN block_xy x USING (block) WHERE g.geo_type = '{t}' GROUP BY g.geo_id) w
+                         ON w.geo_id = a.geo_id"""
+            pick = "CASE WHEN w.clon IS NOT NULL AND ST_Contains(a.g, ST_Point(w.clon, w.clat)) THEN ST_Point(w.clon, w.clat) ELSE ST_PointOnSurface(a.g) END"
+        else:
+            centre, pick = "", "ST_PointOnSurface(a.g)"
+        parts.append(f"""SELECT geo_id, '{t}' AS geo_type, ST_X(p) AS lon, ST_Y(p) AS lat FROM (
+            SELECT a.geo_id, {pick} AS p FROM (SELECT geo_id, geometry::GEOMETRY AS g FROM ({sources[t]})) a {centre})""")
     return " UNION ALL ".join(parts)
 
 
@@ -75,29 +87,34 @@ def rest_shape(state, areas: list, margin: float):
     return rest.buffer(-margin / 5).buffer(margin / 5)
 
 
-def rest_weights(con, cfg: dict, to_m) -> dict[str, tuple]:
-    """Per geography type, the 2020 block points outside every area of the type with their jobs plus resident workers in the latest
-    LODES year: {type: (x, y, weight)} in the metric CRS. Empty when the block crosswalk or the LODES files are not on disk."""
+def block_weights(con, cfg: dict) -> bool:
+    """Create the tables block_geo (block to area, every geography type) and block_xy (block, lon, lat, jobs: the 2020 block points
+    with jobs plus resident workers in the latest LODES year). False when the block files are not on disk."""
     lc = cfg["lodes"]
     year = max(lc["years"])
     area_blocks = RAW / "derived" / "block_area_2020.parquet"
     blocks = RAW / "tiger" / f"blocks_{cfg['state']['abbr']}_{cfg['decennial'][2020]['tiger_year']}.parquet"
     files = {k: lodes.url(lc, k, year)[1] for k in ("wac", "rac")}
     if not (area_blocks.exists() and blocks.exists() and all(f.exists() for f in files.values()) and lodes.url(lc, "xwalk")[1].exists()):
-        print("rest of state: block weights not on disk, using the geometric point only")
-        return {}
+        print("block weights are not on disk: anchoring areas and the rest of the state at geometric points")
+        return False
     lodes.build_block_geo(con, lodes.url(lc, "xwalk")[1], area_blocks)
     con.execute(f"""
-        CREATE OR REPLACE TEMP TABLE block_jobs AS
-        SELECT block, sum(jobs) AS jobs FROM (
-            SELECT w_geocode AS block, C000 AS jobs FROM read_csv('{sql_path(files["wac"])}', types = {{'w_geocode': 'VARCHAR'}})
-            UNION ALL SELECT h_geocode, C000 FROM read_csv('{sql_path(files["rac"])}', types = {{'h_geocode': 'VARCHAR'}})) GROUP BY block""")
+        CREATE OR REPLACE TEMP TABLE block_xy AS
+        SELECT b.block, ST_X(b.geometry::GEOMETRY) AS lon, ST_Y(b.geometry::GEOMETRY) AS lat, j.jobs
+        FROM read_parquet('{sql_path(blocks)}') b JOIN (
+            SELECT block, sum(jobs) AS jobs FROM (
+                SELECT w_geocode AS block, C000 AS jobs FROM read_csv('{sql_path(files["wac"])}', types = {{'w_geocode': 'VARCHAR'}})
+                UNION ALL SELECT h_geocode, C000 FROM read_csv('{sql_path(files["rac"])}', types = {{'h_geocode': 'VARCHAR'}})) GROUP BY block
+        ) j USING (block) WHERE j.jobs > 0""")
+    return True
+
+
+def rest_weights(con, cfg: dict, to_m) -> dict[str, tuple]:
+    """Per geography type, the blocks outside every area of the type with their weights: {type: (x, y, weight)} in the metric CRS."""
     out = {}
-    for t in lc["od_geographies"]:
-        rows = con.execute(f"""
-            SELECT ST_X(b.geometry::GEOMETRY), ST_Y(b.geometry::GEOMETRY), j.jobs
-            FROM read_parquet('{sql_path(blocks)}') b JOIN block_jobs j USING (block)
-            WHERE j.jobs > 0 AND b.block NOT IN (SELECT block FROM block_geo WHERE geo_type = '{t}')""").fetchall()
+    for t in cfg["lodes"]["od_geographies"]:
+        rows = con.execute(f"""SELECT lon, lat, jobs FROM block_xy WHERE block NOT IN (SELECT block FROM block_geo WHERE geo_type = '{t}')""").fetchall()
         if rows:
             lon, lat, w = (np.array(c, dtype=float) for c in zip(*rows))
             x, y = to_m(lon, lat)
@@ -105,7 +122,7 @@ def rest_weights(con, cfg: dict, to_m) -> dict[str, tuple]:
     return out
 
 
-def rest_of_state(con, cfg: dict, sources: dict[str, str]) -> tuple[pd.DataFrame, dict]:
+def rest_of_state(con, cfg: dict, sources: dict[str, str], weighted: bool) -> tuple[pd.DataFrame, dict]:
     """The `other-ut` point of every geography type that leaves a remainder (geo_id, geo_type, lon, lat), and the remainders as a
     GeoJSON collection with one feature per type (`id` is the type), simplified like the other web geometry."""
     ex = cfg["export"]
@@ -117,7 +134,7 @@ def rest_of_state(con, cfg: dict, sources: dict[str, str]) -> tuple[pd.DataFrame
         return [transform(to_m, shapely.from_wkb(bytes(r[0]))) for r in rows]
 
     state = shapely.union_all(load(sources["state"]))
-    weights = rest_weights(con, cfg, to_m)
+    weights = rest_weights(con, cfg, to_m) if weighted else {}
     margin = ex["rest_margin_m"]
     out, features = [], []
     for t in cfg["lodes"]["od_geographies"]:
@@ -163,13 +180,14 @@ def run(refresh: bool = False) -> None:
         manifest[geo_type] = {"bytes": len(data)}
         print(f"{geo_type}: {len(data) / 1e6:.2f} MB")
     od_types = cfg["lodes"]["od_geographies"]
-    rest, remainders = rest_of_state(con, cfg, sources)
+    weighted = block_weights(con, cfg)
+    rest, remainders = rest_of_state(con, cfg, sources, weighted)
     for f in remainders["features"]:
         data = json.dumps({"type": "FeatureCollection", "features": [f]}, separators=(",", ":")).encode("utf-8")
         write_if_changed(DATA / "web" / f"rest-{f['properties']['id']}.geojson", data)
         manifest[f"rest-{f['properties']['id']}"] = {"bytes": len(data)}
     update_manifest("web_export", manifest)
     con.register("rest_df", rest)
-    write_parquet(con, centroids(con, sources, od_types) + " UNION ALL SELECT geo_id, geo_type, lon, lat FROM rest_df",
+    write_parquet(con, centroids(con, sources, od_types, weighted) + " UNION ALL SELECT geo_id, geo_type, lon, lat FROM rest_df",
                   META / "centroids.parquet", "geo_type, geo_id")
     print(f"centroids: {', '.join(od_types)}")

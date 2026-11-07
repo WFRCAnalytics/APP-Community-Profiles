@@ -58,3 +58,16 @@ def test_rest_shape_is_the_state_minus_the_areas_without_slivers():
     shape = export.rest_shape(state, [box(0, 0, 40, 100), box(40, 0, 99.5, 30)], margin=5)   # the second leaves a 0.5-wide sliver
     assert abs(shape.area - 60 * 70) < 1               # the 60 x 70 block in the north east; the sliver is gone
     assert export.rest_shape(box(0, 0, 10, 10), [box(0, 0, 5, 10), box(5, 0, 10, 10)], margin=1).is_empty
+
+
+def test_weighted_centroid_is_used_inside_the_area_and_not_in_a_gap():
+    con = connect()
+    c = "ST_GeomFromText('POLYGON((0 0,10 0,10 2,2 2,2 8,10 8,10 10,0 10,0 0))')"      # a "C": its arms are far apart, the gap is outside
+    sq = "ST_GeomFromText('POLYGON((20 0,30 0,30 10,20 10,20 0))')"
+    con.execute("CREATE TEMP TABLE block_geo AS SELECT * FROM (VALUES ('b1','county','sq'),('b2','county','sq'),('b3','county','c'),('b4','county','c')) t(block, geo_type, geo_id)")
+    con.execute("CREATE TEMP TABLE block_xy AS SELECT * FROM (VALUES ('b1',22.0,5.0,30.0),('b2',24.0,5.0,10.0),('b3',5.0,9.0,10.0),('b4',5.0,1.0,10.0)) t(block, lon, lat, jobs)")
+    q = export.centroids(con, {"county": f"SELECT 'sq' AS geo_id, {sq} AS geometry UNION ALL SELECT 'c', {c}"}, ["county"], weighted=True)
+    rows = {r[0]: (r[2], r[3]) for r in con.execute(q).fetchall()}
+    assert rows["sq"] == (22.5, 5.0)                                                    # the jobs-weighted mean (30 at 22, 10 at 24)
+    assert con.execute(f"SELECT ST_Contains({c}, ST_Point({rows['c'][0]}, {rows['c'][1]}))").fetchone()[0]   # the mean (5, 5) is in the gap
+    assert rows["c"] != (5.0, 5.0)

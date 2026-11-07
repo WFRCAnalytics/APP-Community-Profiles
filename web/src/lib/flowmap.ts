@@ -39,6 +39,7 @@ export class FlowMapController {
   private fitted = "";
   private bounds: maplibregl.LngLatBounds | null = null;
   private gone = false;
+  private touched = false;                 // the reader has panned or zoomed since the view was last framed
 
   constructor(container: HTMLElement, mode: Mode) {
     this.mode = mode;
@@ -46,7 +47,10 @@ export class FlowMapController {
     addViewControls(this.map, () => this.fit(true), () => this.zoomToSelected());
     this.map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: "imperial" }), "bottom-left");
     this.map.on("error", (e) => console.warn("flow map:", e.error?.message ?? e));
-    new ResizeObserver(() => this.map.resize()).observe(container);
+    // The panel is laid out after the map is made (figures, legend), so the frame fitted at first is stale once the box settles:
+    // refit on resize until the reader takes the map over.
+    new ResizeObserver(() => { this.map.resize(); if (!this.touched && this.bounds) this.fit(false); }).observe(container);
+    this.map.on("movestart", (e) => { if ((e as any).originalEvent) this.touched = true; });
     this.tooltip = makeTooltip(this.map.getContainer());
     this.map.getContainer().append(this.tooltip.tip);
     Promise.all([import("@deck.gl/mapbox"), import("@flowmap.gl/layers")]).then(([m, f]) => {
@@ -159,6 +163,7 @@ export class FlowMapController {
   }
 
   fit(animate: boolean) {
+    this.touched = false;
     if (!this.bounds) return;
     const single = this.bounds.getSouthWest().distanceTo(this.bounds.getNorthEast()) < 1;
     if (single) this.map.easeTo({ center: this.bounds.getCenter(), zoom: 9, duration: animate ? 600 : 0 });
@@ -167,6 +172,7 @@ export class FlowMapController {
 
   // Close on the selected area alone.
   zoomToSelected() {
+    this.touched = true;
     const b = this.view && boundsOf(this.view.focus);
     if (b) this.map.fitBounds(b, { padding: 60, maxZoom: 11, duration: 600, bearing: 0, pitch: 0 });
     else if (this.view) {

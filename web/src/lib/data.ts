@@ -289,11 +289,12 @@ export async function qcewIndustries(h: Db, ref: Ref, year: number): Promise<Qce
   return [...by.values()];
 }
 
-// One QCEW measure (employment, avg_annual_pay, ...) by industry over the years: [{year, industry, value}].
+// One QCEW measure (employment, avg_annual_pay, ...) by industry over the years: [{year, industry, value, flag}]. A flag is
+// `suppressed` (BLS withholds the value, which is null) or `partial` (an area sum missing a withheld county, a lower bound).
 export async function qcewSeries(h: Db, ref: Ref, variable: string) {
   if (!(ref.type in QCEW_FILE)) return [];
-  return sql<{ year: number; industry: string; value: number }>(h, `
-    SELECT year, industry, value::DOUBLE AS value FROM read_parquet('${dataUrl(`qcew/${QCEW_FILE[ref.type]}.parquet`)}')
+  return sql<{ year: number; industry: string; value: number | null; flag: string | null }>(h, `
+    SELECT year, industry, value::DOUBLE AS value, flag FROM read_parquet('${dataUrl(`qcew/${QCEW_FILE[ref.type]}.parquet`)}')
     WHERE geo_id = ${lit(ref.id)} AND ownership = '5' AND variable = ${lit(variable)} ORDER BY year`);
 }
 

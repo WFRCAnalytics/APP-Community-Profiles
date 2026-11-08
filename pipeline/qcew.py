@@ -6,7 +6,9 @@ areas that are exactly whole counties (AOG, Morgan RPO), summed from their count
 Columns: geo_id, geo_type, year, ownership, industry, variable, value, flag, method. variable is one of
 estabs, employment, wages, avg_annual_pay. flag is `suppressed` where BLS withholds a value to protect
 confidentiality (the value is empty), and `partial` for an area sum that is missing a suppressed county,
-so it is a lower bound. avg_annual_pay of an area is its wages divided by its employment.
+so it is a lower bound (for avg_annual_pay it is the mean of the reporting counties, not a bound). avg_annual_pay of an
+area is its wages divided by its employment, or the BLS figure itself when a single county contributes (the BLS pay is unrounded). The state file
+uses BLS aggregation levels 50, 51 and 54 where counties use 70, 71 and 74.
 """
 from __future__ import annotations
 
@@ -74,6 +76,7 @@ def run(refresh: bool = False) -> None:
     con = connect()
     glob = sql_path(RAW / "qcew" / "*" / "*.csv")
     levels = ", ".join(str(a) for a in qc["agglvl"])
+    state_levels = ", ".join(str(a) for a in qc["state_agglvl"])
     cols = ", ".join(MEASURES)
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE qcew_raw AS
@@ -81,7 +84,8 @@ def run(refresh: bool = False) -> None:
                disclosure_code = 'N' AS suppressed, {cols}
         FROM read_csv('{glob}', union_by_name = true, types = {{'area_fips': 'VARCHAR', 'own_code': 'VARCHAR',
                       'industry_code': 'VARCHAR', 'disclosure_code': 'VARCHAR'}})
-        WHERE agglvl_code IN ({levels}) AND year IN ({', '.join(str(y) for y in qc['years'])})
+        WHERE ((area_fips = '{state}000' AND agglvl_code IN ({state_levels})) OR (area_fips <> '{state}000' AND agglvl_code IN ({levels})))
+          AND year IN ({', '.join(str(y) for y in qc['years'])})
     """)
     unpivot = " UNION ALL ".join(
         f"SELECT area_fips, ownership, industry, year, '{short}' AS variable, "
@@ -108,7 +112,9 @@ def run(refresh: bool = False) -> None:
                    sum(c.value) FILTER (WHERE c.variable = 'estabs') AS estabs,
                    sum(c.value) FILTER (WHERE c.variable = 'employment') AS employment,
                    sum(c.value) FILTER (WHERE c.variable = 'wages') AS wages,
-                   bool_or(c.flag IS NOT NULL) AS partial
+                   bool_or(c.flag IS NOT NULL) AS partial,
+                   count(DISTINCT c.geo_id) AS counties,
+                   max(c.value) FILTER (WHERE c.variable = 'avg_annual_pay') AS county_pay
             FROM read_parquet('{sql_path(areas)}') a
             JOIN qcew_long c ON c.geo_type = 'county' AND c.geo_id = a.county
             GROUP BY a.geo_id, c.year, c.ownership, c.industry
@@ -116,7 +122,7 @@ def run(refresh: bool = False) -> None:
         parts = [f"SELECT geo_id, geo_type, year, ownership, industry, '{v}' AS variable, {expr} AS value, "
                  f"CASE WHEN partial THEN 'partial' END AS flag, 'aggregated' AS method FROM area_sum"
                  for v, expr in (("estabs", "estabs"), ("employment", "employment"), ("wages", "wages"),
-                                 ("avg_annual_pay", "wages / nullif(employment, 0)"))]
+                                 ("avg_annual_pay", "CASE WHEN counties = 1 THEN county_pay ELSE wages / nullif(employment, 0) END"))]
         write_parquet(con, " UNION ALL ".join(parts), DATA / "qcew" / "areas.parquet",
                       "year, ownership, industry, variable, geo_id")
         manifest["areas"] = {"bytes": (DATA / "qcew" / "areas.parquet").stat().st_size}

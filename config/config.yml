@@ -166,9 +166,10 @@ lodes:
 
 # Quarterly Census of Employment and Wages (BLS): establishments, employment and wages by county,
 # ownership and industry. The BLS area files start with 2014. agglvl 70 is the county total, 71 the
-# total by ownership and 74 the NAICS sector by ownership.
+# total by ownership and 74 the NAICS sector by ownership. The state file uses the same levels as 50, 51 and 54.
 qcew:
   base: https://data.bls.gov/cew/data/api
   years: [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
   agglvl: [70, 71, 74]
+  state_agglvl: [50, 51, 54]
   user_agent: APP-Community-Profiles pipeline

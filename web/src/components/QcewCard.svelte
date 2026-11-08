@@ -26,22 +26,26 @@
     const name = (code: string) => SECTOR_BY_NAICS[code] ?? label.get(code) ?? code;
     const skip = (code: string) => code === "10" || code === "99";
     if (when === "trend") {
-      const rows = (await qcewSeries(db, sel, variable)).filter((r) => !skip(r.industry));
+      // A withheld year has no value, and an area sum missing a withheld county is only a lower bound: plotting either would draw a
+      // fall that did not happen, so those years are left out of the line.
+      const rows = (await qcewSeries(db, sel, variable)).filter((r) => !skip(r.industry) && r.value != null && !r.flag);
       const by = new Map<string, LineSeries>();
-      for (const r of rows) (by.get(r.industry) ?? by.set(r.industry, { label: name(r.industry), color: "", points: [] }).get(r.industry)!).points.push({ x: r.year, y: r.value });
+      for (const r of rows) (by.get(r.industry) ?? by.set(r.industry, { label: name(r.industry), color: "", points: [] }).get(r.industry)!).points.push({ x: r.year, y: r.value! });
       const top = [...by.values()].sort((a, b) => (b.points.at(-1)?.y ?? 0) - (a.points.at(-1)?.y ?? 0)).slice(0, 8);
       return { kind: "time", lines: top.map((s, i) => ({ ...s, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] })) };
     }
     const rows = await qcewIndustries(db, sel, year);
-    return { kind: "now", rows: rows.filter((r) => !skip(r.industry) && r[variable] != null)
-      .map((r): BarRow => ({ category: name(r.industry), series: what, value: r[variable] as number })).sort((a, b) => b.value - a.value) };
+    // Employment of an area with a withheld county is a lower bound, so its sector is marked "at least". An average pay of such an
+    // area is the mean of the counties that report, which is no bound at all, so it is left out.
+    return { kind: "now", rows: rows.filter((r) => !skip(r.industry) && r[variable] != null && !(variable === "avg_annual_pay" && r.flag))
+      .map((r): BarRow => ({ category: r.flag === "partial" ? `${name(r.industry)} *` : name(r.industry), series: what, value: r[variable] as number })).sort((a, b) => b.value - a.value) };
   }
 </script>
 
 <ChartCard
   title={when === "trend" ? `${what} by industry over time` : `${what} by industry, ${year}`}
   {style}
-  note="Private-sector {variable === 'employment' ? 'average annual employment' : 'wages per job'}{when === 'trend' ? ', the eight largest sectors' : ''}. Sectors BLS withholds are left out. Source: BLS QCEW."
+  note="Private-sector {variable === 'employment' ? 'average annual employment' : 'wages per job'}{when === 'trend' ? ', the eight largest sectors' : ''}. Sectors BLS withholds are left out{when === 'trend' ? ', as are years when an area sum is missing a withheld county' : '. * means at least this many: BLS withholds a county in that sector'}. Source: BLS QCEW."
   {load}
   isEmpty={(d) => (d.kind === "now" ? !d.rows.length : !d.lines.length)}
   emptyText={NO_QCEW}

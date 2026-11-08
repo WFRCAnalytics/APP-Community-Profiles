@@ -267,7 +267,16 @@ export async function lodesGroups(handle: Db) {
 }
 
 // Share of jobs (WAC) or workers (RAC) by one LODES breakdown: group is industry, age, earnings, race,
-// ethnicity, education, sex, firm_age or firm_size.
+// ethnicity, education or sex (firm age and size are all zero for Utah, so they are not offered).
+// The base of a LODES breakdown's shares, or null when LODES publishes none: firm age and size are zero for Utah, and race, sex,
+// ethnicity and education are zero before 2009 (zero there means "not reported", not "no jobs"). Education is reported only for
+// workers 30 and older, so its shares are of those workers; every other breakdown partitions all jobs.
+export function lodesBase(group: string, counts: number[], total: number): number | null {
+  const published = counts.reduce((a, b) => a + b, 0);
+  if (published <= 0) return null;
+  return group === "education" ? published : total;
+}
+
 export async function lodesDistribution(handle: Db, kind: "wac" | "rac", refs: AreaRef[], year: number, group: string): Promise<ShareRow[]> {
   const labels = (await lodesGroups(handle)).filter((l) => l.source === "wac/rac" && l.group === group);
   const map = await lodesValues(handle, kind, refs, year);
@@ -275,9 +284,11 @@ export async function lodesDistribution(handle: Db, kind: "wac" | "rac", refs: A
   for (const ref of refs) {
     const total = map.get(`${ref.id}|C000`);
     if (!total) continue;
+    const base = lodesBase(group, labels.map((l) => map.get(`${ref.id}|${l.variable}`) ?? 0), total);
+    if (!base) continue;
     for (const l of labels) {
       const count = map.get(`${ref.id}|${l.variable}`) ?? 0;
-      rows.push({ category: group === "industry" ? (SECTOR_BY_CNS[l.variable] ?? l.label) : l.label, series: ref.label, value: count / total, count,
+      rows.push({ category: group === "industry" ? (SECTOR_BY_CNS[l.variable] ?? l.label) : l.label, series: ref.label, value: count / base, count,
                   note: `${fmtInt(count)} ${kind === "wac" ? "jobs" : "workers"}` });
     }
   }

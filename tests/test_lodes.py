@@ -82,3 +82,26 @@ def test_od_part_buckets_outside_origins(con, tmp_path):
     # an out-of-state worker whose job is also outside the type's areas is not a flow of that type
     assert not any(o == "out-of-state" and t == "mpo" for t, o, _, _ in rows)
     assert not any(o == "other-ut" and d == "other-ut" for _, o, d, _ in rows)
+
+
+def test_committed_lodes_breakdowns_add_to_total_jobs():
+    """Each published WAC breakdown partitions C000, except education (workers 30 and older only: CA02 + CA03).
+    A breakdown LODES does not publish is all zero, which the app reads as "not published", never as 0% of jobs."""
+    import duckdb
+    from pipeline.paths import ROOT
+    rows = duckdb.sql(f"""
+        SELECT year, variable, sum(jobs) AS jobs FROM read_parquet('{(ROOT / "data/lodes/wac/state.parquet").as_posix()}')
+        GROUP BY ALL""").fetchall()
+    by_year: dict[int, dict[str, int]] = {}
+    for year, variable, jobs in rows:
+        by_year.setdefault(year, {})[variable] = jobs
+    groups: dict[str, list[str]] = {}
+    for variable, (group, _) in lodes.VARIABLES.items():
+        if variable not in ("C000",) and group in ("age", "earnings", "industry", "race", "ethnicity", "sex", "education"):
+            groups.setdefault(group, []).append(variable)
+    for year, v in by_year.items():
+        for group, variables in groups.items():
+            total = sum(v.get(x, 0) for x in variables)
+            expected = v["CA02"] + v["CA03"] if group == "education" else v["C000"]
+            assert total in (0, expected), f"{group} {year}: {total} vs {expected}"
+    assert all(sum(v.get(x, 0) for x in ("CFA01", "CFA02", "CFA03", "CFA04", "CFA05")) == 0 for v in by_year.values())

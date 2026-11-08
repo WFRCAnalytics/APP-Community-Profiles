@@ -29,7 +29,7 @@
       <LodesCard id="c" initial="industry" pick={false} style="grid-row:1 / span 2" />
       <QcewCard variable="employment" />
       <QcewCard variable="avg_annual_pay" />
-      <LodesCard id="d" initial="firm_size" pick={false} />
+      <LodesCard id="d" initial="race" pick={false} />
       <LodesCard id="e" initial="education" pick={false} />
     </div>
   {/if}

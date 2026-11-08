@@ -54,6 +54,7 @@ History for WFRC areas uses today's boundary in every period, so a workshop area
 - **Dollars.** Income, rent and home value are in the dollars of each period and are not adjusted for inflation.
 - **Population estimates.** The 2010s estimates are based on the 2010 Census and the 2020s on the 2020 Census, so the series steps at 2020.
 - **Jobs.** LODES counts jobs by place of work and workers by place of residence. The Census Bureau adds noise to block counts to protect privacy, so jobs in very small areas are rough. Commute flows include workers who live outside Utah but exclude Utah residents who work outside the state. QCEW counts covered employment and is published only for counties, the state, and the WFRC areas that are whole counties; it will not match LODES exactly.
+- **LODES breakdowns.** Educational attainment is reported only for workers 30 and older, so education shares are of those workers' jobs, not of all jobs. Race, ethnicity, sex and education are not reported before 2009, and firm age and firm size are zero for Utah in every year; the app shows these as not published rather than as 0%. Residents counted by LODES (workers who live here) include those working outside Utah, while commute flows count only in-state jobs, so the two totals differ by roughly 2%.
 - **Missing values.** Where the Census withholds a value, it is left empty, not shown as zero.
 - **Workshop areas.** Two workshop areas share a small sliver of boundary (about 0.06 km²); the few blocks there are counted in both.
 

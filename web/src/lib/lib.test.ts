@@ -5,7 +5,7 @@ import { classOf, colourFor, quantileBreaks, RAMPS } from "./classes";
 import { silhouette } from "./place";
 import { seriesFrom } from "./series";
 import { shareTable, trendTable } from "./tables";
-import { SPECS } from "./specs";
+import { SPECS, lodesBase } from "./specs";
 import { INDICATORS, variablesOf } from "./indicators";
 import { buildFlows, summarizeFlows } from "./flows";
 
@@ -116,5 +116,14 @@ describe("commute flows", () => {
     expect(buildFlows(rows, "a", "work", 0, known).flows.map((f) => f.dest).sort()).toEqual(["b", "c"]);
     expect(buildFlows(rows, "a", "live", 0, known).flows.map((f) => f.origin).sort()).toEqual(["b"]);
     expect(buildFlows(rows, "a", "both", 2, known).flows.map((f) => `${f.origin}>${f.dest}`)).toEqual(["b>a", "a>b"]);
+  });
+});
+
+describe("LODES breakdown base", () => {
+  it("uses all jobs for a partition, the reported workers for education, and nothing when LODES publishes none", () => {
+    expect(lodesBase("age", [30, 50, 20], 100)).toBe(100);
+    expect(lodesBase("education", [10, 20, 30, 10], 100)).toBe(70);      // workers 30+ only: 70 of 100 jobs
+    expect(lodesBase("firm_size", [0, 0, 0, 0, 0], 100)).toBeNull();
+    expect(lodesBase("race", [0, 0, 0, 0, 0, 0], 100)).toBeNull();       // 2002 to 2008
   });
 });

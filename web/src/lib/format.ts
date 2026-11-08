@@ -7,11 +7,26 @@ const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFra
 type Num = number | null | undefined;
 const missing = (v: Num): v is null | undefined => v == null || Number.isNaN(v);
 
-export const fmtInt = (v: Num) => (missing(v) ? "–" : int.format(Math.round(v)));
-export const fmtOne = (v: Num) => (missing(v) ? "–" : one.format(v));
+// A value that rounds to zero prints as 0, never -0 (Math.round(-0.3) is -0; toFixed keeps the sign of -0.04).
+const unsigned = (s: string) => (/^-0(\.0+)?$/.test(s) ? s.slice(1) : s);
+export const fmtInt = (v: Num) => (missing(v) ? "–" : unsigned(int.format(Math.round(v))));
+export const fmtOne = (v: Num) => (missing(v) ? "–" : unsigned(one.format(v)));
 export const fmtCompact = (v: Num) => (missing(v) ? "–" : compact.format(v));
-export const fmtPct = (v: Num, digits = 1) => (missing(v) ? "–" : `${(v * 100).toFixed(digits)}%`);
-export const fmtMoney = (v: Num) => (missing(v) ? "–" : `$${int.format(Math.round(v))}`);
+export const fmtPct = (v: Num, digits = 1) => (missing(v) ? "–" : `${unsigned((v * 100).toFixed(digits))}%`);
+export const fmtMoney = (v: Num) => (missing(v) ? "–" : `$${unsigned(int.format(Math.round(v)))}`);
+
+// A median the Census could only bound is published as an annotation ("250,000+" for the open top bracket, "10,000-" for the
+// bottom one) beside a stand-in number (250,001, 9,999) that must not be read as the median. Our own interpolated medians use "+".
+export function fmtFlagged(f: (v: Num) => string, v: Num, flag?: string | null) {
+  if (missing(v)) return "–";
+  if (flag === "+") return `${f(v)}+`;
+  const m = flag?.match(/^([\d,]+)([+-])$/);
+  if (!m) return f(v);
+  return `${f(Number(m[1].replace(/,/g, "")))}${m[2] === "+" ? "+" : " or less"}`;
+}
+
+// The Census Bureau's guidance: an estimate whose margin of error is more than 30% of the estimate should be used with caution.
+export const lowReliability = (v: Num, moe: Num) => !missing(v) && !missing(moe) && v !== 0 && Math.abs(moe / v) > 0.3;
 
 export type FormatId = "int" | "one" | "pct" | "money" | "compact";
 export const FORMATS: Record<FormatId, (v: Num) => string> = { int: fmtInt, one: fmtOne, pct: fmtPct, money: fmtMoney, compact: fmtCompact };
@@ -33,12 +48,13 @@ export const escapeHtml = (s: unknown) =>
 
 export const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-// A tidy table of objects -> CSV text (for the download button).
-export function toCsv(rows: Record<string, unknown>[], columns: string[]): string {
+// A table of objects -> CSV text (for the download button). `headers` are the column titles when they differ from the keys. The
+// text starts with a byte order mark so Excel reads it as UTF-8 (it would garble "±" and "–" otherwise).
+export function toCsv(rows: Record<string, unknown>[], columns: string[], headers: string[] = columns): string {
   const cell = (v: unknown) => {
     if (v == null) return "";
     const s = String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  return [columns.join(","), ...rows.map((r) => columns.map((c) => cell(r[c])).join(","))].join("\n");
+  return "\uFEFF" + [headers.map(cell).join(","), ...rows.map((r) => columns.map((c) => cell(r[c])).join(","))].join("\n");
 }

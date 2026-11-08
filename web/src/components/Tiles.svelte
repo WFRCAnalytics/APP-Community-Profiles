@@ -2,7 +2,7 @@
   // A row (or grid) of key figures for the selected area and the compared one, for the chosen year.
   import { app } from "../lib/app.svelte";
   import { indicatorSeries, indicatorValues, lodesValues } from "../lib/data";
-  import { FORMATS, fmtInt, type Method } from "../lib/format";
+  import { FORMATS, fmtFlagged, fmtInt, lowReliability, type Method } from "../lib/format";
   import { BY_ID } from "../lib/indicators";
   import Tile from "./Tile.svelte";
 
@@ -24,10 +24,10 @@
       const ind = BY_ID[id], f = FORMATS[ind.format];
       const a = maps[i].get(sel.id), b = cmp ? maps[i].get(cmp.id) : null;
       return {
-        label: ind.label, value: a?.value == null ? "–" : f(a.value) + (a.flag === "+" ? "+" : ""),
-        meta: a?.moe != null ? `±${f(a.moe)}` : String(v), method: a?.value == null ? null : a.method,
+        label: ind.label, value: fmtFlagged(f, a?.value, a?.flag),
+        meta: a?.moe != null ? `±${f(a.moe)}${lowReliability(a.value, a.moe) ? " · use with caution" : ""}` : String(v), method: a?.value == null ? null : a.method,
         spark: hist[i].filter((p) => years.has(p.vintage) && p.vintage <= v).map((p) => ({ x: p.vintage, y: p.value! })),
-        compare: cmp ? { label: cmp.label, value: b?.value == null ? "–" : f(b.value) } : null,
+        compare: cmp ? { label: cmp.label, value: fmtFlagged(f, b?.value, b?.flag) } : null,
       };
     });
     if (wac) out.push({

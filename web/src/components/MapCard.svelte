@@ -106,6 +106,7 @@
         focus: { type: "FeatureCollection", features: [...pick(selShapes, sel.id, "sel"), ...(cmp && cmp.type !== "state" ? pick(cmpShapes, cmp.id, "cmp") : [])] },
         values: px, values2: py, period, noun: tracts ? "tracts" : layerPlural,
         short: (v: number) => tick(v, x.format, spanV),
+        pctPoints: x.format === "pct",
         diff: (v: number, m: number) => {
           if (x.format === "pct") { const d = (v - m) * 100; return Math.abs(d) < 0.05 ? "At the median" : `${Math.abs(d).toFixed(1)} pts ${d > 0 ? "above" : "below"} median`; }
           const r = m ? (v - m) / Math.abs(m) : 0;

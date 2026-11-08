@@ -53,7 +53,7 @@ export const INDICATORS: Indicator[] = [
   { id: "households", label: "Households", topic: "households", type: "count", num: v("B25003", 1), format: "int", map: true, group: H },
   { id: "married", label: "Married-couple households", topic: "households", type: "share", since: 2019, num: v("B11012", 2), den: v("B11012", 1), format: "pct", map: true, group: H },
   { id: "avg_hh_size", label: "Average household size", topic: "households", type: "share", ratio: true, num: v("B25008", 1), den: v("B25003", 1), format: "one", map: true, group: H },
-  { id: "living_alone", label: "People living alone", topic: "households", type: "share", since: 2019, num: v("B11012", 9, 14), den: v("B11012", 1), format: "pct", map: true, group: H },
+  { id: "living_alone", label: "One-person households", topic: "households", type: "share", since: 2019, num: v("B11012", 9, 14), den: v("B11012", 1), format: "pct", map: true, group: H },
   { id: "renters", label: "Renter households", topic: "households", type: "share", num: v("B25003", 3), den: v("B25003", 1), format: "pct", map: true, group: H },
   { id: "no_vehicle", label: "Households with no vehicle", topic: "households", type: "share", num: [...v("B25044", 3), ...v("B25044", 10)], den: v("B25044", 1), format: "pct", map: true, group: H },
   { id: "no_internet", label: "Households with no internet access", topic: "social", type: "share", num: v("B28002", 13), den: v("B28002", 1), format: "pct", map: true, group: H },

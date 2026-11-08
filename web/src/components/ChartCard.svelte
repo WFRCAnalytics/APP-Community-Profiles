@@ -54,8 +54,7 @@
   let view = $state<"chart" | "table">("chart");
 
   function download(t: { columns: Column[]; rows: Row[] }) {
-    const body = toCsv(t.rows, t.columns.map((c) => c.key)).split("\n").slice(1);
-    const url = URL.createObjectURL(new Blob([[t.columns.map((c) => c.label).join(","), ...body].join("\n")], { type: "text/csv" }));
+    const url = URL.createObjectURL(new Blob([toCsv(t.rows, t.columns.map((c) => c.key), t.columns.map((c) => c.label))], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = `${slug(title)}.csv`;

@@ -33,7 +33,7 @@
       <ShareCard title="Own or rent" spec={SPECS.tenure} />
       <TrendCard title="Households" id="households" />
       <TrendCard title="Average household size" id="avg_hh_size" />
-      <TrendCard title="People living alone" id="living_alone" />
+      <TrendCard title="One-person households" id="living_alone" />
     </div>
   {:else}
     <div class="g" style="grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr)">

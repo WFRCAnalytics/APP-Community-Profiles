@@ -48,11 +48,15 @@ export const median = (xs: number[]) => {
   const a = [...xs].sort((p, q) => p - q), m = a.length >> 1;
   return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
 };
-export const change = (ps: Pt[] | undefined) => {
+// The change over a series, for the tooltip header. A share changes in percentage points (12% to 14% is +2.0 pts, the same unit as
+// the "vs median" line); anything else changes in relative percent. A change that rounds to nothing carries no sign.
+export const change = (ps: Pt[] | undefined, points = false) => {
   const a = ps?.[0]?.y, b = ps?.[ps.length - 1]?.y;
-  if (a == null || b == null || ps!.length < 2 || !a) return null;
-  const c = (b - a) / Math.abs(a);
-  return `${c < 0 ? "−" : "+"}${Math.abs(c * 100).toFixed(Math.abs(c) < 0.1 ? 1 : 0)}%`;
+  if (a == null || b == null || ps!.length < 2 || (!points && !a)) return null;
+  const c = points ? (b - a) * 100 : (b - a) / Math.abs(a) * 100;
+  const digits = points || Math.abs(c) < 10 ? 1 : 0, text = Math.abs(c).toFixed(digits);
+  const sign = Number(text) === 0 ? "" : c < 0 ? "−" : "+";
+  return `${sign}${text}${points ? " pts" : "%"}`;
 };
 
 // Smooth density of every area's value along one hairline, so a crowd and an outlier look different. The median is a tick, this area a dot.

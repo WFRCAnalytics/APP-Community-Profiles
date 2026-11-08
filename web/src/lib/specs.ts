@@ -116,7 +116,7 @@ export const SPECS: Record<string, Spec> = {
     { label: "Another race, not Hispanic", vars: codes("B03002", 5, 7, 8) }] },
   nativity: { topic: "population", legacy: { before: 2015, map: { B05002_021: "B05002_015" } }, den: codes("B05002", 1), categories: [
     { label: "Born in this state", vars: codes("B05002", 3) }, { label: "Born in another state", vars: codes("B05002", 4) },
-    { label: "Born abroad to U.S. citizens", vars: codes("B05002", 9) }, { label: "Naturalized citizen", vars: codes("B05002", 14) },
+    { label: "Born in a U.S. territory or abroad to U.S. parents", vars: codes("B05002", 9) }, { label: "Naturalized citizen", vars: codes("B05002", 14) },
     { label: "Not a U.S. citizen", vars: codes("B05002", 21) }] },
   mobility: { topic: "population", den: codes("B07003", 1), categories: [
     { label: "Same home a year ago", vars: codes("B07003", 4) }, { label: "Moved within the county", vars: codes("B07003", 7) },

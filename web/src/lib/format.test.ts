@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fmtInt, fmtMoney, fmtPct, methodOf, toCsv } from "./format";
+import { fmtFlagged, fmtInt, lowReliability, fmtMoney, fmtOne, fmtPct, methodOf, toCsv } from "./format";
+import { change } from "./tipcharts";
 import { AGG_COLUMNS, ratioMoe, shareMoe, sumOf, summarize, type AcsRow } from "./data";
 import { BY_ID } from "./indicators";
 
@@ -12,7 +13,7 @@ describe("format", () => {
   });
   it("ranks methods and escapes CSV", () => {
     expect(["direct", "aggregated", "allocated", "allocated"]).toEqual([0, 1, 2, 9].map(methodOf));
-    expect(toCsv([{ a: 'x,"y"', b: null }], ["a", "b"])).toBe('a,b\n"x,""y""",');
+    expect(toCsv([{ a: 'x,"y"', b: null }], ["a", "b"])).toBe('﻿a,b\n"x,""y""",');
   });
 });
 
@@ -48,5 +49,35 @@ describe("data helpers", () => {
     const v = summarize(BY_ID.rent_burden, { num: 30, num_moe: 4, den: 110, den_moe: 5, minus_: 10, minus_moe: 0, rank: 1, flag: null });
     expect(v.value).toBeCloseTo(0.3);
     expect(v.method).toBe("aggregated");
+  });
+});
+
+describe("number display", () => {
+  it("never prints a negative zero", () => {
+    expect(fmtInt(-0.3)).toBe("0");
+    expect(fmtOne(-0.04)).toBe("0.0");
+    expect(fmtPct(-0.0004)).toBe("0.0%");
+    expect(fmtInt(-1234.6)).toBe("-1,235");
+  });
+  it("shows a bounded median as the Census annotation, not the stand-in number", () => {
+    expect(fmtFlagged(fmtMoney, 250001, "250,000+")).toBe("$250,000+");
+    expect(fmtFlagged(fmtMoney, 9999, "10,000-")).toBe("$10,000 or less");
+    expect(fmtFlagged(fmtMoney, 85000, "+")).toBe("$85,000+");
+    expect(fmtFlagged(fmtMoney, 85000, null)).toBe("$85,000");
+    expect(fmtFlagged(fmtMoney, null, "-")).toBe("–");
+  });
+  it("writes a BOM, quotes headers, and flags estimates whose margin is over 30% of the value", () => {
+    expect(toCsv([{ a: 1 }], ["a"], ["Share, 2024"])).toBe('\uFEFF"Share, 2024"\n1');
+    expect(lowReliability(0.02, 0.012)).toBe(true);
+    expect(lowReliability(0.2, 0.012)).toBe(false);
+    expect(lowReliability(0, 0.01)).toBe(false);
+  });
+  it("reports the change of a share in percentage points and of anything else in percent", () => {
+    const pts = [{ x: 2019, y: 0.12 }, { x: 2024, y: 0.14 }];
+    expect(change(pts, true)).toBe("+2.0 pts");
+    expect(change(pts)).toBe("+17%");
+    expect(change([{ x: 1, y: 0.1 }, { x: 2, y: 0.10004 }], true)).toBe("0.0 pts");
+    expect(change([{ x: 1, y: 0 }, { x: 2, y: 0.1 }])).toBeNull();
+    expect(change([{ x: 1, y: 0 }, { x: 2, y: 0.1 }], true)).toBe("+10.0 pts");
   });
 });

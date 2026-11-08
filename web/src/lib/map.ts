@@ -41,6 +41,7 @@ export interface MapView {
   noun?: string; // what the areas are called in the tooltip ("counties")
   short?: (v: number) => string; // compact figures for the tooltip axis ($48K)
   diff?: (v: number, median: number) => string; // "28% above median"
+  pctPoints?: boolean;                          // the values are shares, so a change is in percentage points
   bi?: { x: { label: string; format: (v: number | null | undefined) => string }; y: { label: string; format: (v: number | null | undefined) => string } }; // the two variables of a bivariate map
   bounds?: [[number, number], [number, number]]; // fit here instead of to the selected areas
   names: Map<string, string>;
@@ -221,7 +222,7 @@ export class MapController {
     const points = view.history?.get(id);
     if (points && points.length > 1) {
       const typical = this.typical(), span = (x: number) => `${x - 4}–${String(x).slice(2)}`;
-      const mine = change(points), theirs = change(typical);
+      const mine = change(points, view.pctPoints), theirs = change(typical, view.pctPoints);
       visuals.push({ kind: "trend", head: [`Since ${span(points[0].x)}`, mine ?? undefined], points, typical, at: view.period, key: theirs ? `Median area ${theirs}` : undefined });
     }
     // Census tracts were redrawn in 2020, so a trend across that year joins two sets of boundaries.

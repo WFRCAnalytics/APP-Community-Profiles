@@ -2,7 +2,7 @@
   import DataTable from "../components/DataTable.svelte";
   import { app } from "../lib/app.svelte";
   import { indicatorValues, lodesValues } from "../lib/data";
-  import { FORMATS, METHODS, fmtInt, slug, toCsv } from "../lib/format";
+  import { FORMATS, METHODS, fmtFlagged, fmtInt, slug, toCsv } from "../lib/format";
   import { INDICATORS } from "../lib/indicators";
 
   const rows = $derived.by(async () => {
@@ -12,7 +12,7 @@
       const x = map.get(id);
       if (x?.value == null) return { value: "", moe: "", how: "" };
       const f = FORMATS[ind.format];
-      return { value: f(x.value), moe: x.moe == null ? "" : `±${f(x.moe)}`, how: METHODS[x.method as keyof typeof METHODS].label };
+      return { value: fmtFlagged(f, x.value, x.flag), moe: x.moe == null ? "" : `±${f(x.moe)}`, how: METHODS[x.method as keyof typeof METHODS].label };
     };
     const out = INDICATORS.map((ind, i) => {
       const a = cell(ind, results[i], sel.id), b = cmp ? cell(ind, results[i], cmp.id) : null;
@@ -44,7 +44,7 @@
 
   function download(data: Record<string, string>[]) {
     const keys = ["group", "indicator", "area", "value", "moe", "how", "compare_area", "compare_value", "compare_moe", "compare_how", "year"];
-    const url = URL.createObjectURL(new Blob([toCsv(data, keys)], { type: "text/csv" }));
+    const url = URL.createObjectURL(new Blob([toCsv(data, keys)], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = `${slug(app.selected?.label ?? "area")}-${app.v}-profile.csv`;

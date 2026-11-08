@@ -83,10 +83,27 @@ Status key: **Verified** = reproduced by me directly against the committed data/
 
 No tests for `qcew.py`, PEP area sums or the vintage splice, `od_part`/`jobs_part` overlap handling, `block_weights`/`rest_weights`, or front-end spec sums. Cheapest guard: a data-driven test that sums each spec's categories to its denominator for state 49 in every vintage (would have caught A1, A2, A8, A9), plus a row-count test per output parquet (would have caught A5).
 
-## Suggested fix order (awaiting your approval; nothing changed yet)
+## Resolution status (2026-11-07)
 
-1. A1, A2, A7, A8, A9: spec/indicator corrections plus the category-sum test.
-2. A3, A4: LODES education denominator (age 30+ base); hide groups LODES does not publish (NULL, not 0).
-3. A5, A6: QCEW state filter (rebuild state parquet); respect `partial`/`suppressed` flags in the web.
-4. B1-B3: MOE for county-union areas, ratio formula, one consistent null-MOE rule.
-5. A10 and the C-items: documentation and display caveats; decide on C1/C2 weighting and unit choices.
+Fixed, each with a regression test (55 Python and 109 web tests pass):
+
+| Items | Commit | What changed |
+|---|---|---|
+| A1, A2, A7, A8, A9 | Fix spec and indicator definitions | Language card counts each row once; B11012 specs, married and one-person households start 2019; veterans start 2010; nativity maps the moved row for 2009-14; rent bands start 2015; internet type is a partition. New `spec-sums.test.ts` checks every spec and indicator against Utah's real values in every vintage. |
+| A3, A4 | LODES education base | Education shares are of workers 30+; breakdowns LODES does not publish are skipped; firm age/size options removed. |
+| A5, A6, C8 | QCEW | State file now loads (49 rows per sector-year, totals match the counties); partial sums are marked or left out in the app; single-county areas use the BLS pay. |
+| B1, B2, B3 | Margins of error | The WFRC region is summed from county rows (population margin was +/-18,274, now none); ratio formula for average household size and travel time; one null-margin rule in JS and SQL. |
+| A10, C9, E | Display | Bounded medians show as "$250,000+"; percentage-point changes in the tooltip; no "-0"; CSV BOM and quoted headers; "use with caution" when the margin exceeds 30% of the estimate; mislabelled titles renamed. |
+
+Corrected during the work: A2's 2015-18 gap and the `since` logic apply to specs, rate specs and indicators alike; the state-median-age finding was refuted (see above).
+
+Still open, decisions or larger changes rather than fixes:
+
+- **C1** population-share weighting for household and housing tables (under 1% at area level; needs a decision on using the computed household and housing-unit weights).
+- **C2** tracts used for B12001, B21001, B19058 although block groups exist (changes the committed data and needs a refetch).
+- **C3** `validate()` ignores label-only layout changes (129 variables).
+- **C4** RAC vs OD worker totals, **C5** the 2010 federal-jobs break and fixed boundaries, **C6** the PEP vintage splice, **C7** the "Rest of Utah" anchor: documented or pending a methods decision.
+- **B5/B6**: documented in METHODOLOGY.md; medians still have no margin of error.
+- Uninsured-by-age brackets changed in 2017 (6-17 became 6-18, and so on); labels are right for 2017 on only.
+- Percent-axis tick duplicates, `fmtCompact` precision, duplicate place names, and the flow-map route table label.
+- Source anomalies in section D need a look at the raw files.

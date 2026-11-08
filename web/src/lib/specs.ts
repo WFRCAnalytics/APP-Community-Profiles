@@ -316,7 +316,11 @@ export async function distributionOverTime(handle: Db, spec: Spec, ref: AreaRef,
 // ---- rates by group ----------------------------------------------------------------------------------------
 // A rate is a share inside a group (people with a disability among 18 to 34 year olds), unlike a distribution, whose shares add to one.
 export interface Rate { label: string; num: string[]; den: string[] }
-export interface RateSpec { topic: string; rates: Rate[]; since?: number }
+// `relabel`: before vintage `before` the Census used other age brackets under the same rows; `labels` maps each group to its old name,
+// and a trend leaves those groups out of the years before, because the two brackets are not the same people.
+export interface RateSpec { topic: string; rates: Rate[]; since?: number; relabel?: { before: number; labels: Record<string, string> } }
+
+export const rateLabel = (spec: RateSpec, label: string, vintage: number) => (spec.relabel && vintage < spec.relabel.before ? spec.relabel.labels[label] ?? label : label);
 
 const both = (table: string, m: number[], f: number[]) => [...m, ...f].map((n) => code(table, n));
 // [label, numerator rows for men, for women, denominator rows for men, for women]
@@ -330,7 +334,7 @@ export const RATES: Record<string, RateSpec> = {
   disabilityByAge: { topic: "social", rates: ageRates("B18101", [
     ["Under 5", [4], [23], [3], [22]], ["5 to 17", [7], [26], [6], [25]], ["18 to 34", [10], [29], [9], [28]],
     ["35 to 64", [13], [32], [12], [31]], ["65 to 74", [16], [35], [15], [34]], ["75 and over", [19], [38], [18], [37]]]) },
-  uninsuredByAge: { topic: "social", rates: ageRates("B27001", [
+  uninsuredByAge: { topic: "social", relabel: { before: 2017, labels: { "6 to 18": "6 to 17", "19 to 25": "18 to 24", "26 to 34": "25 to 34" } }, rates: ageRates("B27001", [
     ["Under 6", [5], [33], [3], [31]], ["6 to 18", [8], [36], [6], [34]], ["19 to 25", [11], [39], [9], [37]], ["26 to 34", [14], [42], [12], [40]],
     ["35 to 44", [17], [45], [15], [43]], ["45 to 54", [20], [48], [18], [46]], ["55 to 64", [23], [51], [21], [49]],
     ["65 to 74", [26], [54], [24], [52]], ["75 and over", [29], [57], [27], [55]]]) },
@@ -358,7 +362,7 @@ export async function rates(handle: Db, spec: RateSpec, refs: AreaRef[], vintage
     for (const r of spec.rates) {
       const n = sumOf(map, ref.id, r.num), d = sumOf(map, ref.id, r.den);
       if (!n.any || !d.any || !d.value) continue;
-      rows.push({ category: r.label, series: ref.label, value: (n.value ?? 0) / d.value, count: n.value ?? 0, moe: shareMoe(n.value, d.value, n.moe, d.moe),
+      rows.push({ category: rateLabel(spec, r.label, vintage), series: ref.label, value: (n.value ?? 0) / d.value, count: n.value ?? 0, moe: shareMoe(n.value, d.value, n.moe, d.moe),
                   note: `${fmtInt(n.value)} of ${fmtInt(d.value)}` });
     }
   }
@@ -369,7 +373,7 @@ export async function ratesOverTime(handle: Db, spec: RateSpec, ref: AreaRef, vi
   const per = await Promise.all(vintages.map(async (v) => ({ v, rows: await rates(handle, spec, [ref], v) })));
   return spec.rates.map((r) => ({
     label: r.label, color: "",
-    points: per.flatMap(({ v, rows }) => { const x = rows.find((q) => q.category === r.label); return x ? [{ x: v, y: x.value, note: x.note }] : []; }),
+    points: per.flatMap(({ v, rows }) => { const x = rateLabel(spec, r.label, v) === r.label ? rows.find((q) => q.category === r.label) : undefined; return x ? [{ x: v, y: x.value, note: x.note }] : []; }),
   })).filter((s) => s.points.length);
 }
 

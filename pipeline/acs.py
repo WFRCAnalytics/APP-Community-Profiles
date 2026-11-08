@@ -49,6 +49,14 @@ def geographies_for(cfg: dict, vintage: int) -> dict[str, dict]:
     return {g: gc for g, gc in cfg["geographies"].items() if vintage >= gc.get("since", 0)}
 
 
+def drifted(old: dict[str, str], new: dict[str, str]) -> list[str]:
+    """Variables present in both vintages whose label (what the row means) differs, e.g. B25034 '2010 or later' that
+    became '2014 or later'. Variable ids alone do not show this."""
+    # Punctuation, spacing and the dollar year in "(in 2015 inflation-adjusted dollars)" are not a change of meaning.
+    norm = lambda t: re.sub(r"[^a-z0-9]", "", re.sub(r"\(in \d{4} inflation-adjusted dollars\)", "", t.lower()))
+    return sorted(c for c in old.keys() & new.keys() if norm(old[c]) != norm(new[c]))
+
+
 def validate(refresh: bool = False) -> pd.DataFrame:
     """Check the configured tables and geographies against each vintage and build the variable table.
     The latest vintage must offer everything configured; earlier gaps (a table that did not exist yet, or
@@ -60,6 +68,8 @@ def validate(refresh: bool = False) -> pd.DataFrame:
     gaps: dict[str, list[int]] = {}
     changed: dict[str, list[int]] = {}
     latest_codes: dict[str, list[str]] = {}
+    latest_labels: dict[str, dict[str, str]] = {}
+    relabeled: dict[str, list[int]] = {}
     for vintage in sorted(cfg["vintages"], reverse=True):
         variables = load_variables(vintage, refresh)
         geo_json = get_json(f"{dataset(vintage)}/geography.json",
@@ -78,10 +88,15 @@ def validate(refresh: bool = False) -> pd.DataFrame:
                 gaps.setdefault(table, []).append(vintage)
                 continue
             first_year[table] = min(first_year.get(table, vintage), vintage)
+            labels = {c[:-1]: clean_label(variables[c]["label"]) for c in codes}
             if vintage == latest:
                 latest_codes[table] = codes
-            elif codes != latest_codes.get(table):
-                changed.setdefault(table, []).append(vintage)
+                latest_labels[table] = labels
+            else:
+                if codes != latest_codes.get(table):
+                    changed.setdefault(table, []).append(vintage)
+                if drifted(labels, latest_labels.get(table, {})):
+                    relabeled.setdefault(table, []).append(vintage)
             for code in codes:
                 rows.append({"vintage": vintage, "table": table, "topic": tc["topic"],
                              "agg": tc.get("agg", "sum"), "weight": tc.get("weight"),
@@ -96,12 +111,14 @@ def validate(refresh: bool = False) -> pd.DataFrame:
     lines = ["# ACS table availability", "",
              f"Vintages {min(cfg['vintages'])} to {latest}. The pull skips a table in a vintage where the Census "
              "does not offer it. Where a table's variable list differs from the latest vintage, "
-             "compare trends with care.", "",
-             "| Table | First vintage | Missing in | Variables differ from latest in |", "|---|---:|---|---|"]
+             "compare trends with care. A row can keep its variable id while its meaning changes (for example a '2010 or later' "
+             "bracket that becomes '2014 or later'), so labels are compared as well.", "",
+             "| Table | First vintage | Missing in | Variables differ from latest in | Labels differ from latest in |", "|---|---:|---|---|---|"]
     for table in cfg["tables"]:
         missing = sorted(v for v in gaps.get(table, []) if v > first_year.get(table, latest))
         lines.append(f"| `{table}` | {first_year.get(table, '-')} | {', '.join(map(str, missing)) or '-'} | "
-                     f"{', '.join(map(str, sorted(changed.get(table, [])))) or '-'} |")
+                     f"{', '.join(map(str, sorted(changed.get(table, [])))) or '-'} | "
+                     f"{', '.join(map(str, sorted(relabeled.get(table, [])))) or '-'} |")
     write_if_changed(META / "acs-availability.md", ("\n".join(lines) + "\n").encode("utf-8"))
     print(f"validated {len(cfg['tables'])} tables, {df.variable.nunique()} variables, "
           f"vintages {min(cfg['vintages'])}-{latest}")
@@ -168,6 +185,12 @@ def part_dir(topic: str, geo_type: str) -> Path:
     return DERIVED / topic / geo_type
 
 
+def part_tables(con, part: Path) -> set[str]:
+    """The ACS tables a part file holds (the prefix of each variable id, B01001_002 -> B01001)."""
+    rows = con.execute(f"SELECT DISTINCT split_part(variable, '_', 1) FROM read_parquet('{sql_path(part)}')").fetchall()
+    return {r[0] for r in rows}
+
+
 def run(refresh: bool = False) -> None:
     cfg = load_config()["acs"]
     variables = validate(refresh)
@@ -196,8 +219,9 @@ def run(refresh: bool = False) -> None:
         for geo_type in geographies_for(cfg, vintage):
             for topic in topics:
                 part = part_dir(topic, geo_type) / f"{vintage}.parquet"
-                if part.exists() and not refresh:
-                    continue
+                wanted = {t for t, tc in cfg["tables"].items() if tc["topic"] == topic and (vintage, t) in available}
+                if part.exists() and not refresh and wanted <= part_tables(con, part):
+                    continue  # a part that lacks a configured table (added since it was written) is rebuilt
                 frames = [to_long(fetch_table(vintage, t, geo_type, cfg["geographies"][geo_type], False), geo_type, vintage)
                           for t, tc in cfg["tables"].items() if tc["topic"] == topic and (vintage, t) in available]
                 if not frames:  # none of the topic's tables exist yet in this vintage

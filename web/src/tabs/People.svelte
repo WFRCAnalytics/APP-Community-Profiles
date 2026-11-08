@@ -45,7 +45,7 @@
       <ShareCard title="Language spoken at home" spec={SPECS.language} note="People 5 and over." />
       <ShareCard title="English proficiency" spec={SPECS.english} note="People who speak a language other than English at home." />
       <RateCard title="Disability by age" spec="disabilityByAge" note="Share of each age group with a disability." />
-      <RateCard title="No health insurance by age" spec="uninsuredByAge" note="Share of each age group without coverage." />
+      <RateCard title="No health insurance by age" spec="uninsuredByAge" note="Share of each age group without coverage. The Census moved the age breaks in 2017 (6 to 17 became 6 to 18, and so on), so the three groups they touch are left out of the trend before then." />
       <RateCard title="Veterans by age" spec="veteransByAge" note="Share of civilians 18 and over who served." />
     </div>
   {/if}

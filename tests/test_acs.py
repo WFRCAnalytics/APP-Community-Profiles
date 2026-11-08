@@ -35,3 +35,10 @@ def test_clean_label():
 def test_split_place():
     assert split_place("Salt Lake City city, Utah") == ("Salt Lake City", "city")
     assert split_place("Kearns CDP, Utah") == ("Kearns", "CDP")
+
+
+def test_drifted_finds_a_row_whose_meaning_changed_under_the_same_id():
+    from pipeline.acs import drifted
+    old = {"B25034_002": "Built 2010 or later", "B25034_003": "Built 2000 to 2009"}
+    new = {"B25034_002": "Built 2014 or later", "B25034_003": "Built  2000 to 2009"}
+    assert drifted(old, new) == ["B25034_002"]

@@ -4,7 +4,7 @@
   import { app } from "../lib/app.svelte";
   import { CATEGORY_COLORS, bars, lines, type LineSeries } from "../lib/charts";
   import { fmtPct, fmtPctTick } from "../lib/format";
-  import { RATES, rates, ratesOverTime } from "../lib/specs";
+  import { RATES, rateLabel, rates, ratesOverTime } from "../lib/specs";
   import { shareTable, trendTable } from "../lib/tables";
   import ChartCard from "./ChartCard.svelte";
   import ViewSwitch from "./ViewSwitch.svelte";
@@ -20,7 +20,7 @@
   async function load(): Promise<Data> {
     const refs = app.refs, db = app.db!, s = RATES[spec];
     if (trend) return { kind: "time", lines: (await ratesOverTime(db, s, refs[0], app.years)).map((l, i) => ({ ...l, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] })) };
-    return { kind: "now", rows: await rates(db, s, refs, app.v), order: s.rates.map((r) => r.label), series: refs.map((r) => r.label) };
+    return { kind: "now", rows: await rates(db, s, refs, app.v), order: s.rates.map((r) => rateLabel(s, r.label, app.v)), series: refs.map((r) => r.label) };
   }
 </script>
 

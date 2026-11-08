@@ -3,7 +3,7 @@
 // The values come from state-fixture.json (regenerate with `uv run python web/scripts/state-fixture.py`).
 import { describe, expect, it } from "vitest";
 import fixture from "./state-fixture.json";
-import { RATES, SPECS, specFor } from "./specs";
+import { RATES, SPECS, rateLabel, specFor } from "./specs";
 import { INDICATORS } from "./indicators";
 
 const data = fixture as Record<string, Record<string, number>>;
@@ -77,5 +77,14 @@ describe("indicators against real data", () => {
         expect(missing(v, ind.num).map(table), `${ind.id} ${v} has partial rows`).toEqual([]);
       }
     }
+  });
+});
+
+describe("age brackets that moved", () => {
+  it("names the old bracket before 2017 and the new one from then on", () => {
+    const s = RATES.uninsuredByAge;
+    expect(rateLabel(s, "6 to 18", 2016)).toBe("6 to 17");
+    expect(rateLabel(s, "6 to 18", 2017)).toBe("6 to 18");
+    expect(rateLabel(s, "35 to 44", 2012)).toBe("35 to 44");
   });
 });

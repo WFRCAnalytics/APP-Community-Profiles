@@ -97,13 +97,20 @@ Fixed, each with a regression test (55 Python and 109 web tests pass):
 
 Corrected during the work: A2's 2015-18 gap and the `since` logic apply to specs, rate specs and indicators alike; the state-median-age finding was refuted (see above).
 
-Still open, decisions or larger changes rather than fixes:
+Second round (all remaining items worked, easiest first):
 
-- **C1** population-share weighting for household and housing tables (under 1% at area level; needs a decision on using the computed household and housing-unit weights).
-- **C2** tracts used for B12001, B21001, B19058 although block groups exist (changes the committed data and needs a refetch).
-- **C3** `validate()` ignores label-only layout changes (129 variables).
-- **C4** RAC vs OD worker totals, **C5** the 2010 federal-jobs break and fixed boundaries, **C6** the PEP vintage splice, **C7** the "Rest of Utah" anchor: documented or pending a methods decision.
-- **B5/B6**: documented in METHODOLOGY.md; medians still have no margin of error.
-- Uninsured-by-age brackets changed in 2017 (6-17 became 6-18, and so on); labels are right for 2017 on only.
-- Percent-axis tick duplicates, `fmtCompact` precision, duplicate place names, and the flow-map route table label.
-- Source anomalies in section D need a look at the raw files.
+| Items | What changed |
+|---|---|
+| Axis and display | Percent ticks never repeat (2.5% beside 2%, 3%); compact numbers keep three digits ("12.3K"); series are coloured by area id, so two places called "Enterprise" stay apart; sex ratio guards zero women; the flow-map table says it lists the largest routes plus the areas not drawn; tracts use the Census number (1128.01). |
+| Uninsured by age | Age breaks moved in 2017: earlier years show the old bracket names, and the trend leaves out the three groups that changed. |
+| C3, acs.run | `validate()` now compares labels as well as ids (ignoring punctuation and the dollar year) and lists the vintages in `data/meta/acs-availability.md`; a part file that lacks a configured table is rebuilt instead of skipped. |
+| D, C4, C5, C6 | Place and tract LODES series fill omitted zero years as 0. The source oddities are confirmed and documented in METHODOLOGY.md: one block holds 15,000-21,000 Millcreek jobs in 2012-2019; Davis RAC 2006 is in the raw LODES file (also in OD); public administration steps +11,000 in 2010 and total jobs do not; Morgan professional-services pay is the published BLS value; the seven retired place ids are old places that no longer exist. RAC vs OD (33.7k), the fixed place boundaries and the PEP splice (state +2.4% across 2019-20) are documented. |
+| C7 | The Rest of Utah point falls back to the nearest clear point to the traffic centre (place type moved from the Box Elder desert to -111.53, 40.18). |
+| C1 | Household tables are split by occupied homes (B11012, B25003, B25044, B25008, B25063, B25075, B25070, B25091, B19001, B25014, B28002, B19058) and housing-unit tables by housing units (B25002, B25004, B25024, B25034). Area values move by under 1%; mpo, rpo and fws files regenerated. |
+| C2 | B12001, B21001 and B19058 now use block groups (the block-group files were already cached). Estimates move by a few percent; margins widen (for example marital-status total in Box Elder +-824 to +-1,167), which is the honest price of the finer geography. |
+| B6 | Derived medians now carry a margin of error from the bracket margins. Against published county margins (50,000+): ratio 1.0 for rent, 1.1-1.2 for income and home value, about 1.6 for age (conservative). |
+| B5 | Documented: split-area margins treat the share as exact, so they are slightly too narrow. |
+
+Verified: 58 Python tests, 114 web tests, svelte-check, the production build and the 20 Playwright tests (including axe) pass.
+
+Not changed, on purpose: the source values in section D (they are what the Census Bureau and BLS publish); series keyed by label inside distribution charts still collide if the compared area has the same name as the selected one (the colour fix covers line charts).

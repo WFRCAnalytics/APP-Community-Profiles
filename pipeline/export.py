@@ -12,7 +12,8 @@ For each of those types it also writes a row for the pseudo-area `other-ut` ("Re
 Utah block outside every area of the type. Its geometry is the state minus the union of the areas, and its point is the pole of
 inaccessibility of the largest piece of that remainder, shrunk by `export.rest_margin_m` so the point never sits on an area's edge.
 When the block files are on disk the point is instead the centre of the jobs and resident workers in those blocks (latest LODES
-year), provided that centre lies inside the shrunk remainder; otherwise it falls back to the pole of inaccessibility.
+year), provided that centre lies inside the shrunk remainder; otherwise it is the nearest point of the shrunk remainder to that centre
+(or, with no block files, the pole of inaccessibility).
 """
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ import shapely
 import shapely.geometry
 from pyproj import Transformer
 from shapely.geometry import Point
-from shapely.ops import polylabel, transform
+from shapely.ops import nearest_points, polylabel, transform
 
 from . import lodes, tiger
 from .db import connect, sql_path, write_parquet
@@ -64,8 +65,8 @@ def rest_point(state, areas: list, margin: float, weighted: tuple | None = None)
     the remainder is wider than twice `margin`. Slivers left by boundaries that do not quite match vanish with the shrink.
 
     `weighted` is (x, y, weight) arrays for the places the Rest of Utah traffic starts and ends. Their weighted mean is used when it
-    lies inside the shrunk remainder; when it falls in a gap or too near an area's edge the point is the pole of inaccessibility of
-    the largest piece, which is always clear of every edge."""
+    lies inside the shrunk remainder; when it falls in a gap or too near an area's edge the point is the nearest one that is clear of
+    every edge. Without weights it is the pole of inaccessibility of the largest piece, which is always clear of every edge."""
     rest = state.difference(shapely.union_all(areas)) if areas else state
     core = rest.buffer(-margin)
     pieces = [g for g in getattr(core, "geoms", [core]) if not g.is_empty]
@@ -77,6 +78,11 @@ def rest_point(state, areas: list, margin: float, weighted: tuple | None = None)
             mean = Point((x * w).sum() / w.sum(), (y * w).sum() / w.sum())
             if core.contains(mean):
                 return mean
+            # The mean is in a gap or too near an edge: take the closest point that is clear of every edge (shrunk a little more so
+            # it is strictly inside), which stays near where the traffic is rather than jumping to the middle of the largest piece.
+            inner = rest.buffer(-margin * 1.05)
+            if not inner.is_empty:
+                return nearest_points(inner, mean)[0]
     return polylabel(max(pieces, key=lambda g: g.area), tolerance=margin / 20)
 
 

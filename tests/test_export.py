@@ -46,6 +46,7 @@ def test_rest_point_prefers_the_weighted_centre_but_not_in_a_gap():
     gap = (np.array([10.0, 90.0]), np.array([50.0, 50.0]), np.array([1.0, 1.0]))   # mean (50, 50) is inside the area
     q = export.rest_point(state, areas, margin=2, weighted=gap)
     assert not areas[0].buffer(2).contains(q) and state.contains(q)
+    assert abs(q.x - 38) < 1 or abs(q.x - 62) < 1      # the nearest clear point, not the middle of a half
     near = (np.array([41.0]), np.array([50.0]), np.array([1.0]))                  # inside the remainder but hugging an edge
     r = export.rest_point(state, areas, margin=5, weighted=near)
     assert r.distance(areas[0]) >= 5 - 1e-6

@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from pipeline.db import connect
-from pipeline.medians import derive, interpolate, parse_range
+from pipeline.medians import derive, interpolate, median_moe, parse_range
 
 
 @pytest.mark.parametrize("label,expected", [
@@ -59,3 +59,24 @@ def test_derive_combines_sexes_and_skips_direct_rows():
     assert got[("B01002_001", "mpo-x")] == (6.7, "derived")
     assert got[("B01002_002", "mpo-x")] == (6.7, "derived")
     assert not any(g == "rpo-m" for _, g in got)
+
+
+def test_median_moe_is_zero_without_bracket_margins_and_grows_with_them():
+    brackets = [(0, 10, 100, 0), (10, 20, 100, 0), (20, 30, 100, 0)]
+    assert median_moe(brackets) == 0
+    wide = [(0, 10, 100, 20), (10, 20, 100, 20), (20, 30, 100, 20)]
+    assert 0 < median_moe(wide) < 10                 # well inside the middle bracket's 10 units
+    assert median_moe([(0, 10, 10, 5), (10, math.inf, 90, 5)]) is None   # a limit falls in the open top bracket
+
+
+def test_derive_gives_a_margin_with_the_median():
+    con = connect()
+    con.register("v_df", pd.DataFrame([{"vintage": 2024, "table": "B19001", "variable": "B19001_00%d" % i, "label": l}
+                                       for i, l in [(2, "Total > Less than $10,000"), (3, "Total > $10,000 to $14,999"), (4, "Total > $15,000 to $19,999")]]))
+    con.execute("CREATE TABLE variables AS SELECT * FROM v_df")
+    rows = [{"geo_id": "mpo-x", "geo_type": "mpo", "vintage": 2024, "variable": f"B19001_00{i}", "estimate": 100.0, "moe": 30.0,
+             "flag": None, "method": "allocated"} for i in (2, 3, 4)]
+    con.register("b_df", pd.DataFrame(rows))
+    con.execute("CREATE TABLE built AS SELECT * FROM b_df")
+    out = derive(con, "built", [{"target": "B19013_001", "table": "B19001"}])
+    assert out.estimate.iloc[0] == 12500 and out.moe.iloc[0] > 0

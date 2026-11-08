@@ -2,7 +2,7 @@
 // number is defined once. `num`/`den` are ACS variable codes (summed); a median uses `num` alone.
 //
 //   type  count  one variable, a count
-//         median one variable, a median (WFRC areas interpolate it from brackets; it has no margin of error)
+//         median one variable, a median (WFRC areas interpolate it from brackets; its margin of error is built from the bracket margins)
 //         share  sum(num) / sum(den)
 // `map: true` marks indicators that can colour the map (one topic, available for tracts).
 import type { FormatId } from "./format";

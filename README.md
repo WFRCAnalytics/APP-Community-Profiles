@@ -7,7 +7,7 @@ cities and the WFRC planning areas (AOG, MPO, RPO and workshop areas), and the d
   employment and wages (QCEW).
 - Every value carries a method label: `direct` (published by the Census Bureau for exactly this area), `aggregated` (an exact
   sum of whole block groups or blocks), `allocated` (split from block groups that are partly inside the area) or `derived`
-  (a median interpolated from allocated brackets, with no margin of error).
+  (a median interpolated from allocated brackets, with a margin of error built from the bracket margins).
 - There is no backend. DuckDB-WASM reads the committed Parquet files in the browser.
 
 The methods are written up in [METHODOLOGY.md](METHODOLOGY.md), which is also the in-app Methods page.

@@ -4,7 +4,7 @@
   import { app } from "../lib/app.svelte";
   import { CATEGORY_COLORS, bars, lines, type LineSeries } from "../lib/charts";
   import { lodesGroupSeries } from "../lib/data";
-  import { fmtPct } from "../lib/format";
+  import { fmtPct, fmtPctTick } from "../lib/format";
   import { SECTOR_BY_CNS, lodesBase, lodesDistribution, lodesGroups, sortByFirst } from "../lib/specs";
   import { shareTable, trendTable } from "../lib/tables";
   import ChartCard from "./ChartCard.svelte";
@@ -17,7 +17,7 @@
   let when = $state<"snapshot" | "trend">("snapshot");
   const lodes = $derived(Math.min(app.v, app.lodesLatest));
   const heading = $derived(GROUPS.find(([, k]) => k === group)?.[0] ?? "");
-  const pct0 = (d: number | null | undefined) => fmtPct(d, 0);
+  const pct0 = fmtPctTick;
   const pct1 = (d: number | null | undefined) => fmtPct(d, 1);
 
   type Data = { kind: "now"; rows: Awaited<ReturnType<typeof lodesDistribution>>; order: string[]; series: string[] } | { kind: "time"; lines: LineSeries[] };

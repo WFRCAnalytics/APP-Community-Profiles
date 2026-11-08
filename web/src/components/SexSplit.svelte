@@ -4,7 +4,7 @@
   import { app } from "../lib/app.svelte";
   import { bars, donut, lines, stacked100, type BarRow, type LineSeries } from "../lib/charts";
   import { acsVariables } from "../lib/data";
-  import { escapeHtml, fmtInt, fmtPct } from "../lib/format";
+  import { escapeHtml, fmtInt, fmtPct, fmtPctTick } from "../lib/format";
   import { SPECS, distributionOverTime } from "../lib/specs";
   import { trendTable } from "../lib/tables";
   import ChartCard from "./ChartCard.svelte";
@@ -16,7 +16,7 @@
   let when = $state<"snapshot" | "trend">("snapshot");
   type Data = { kind: "now"; areas: Area[] } | { kind: "time"; lines: LineSeries[] };
   const pct1 = (d: number | null | undefined) => fmtPct(d, 1);
-  const pct0 = (d: number | null | undefined) => fmtPct(d, 0);
+  const pct0 = fmtPctTick;
 
   async function load(): Promise<Data> {
     const refs = app.refs;
@@ -53,7 +53,7 @@
     wrap.style.cssText = "display:flex;flex-direction:column;height:100%;min-height:0;";
     const foot = document.createElement("div");
     foot.style.cssText = "flex:none;display:grid;gap:2px;font-size:12px;color:var(--muted);padding-top:6px;";
-    foot.innerHTML = a.map((x, i) => `<div style="display:flex;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:6px"><i class="dot ${i === 0 ? "sel" : "cmp"}"></i>${escapeHtml(x.label)}</span><b style="color:var(--text);font-variant-numeric:tabular-nums">${((x.men / x.women) * 100).toFixed(1)} men per 100 women</b></div>`).join("");
+    foot.innerHTML = a.map((x, i) => `<div style="display:flex;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:6px"><i class="dot ${i === 0 ? "sel" : "cmp"}"></i>${escapeHtml(x.label)}</span><b style="color:var(--text);font-variant-numeric:tabular-nums">${x.women > 0 ? ((x.men / x.women) * 100).toFixed(1) : "–"} men per 100 women</b></div>`).join("");
     const rows = toRows(a), order = ["Men", "Women"], series = a.map((x) => x.label);
     const holder = document.createElement("div");
     holder.style.cssText = "flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;justify-content:center;";
@@ -69,7 +69,7 @@
   }}
   table={(d) => d.kind === "time" ? trendTable(d.lines, pct1, (x) => `${x - 4}–${x}`) : ({
     columns: [{ key: "area", label: "Area" }, { key: "men", label: "Men", align: "right" }, { key: "women", label: "Women", align: "right" }, { key: "ratio", label: "Men per 100 women", align: "right" }],
-    rows: d.areas.map((r) => ({ area: r.label, men: fmtInt(r.men), women: fmtInt(r.women), ratio: ((r.men / r.women) * 100).toFixed(1) })),
+    rows: d.areas.map((r) => ({ area: r.label, men: fmtInt(r.men), women: fmtInt(r.women), ratio: r.women > 0 ? ((r.men / r.women) * 100).toFixed(1) : "–" })),
   })}
 >
   {#snippet headerExtra()}

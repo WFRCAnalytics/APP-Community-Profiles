@@ -212,6 +212,7 @@
         {/if}
       </div>
       {#if view === "table" && data}
+        <p class="src">Largest first: {limit === "0" ? "every route" : `the ${limit} largest routes drawn on the map`}{lines?.unmapped.length ? ", plus the areas not drawn on it" : ""}.</p>
         <DataTable
           caption="Commute routes of {sel?.label}, {lodes}"
           columns={[{ key: "from", label: "Lives in" }, { key: "to", label: "Works in" }, { key: "jobs", label: "Jobs", align: "right" }]}

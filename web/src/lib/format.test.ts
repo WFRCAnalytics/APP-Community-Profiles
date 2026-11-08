@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtFlagged, fmtInt, lowReliability, fmtMoney, fmtOne, fmtPct, methodOf, toCsv } from "./format";
+import { fmtCompact, fmtFlagged, fmtInt, fmtPctTick, lowReliability, fmtMoney, fmtOne, fmtPct, methodOf, toCsv } from "./format";
 import { change } from "./tipcharts";
 import { AGG_COLUMNS, ratioMoe, shareMoe, sumOf, summarize, type AcsRow } from "./data";
 import { BY_ID } from "./indicators";
@@ -79,5 +79,12 @@ describe("number display", () => {
     expect(change([{ x: 1, y: 0.1 }, { x: 2, y: 0.10004 }], true)).toBe("0.0 pts");
     expect(change([{ x: 1, y: 0 }, { x: 2, y: 0.1 }])).toBeNull();
     expect(change([{ x: 1, y: 0 }, { x: 2, y: 0.1 }], true)).toBe("+10.0 pts");
+  });
+});
+
+describe("axis labels", () => {
+  it("never repeats a percent tick, and keeps compact numbers to three digits", () => {
+    expect([0.02, 0.025, 0.03].map(fmtPctTick)).toEqual(["2%", "2.5%", "3%"]);
+    expect([12345, 1234567, 999, 123456].map(fmtCompact)).toEqual(["12.3K", "1.23M", "999", "123K"]);
   });
 });

@@ -3,7 +3,7 @@ import { arcPath, thinTicks } from "./charts";
 import { formatHash, parseHash } from "./hash";
 import { classOf, colourFor, quantileBreaks, RAMPS } from "./classes";
 import { silhouette } from "./place";
-import { seriesFrom } from "./series";
+import { colorize, seriesFrom } from "./series";
 import { shareTable, trendTable } from "./tables";
 import { SPECS, lodesBase } from "./specs";
 import { INDICATORS, variablesOf } from "./indicators";
@@ -62,6 +62,11 @@ describe("chart data", () => {
     const refs = [{ id: "a", type: "county", label: "A" }, { id: "b", type: "county", label: "B" }];
     const s = seriesFrom(refs, [{ id: "a", x: 2020, y: 1 }]);
     expect(s.map((x) => x.label)).toEqual(["A"]);
+  });
+  it("colours by area id, so two places with one name stay apart", () => {
+    const two = [{ id: "1", label: "Enterprise", points: [], color: "" }, { id: "2", label: "Enterprise", points: [], color: "" }];
+    const pal = { accent: "a", selected: "s", compare: "c" } as never;
+    expect(colorize(two, "1", pal).map((x) => x.color)).toEqual(["s", "c"]);
   });
   it("pivots share rows into one column per area", () => {
     const rows = [{ category: "Own", series: "A", value: 0.6, count: 60 }, { category: "Own", series: "B", value: 0.7, count: 70 }];

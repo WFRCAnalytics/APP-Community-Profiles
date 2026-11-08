@@ -28,7 +28,7 @@
     note={source}
     {load}
     isEmpty={(s) => !s.length}
-    draw={(s, width, height, pal) => lines({ series: colorize(s, app.selected?.label, pal), pal, format: fmtInt, tickFormat: fmtCompact, width, height, highlight: Math.min(app.v, s.flatMap((x) => x.points).reduce((m, p) => Math.max(m, p.x), 0)) })}
+    draw={(s, width, height, pal) => lines({ series: colorize(s, app.selected?.id, pal), pal, format: fmtInt, tickFormat: fmtCompact, width, height, highlight: Math.min(app.v, s.flatMap((x) => x.points).reduce((m, p) => Math.max(m, p.x), 0)) })}
     table={(s) => trendTable(s, fmtInt, String)}
   />
 {/if}

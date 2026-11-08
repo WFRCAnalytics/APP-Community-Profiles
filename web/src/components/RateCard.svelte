@@ -3,7 +3,7 @@
   // margin of error; the switch in the header shows each group's rate over the years instead.
   import { app } from "../lib/app.svelte";
   import { CATEGORY_COLORS, bars, lines, type LineSeries } from "../lib/charts";
-  import { fmtPct } from "../lib/format";
+  import { fmtPct, fmtPctTick } from "../lib/format";
   import { RATES, rates, ratesOverTime } from "../lib/specs";
   import { shareTable, trendTable } from "../lib/tables";
   import ChartCard from "./ChartCard.svelte";
@@ -13,7 +13,7 @@
   let when = $state<"snapshot" | "trend">("snapshot");
   // svelte-ignore state_referenced_locally
   const trend = $derived(history && when === "trend");
-  const pct0 = (d: number | null | undefined) => fmtPct(d, 0);
+  const pct0 = fmtPctTick;
   const pct1 = (d: number | null | undefined) => fmtPct(d, 1);
 
   type Data = { kind: "now"; rows: Awaited<ReturnType<typeof rates>>; order: string[]; series: string[] } | { kind: "time"; lines: LineSeries[] };

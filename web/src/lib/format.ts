@@ -2,7 +2,7 @@
 
 const int = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const one = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
+const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumSignificantDigits: 3 });
 
 type Num = number | null | undefined;
 const missing = (v: Num): v is null | undefined => v == null || Number.isNaN(v);
@@ -13,6 +13,8 @@ export const fmtInt = (v: Num) => (missing(v) ? "–" : unsigned(int.format(Math
 export const fmtOne = (v: Num) => (missing(v) ? "–" : unsigned(one.format(v)));
 export const fmtCompact = (v: Num) => (missing(v) ? "–" : compact.format(v));
 export const fmtPct = (v: Num, digits = 1) => (missing(v) ? "–" : `${unsigned((v * 100).toFixed(digits))}%`);
+// A percent axis label: whole percents when the tick is one, a decimal otherwise, so a 2.5% tick never reads "3%" beside a 3% tick.
+export const fmtPctTick = (v: Num) => (missing(v) ? "–" : fmtPct(v, Math.abs(v * 100 - Math.round(v * 100)) < 1e-6 ? 0 : 1));
 export const fmtMoney = (v: Num) => (missing(v) ? "–" : `$${unsigned(int.format(Math.round(v)))}`);
 
 // A median the Census could only bound is published as an annotation ("250,000+" for the open top bracket, "10,000-" for the

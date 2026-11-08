@@ -2,12 +2,12 @@
   // The population pyramid for the chosen year: men blue on the left, women pink on the right; a compared area is a dashed outline.
   import { app } from "../lib/app.svelte";
   import { pyramid } from "../lib/charts";
-  import { fmtPct } from "../lib/format";
+  import { fmtPct, fmtPctTick } from "../lib/format";
   import { AGES, pyramidRows } from "../lib/specs";
   import ChartCard from "./ChartCard.svelte";
 
   let { style = "" }: { style?: string } = $props();
-  const pct0 = (d: number | null | undefined) => fmtPct(d, 0);
+  const pct0 = fmtPctTick;
   const pct1 = (d: number | null | undefined) => fmtPct(d, 1);
 
   async function load() {

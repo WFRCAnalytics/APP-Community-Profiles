@@ -6,12 +6,12 @@
   import TrendCard from "../components/TrendCard.svelte";
   import { app } from "../lib/app.svelte";
   import { stacked } from "../lib/charts";
-  import { fmtPct } from "../lib/format";
+  import { fmtPct, fmtPctTick } from "../lib/format";
   import { SPECS, vehicles } from "../lib/specs";
 
   const SUBS = [{ id: "types", label: "Household makeup" }, { id: "cars", label: "Cars and internet" }];
   let sub = $state("types");
-  const pct0 = (d: number | null | undefined) => fmtPct(d, 0);
+  const pct0 = fmtPctTick;
   const pct1 = (d: number | null | undefined) => fmtPct(d, 1);
   async function loadVehicles() {
     const result = await vehicles(app.db!, app.refs, app.v);

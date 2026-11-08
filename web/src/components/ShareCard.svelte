@@ -4,7 +4,7 @@
   // a second switch turns the panel into one line per category over the years. A compared area is a second ring or a second bar.
   import { app } from "../lib/app.svelte";
   import { CATEGORY_COLORS, bars, donut, lines, stacked100, type LineSeries } from "../lib/charts";
-  import { fmtPct } from "../lib/format";
+  import { fmtPct, fmtPctTick } from "../lib/format";
   import { distribution, distributionOverTime, sortByFirst, type Category, type Spec } from "../lib/specs";
   import { shareTable, trendTable } from "../lib/tables";
   import ChartCard from "./ChartCard.svelte";
@@ -34,7 +34,7 @@
   let scope = $state("all"); // "rest" leaves out the largest category so the smaller ones can be read
   const trend = $derived(canTrend && when === "trend");
 
-  const pct0 = (d: number | null | undefined) => fmtPct(d, 0);
+  const pct0 = fmtPctTick;
   const pct1 = (d: number | null | undefined) => fmtPct(d, 1);
 
   type Data =

@@ -229,7 +229,7 @@ export function pyramid({ rows, compare, ages, pal, format, tickFormat = format,
 // ---- lines -----------------------------------------------------------------------------------------------
 
 export interface Point { x: number; y: number; lo?: number | null; hi?: number | null; note?: string; method?: Method }
-export interface LineSeries { label: string; color: string; points: Point[] }
+export interface LineSeries { label: string; color: string; points: Point[]; id?: string }
 
 // Keep as many tick values as fit (at least `gap` px apart), always including the last one so the latest period is labelled.
 export function thinTicks(values: number[], width: number, gap = 52): number[] {

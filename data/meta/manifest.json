@@ -280,15 +280,15 @@
       "rows": 384
     },
     "households/fws": {
-      "bytes": 23859,
+      "bytes": 23856,
       "rows": 3072
     },
     "households/mpo": {
-      "bytes": 5294,
+      "bytes": 5265,
       "rows": 384
     },
     "households/rpo": {
-      "bytes": 7224,
+      "bytes": 7187,
       "rows": 912
     },
     "housing/aog": {
@@ -296,15 +296,15 @@
       "rows": 1620
     },
     "housing/fws": {
-      "bytes": 91077,
+      "bytes": 91690,
       "rows": 12960
     },
     "housing/mpo": {
-      "bytes": 14987,
+      "bytes": 14983,
       "rows": 1620
     },
     "housing/rpo": {
-      "bytes": 20941,
+      "bytes": 21056,
       "rows": 3760
     },
     "income/aog": {
@@ -312,15 +312,15 @@
       "rows": 972
     },
     "income/fws": {
-      "bytes": 61840,
+      "bytes": 61747,
       "rows": 7776
     },
     "income/mpo": {
-      "bytes": 10802,
+      "bytes": 10820,
       "rows": 972
     },
     "income/rpo": {
-      "bytes": 15764,
+      "bytes": 15757,
       "rows": 2265
     },
     "population/aog": {
@@ -344,15 +344,15 @@
       "rows": 1598
     },
     "social/fws": {
-      "bytes": 94603,
+      "bytes": 94613,
       "rows": 12784
     },
     "social/mpo": {
-      "bytes": 15555,
+      "bytes": 15556,
       "rows": 1598
     },
     "social/rpo": {
-      "bytes": 19951,
+      "bytes": 19975,
       "rows": 3292
     }
   },

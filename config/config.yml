@@ -67,8 +67,9 @@ acs:
   latest_only: [block_group]
   # Whole tables are pulled (every estimate and margin of error). agg says how a table combines when
   # summing areas later: sum (counts, the default) or median (must be re-derived, never summed).
-  # weight is the 2020/2010 Decennial block count used to split a block group between areas. Every table uses
-  # pop (people); hh (households) and hu (housing units) are also available per table. custom: false keeps a
+  # weight is the 2020/2010 Decennial block count used to split a block group between areas: pop (people) for tables
+  # of people, hh (occupied housing units, i.e. households) for tables of households, hu (housing units) for tables
+  # of all units, so each table is split by what it counts. custom: false keeps a
   # table out of allocation (workplace-based tables cannot be split by where people live). unit: tract is for
   # tables the Census does not publish at block group (poverty, group quarters, enrollment, disability):
   # they are split from tracts instead.
@@ -78,19 +79,19 @@ acs:
     B02001: { topic: population, label: Race, weight: pop }
     B03003: { topic: population, label: Hispanic or Latino origin, weight: pop }
     B26001: { topic: population, label: Group quarters population, weight: pop, unit: tract }
-    B11012: { topic: households, label: Households by type, weight: pop }
-    B25003: { topic: households, label: Tenure, weight: pop }
-    B25044: { topic: households, label: Tenure by vehicles available, weight: pop }
-    B25002: { topic: housing, label: Occupancy status, weight: pop }
-    B25024: { topic: housing, label: Units in structure, weight: pop }
-    B25034: { topic: housing, label: Year structure built, weight: pop }
+    B11012: { topic: households, label: Households by type, weight: hh }
+    B25003: { topic: households, label: Tenure, weight: hh }
+    B25044: { topic: households, label: Tenure by vehicles available, weight: hh }
+    B25002: { topic: housing, label: Occupancy status, weight: hu }
+    B25024: { topic: housing, label: Units in structure, weight: hu }
+    B25034: { topic: housing, label: Year structure built, weight: hu }
     B25064: { topic: housing, label: Median gross rent, agg: median }
     B25077: { topic: housing, label: Median home value, agg: median }
-    B25063: { topic: housing, label: Gross rent brackets, weight: pop }
-    B25075: { topic: housing, label: Home value brackets, weight: pop }
-    B25070: { topic: housing, label: Gross rent as a share of income, weight: pop }
-    B25091: { topic: housing, label: Owner costs as a share of income, weight: pop }
-    B19001: { topic: income, label: Household income brackets, weight: pop }
+    B25063: { topic: housing, label: Gross rent brackets, weight: hh }
+    B25075: { topic: housing, label: Home value brackets, weight: hh }
+    B25070: { topic: housing, label: Gross rent as a share of income, weight: hh }
+    B25091: { topic: housing, label: Owner costs as a share of income, weight: hh }
+    B19001: { topic: income, label: Household income brackets, weight: hh }
     B19013: { topic: income, label: Median household income, agg: median }
     B17001: { topic: income, label: Poverty status, weight: pop, unit: tract }
     B15003: { topic: education, label: Educational attainment, weight: pop }
@@ -102,18 +103,18 @@ acs:
     B08603: { topic: commute, label: Travel time to work (by workplace), custom: false }
     C16001: { topic: social, label: Language spoken at home, weight: pop, unit: tract }
     B18101: { topic: social, label: Disability status, weight: pop, unit: tract }
-    B28002: { topic: social, label: Internet subscriptions, weight: pop }
+    B28002: { topic: social, label: Internet subscriptions, weight: hh }
     B03002: { topic: population, label: Hispanic or Latino origin by race, weight: pop }
     B05002: { topic: population, label: Place of birth by nativity, weight: pop, unit: tract }
     B07003: { topic: population, label: Residence one year ago, weight: pop, unit: tract }
-    B25008: { topic: households, label: Population in occupied housing units, weight: pop }
-    B25004: { topic: housing, label: Vacancy status, weight: pop }
+    B25008: { topic: households, label: Population in occupied housing units, weight: hh }
+    B25004: { topic: housing, label: Vacancy status, weight: hu }
     B27001: { topic: social, label: Health insurance coverage, weight: pop, unit: tract }
     B21001: { topic: population, label: Veteran status, weight: pop, unit: tract }
     B12001: { topic: population, label: Marital status, weight: pop, unit: tract }
-    B25014: { topic: housing, label: Occupants per room (crowding), weight: pop }
+    B25014: { topic: housing, label: Occupants per room (crowding), weight: hh }
     B19313: { topic: income, label: Aggregate income, weight: pop }
-    B19058: { topic: income, label: Public assistance or SNAP, weight: pop, unit: tract }
+    B19058: { topic: income, label: Public assistance or SNAP, weight: hh, unit: tract }
     B08013: { topic: commute, label: Aggregate travel time to work (by residence), weight: pop, unit: tract }
     C24050: { topic: employment, label: Industry of employed residents, weight: pop, unit: tract }
 

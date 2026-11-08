@@ -5,7 +5,7 @@
   import { app } from "../lib/app.svelte";
   import { BIVARIATE } from "../lib/classes";
   import { geojson, indicatorHistory, indicatorValues } from "../lib/data";
-  import { FORMATS, fmtCompact, fmtPct, type FormatId } from "../lib/format";
+  import { FORMATS, fmtCompact, fmtPct, tractName, type FormatId } from "../lib/format";
   import { BY_ID, INDICATORS } from "../lib/indicators";
   import { MapController, type Legend, type MapView } from "../lib/map";
   import { theme } from "../lib/theme.svelte";
@@ -114,7 +114,7 @@
         },
         bi: y ? { x: { label: x.label, format: FORMATS[x.format] }, y: { label: y.label, format: FORMATS[y.format] } } : undefined,
         details: y ? undefined : new Map([...vx].map(([id, v]) => [id, { moe: v.moe, method: v.method }])),
-        names: tracts ? new Map([...vx.keys()].map((id) => [id, `Census tract ${id.slice(5)}`])) : app.names,
+        names: tracts ? new Map([...vx.keys()].map((id) => [id, tractName(id)])) : app.names,
         format: FORMATS[x.format], label: y ? `${x.label} and ${y.label}` : x.label,
         bounds: eff === "front" ? FRONT : STATE,
         fitKey: `${eff}|${type}|${sel.id}|${cmp?.id ?? ""}`,

@@ -312,15 +312,15 @@
       "rows": 972
     },
     "income/fws": {
-      "bytes": 61747,
+      "bytes": 60456,
       "rows": 7776
     },
     "income/mpo": {
-      "bytes": 10820,
+      "bytes": 10688,
       "rows": 972
     },
     "income/rpo": {
-      "bytes": 15757,
+      "bytes": 15585,
       "rows": 2265
     },
     "population/aog": {
@@ -328,15 +328,15 @@
       "rows": 2256
     },
     "population/fws": {
-      "bytes": 137324,
+      "bytes": 137466,
       "rows": 18048
     },
     "population/mpo": {
-      "bytes": 21586,
+      "bytes": 21556,
       "rows": 2256
     },
     "population/rpo": {
-      "bytes": 31642,
+      "bytes": 31622,
       "rows": 5218
     },
     "social/aog": {

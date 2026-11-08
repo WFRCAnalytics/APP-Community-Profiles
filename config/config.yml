@@ -110,11 +110,11 @@ acs:
     B25008: { topic: households, label: Population in occupied housing units, weight: hh }
     B25004: { topic: housing, label: Vacancy status, weight: hu }
     B27001: { topic: social, label: Health insurance coverage, weight: pop, unit: tract }
-    B21001: { topic: population, label: Veteran status, weight: pop, unit: tract }
-    B12001: { topic: population, label: Marital status, weight: pop, unit: tract }
+    B21001: { topic: population, label: Veteran status, weight: pop }
+    B12001: { topic: population, label: Marital status, weight: pop }
     B25014: { topic: housing, label: Occupants per room (crowding), weight: hh }
     B19313: { topic: income, label: Aggregate income, weight: pop }
-    B19058: { topic: income, label: Public assistance or SNAP, weight: hh, unit: tract }
+    B19058: { topic: income, label: Public assistance or SNAP, weight: hh }
     B08013: { topic: commute, label: Aggregate travel time to work (by residence), weight: pop, unit: tract }
     C24050: { topic: employment, label: Industry of employed residents, weight: pop, unit: tract }
 

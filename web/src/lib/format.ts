@@ -30,6 +30,13 @@ export function fmtFlagged(f: (v: Num) => string, v: Num, flag?: string | null) 
 // The Census Bureau's guidance: an estimate whose margin of error is more than 30% of the estimate should be used with caution.
 export const lowReliability = (v: Num, moe: Num) => !missing(v) && !missing(moe) && v !== 0 && Math.abs(moe / v) > 0.3;
 
+// A Census tract as the Census Bureau names it: the six-digit code in the geo id is the number with two implied decimals
+// (112801 is tract 1128.01; 113400 is tract 1134).
+export const tractName = (geoId: string) => {
+  const code = geoId.slice(5), whole = String(Number(code.slice(0, 4))), frac = code.slice(4);
+  return `Census tract ${frac === "00" ? whole : `${whole}.${frac}`}`;
+};
+
 export type FormatId = "int" | "one" | "pct" | "money" | "compact";
 export const FORMATS: Record<FormatId, (v: Num) => string> = { int: fmtInt, one: fmtOne, pct: fmtPct, money: fmtMoney, compact: fmtCompact };
 

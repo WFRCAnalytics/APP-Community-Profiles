@@ -88,6 +88,7 @@ def test_committed_lodes_breakdowns_add_to_total_jobs():
     """Each published WAC breakdown partitions C000, except education (workers 30 and older only: CA02 + CA03).
     A breakdown LODES does not publish is all zero, which the app reads as "not published", never as 0% of jobs."""
     import duckdb
+
     from pipeline.paths import ROOT
     rows = duckdb.sql(f"""
         SELECT year, variable, sum(jobs) AS jobs FROM read_parquet('{(ROOT / "data/lodes/wac/state.parquet").as_posix()}')

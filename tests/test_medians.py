@@ -71,7 +71,7 @@ def test_median_moe_is_zero_without_bracket_margins_and_grows_with_them():
 
 def test_derive_gives_a_margin_with_the_median():
     con = connect()
-    con.register("v_df", pd.DataFrame([{"vintage": 2024, "table": "B19001", "variable": "B19001_00%d" % i, "label": l}
+    con.register("v_df", pd.DataFrame([{"vintage": 2024, "table": "B19001", "variable": f"B19001_00{i}", "label": l}
                                        for i, l in [(2, "Total > Less than $10,000"), (3, "Total > $10,000 to $14,999"), (4, "Total > $15,000 to $19,999")]]))
     con.execute("CREATE TABLE variables AS SELECT * FROM v_df")
     rows = [{"geo_id": "mpo-x", "geo_type": "mpo", "vintage": 2024, "variable": f"B19001_00{i}", "estimate": 100.0, "moe": 30.0,

@@ -224,15 +224,26 @@ export async function lodesValues(h: Db, kind: "wac" | "rac", refs: Ref[], year:
   return out;
 }
 
-// Total jobs/workers over the years: [{id, year, value}].
+// Total jobs/workers over the years: [{id, year, value}]. The place and tract files omit rows of zero jobs (config lodes.drop_zero), so a year
+// in which an area has no row is a year with none: it is filled in as 0 for an area that has rows in other years.
+const ZERO_OMITTED = ["place", "tract"];
 export async function lodesSeries(h: Db, kind: "wac" | "rac", refs: Ref[]) {
   const out: { id: string; year: number; value: number }[] = [];
+  const years = await lodesYears(h);
   await Promise.all([...groupByType(refs)].map(async ([type, ids]) => {
-    out.push(...await sql<(typeof out)[number]>(h, `SELECT geo_id AS id, year, jobs::DOUBLE AS value
+    const rows = await sql<(typeof out)[number]>(h, `SELECT geo_id AS id, year, jobs::DOUBLE AS value
                               FROM read_parquet('${dataUrl(`lodes/${kind}/${type}.parquet`)}')
-                              WHERE variable = 'C000' AND geo_id IN (${list(ids)}) ORDER BY year`));
+                              WHERE variable = 'C000' AND geo_id IN (${list(ids)}) ORDER BY year`);
+    out.push(...(ZERO_OMITTED.includes(type) ? fillZeroYears(rows, years) : rows));
   }));
   return out;
+}
+
+export function fillZeroYears(rows: { id: string; year: number; value: number }[], years: number[]) {
+  const have = new Set(rows.map((r) => `${r.id}|${r.year}`));
+  const filled = [...rows];
+  for (const id of new Set(rows.map((r) => r.id))) for (const year of years) if (!have.has(`${id}|${year}`)) filled.push({ id, year, value: 0 });
+  return filled.sort((a, b) => a.year - b.year);
 }
 
 // One LODES breakdown over the years for one area: [{year, variable, jobs}] including the total (C000).

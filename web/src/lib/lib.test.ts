@@ -4,6 +4,7 @@ import { formatHash, parseHash } from "./hash";
 import { classOf, colourFor, quantileBreaks, RAMPS } from "./classes";
 import { silhouette } from "./place";
 import { colorize, seriesFrom } from "./series";
+import { fillZeroYears } from "./data";
 import { shareTable, trendTable } from "./tables";
 import { SPECS, lodesBase } from "./specs";
 import { INDICATORS, variablesOf } from "./indicators";
@@ -62,6 +63,10 @@ describe("chart data", () => {
     const refs = [{ id: "a", type: "county", label: "A" }, { id: "b", type: "county", label: "B" }];
     const s = seriesFrom(refs, [{ id: "a", x: 2020, y: 1 }]);
     expect(s.map((x) => x.label)).toEqual(["A"]);
+  });
+  it("fills a year with no LODES row as zero jobs", () => {
+    expect(fillZeroYears([{ id: "p", year: 2002, value: 5 }, { id: "p", year: 2004, value: 7 }], [2002, 2003, 2004])).toEqual([
+      { id: "p", year: 2002, value: 5 }, { id: "p", year: 2003, value: 0 }, { id: "p", year: 2004, value: 7 }]);
   });
   it("colours by area id, so two places with one name stay apart", () => {
     const two = [{ id: "1", label: "Enterprise", points: [], color: "" }, { id: "2", label: "Enterprise", points: [], color: "" }];

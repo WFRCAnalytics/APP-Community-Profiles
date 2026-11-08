@@ -47,7 +47,7 @@
 <ChartCard
   title={when === "trend" ? `Jobs by ${heading.toLowerCase()} over time` : `Jobs by ${heading.toLowerCase()}, ${lodes}`}
   {style}
-  note={when === "trend" ? `Share of jobs located here${group === "education" ? " held by workers 30 and older" : ""}, ${group === "industry" ? "the eight largest sectors" : "by category"}, for the selected area. Years LODES does not report for this breakdown are left out. Source: LEHD LODES8, ${app.lodesYears[0]} to ${app.lodesLatest}.` : `Share of jobs located here.${group === "education" ? " Education is reported only for workers 30 and older, so these are shares of those jobs." : ""}${["race", "ethnicity", "sex"].includes(group) ? " Published from 2009." : ""} Source: LEHD LODES8, ${lodes}.`}
+  note={when === "trend" ? `Share of jobs located here${group === "education" ? " held by workers 30 and older" : ""}, ${group === "industry" ? "the eight largest sectors" : "by category"}, for the selected area. Years LODES does not report for this breakdown are left out.${group === "industry" ? " Public administration steps up in 2010 in the source data (about 11,000 jobs in Utah) while total jobs do not, so compare it across that year with care." : ""} Source: LEHD LODES8, ${app.lodesYears[0]} to ${app.lodesLatest}.` : `Share of jobs located here.${group === "education" ? " Education is reported only for workers 30 and older, so these are shares of those jobs." : ""}${["race", "ethnicity", "sex"].includes(group) ? " Published from 2009." : ""} Source: LEHD LODES8, ${lodes}.`}
   {load}
   isEmpty={(d) => (d.kind === "now" ? !d.rows.length : d.lines.every((l) => l.points.length < 2))}
   draw={(d, width, height, pal) => d.kind === "time"

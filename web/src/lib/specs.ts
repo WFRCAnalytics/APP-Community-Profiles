@@ -7,8 +7,14 @@ import { fmtInt, methodOf, type Method } from "./format";
 export interface AreaRef extends Ref {
   label: string;
 }
-export interface Category { label: string; vars: string[] }
-export interface Spec { topic: string; den: string[]; minus?: string[]; categories: Category[] }
+// `less` rows are subtracted from `vars` (a category that is a parent row minus some of its children).
+export interface Category { label: string; vars: string[]; less?: string[] }
+// `since`: first vintage whose table layout the codes below describe (earlier vintages return no rows rather than a wrong share).
+// `legacy`: for vintages before `before`, these codes are renamed (the Census moved a row, the meaning is unchanged).
+export interface Spec {
+  topic: string; den: string[]; minus?: string[]; categories: Category[];
+  since?: number; legacy?: { before: number; map: Record<string, string> };
+}
 export interface ShareRow { category: string; series: string; value: number; count?: number; moe?: number | null; note?: string; method?: Method }
 
 const code = (table: string, n: number) => `${table}_${String(n).padStart(3, "0")}`;
@@ -31,7 +37,8 @@ const NOT_DISABLED = [5, 8, 11, 14, 17, 20, 24, 27, 30, 33, 36, 39].map((n) => c
 // Language at home (C16001, the collapsed table the Census publishes for every area): each language group is a total row
 // followed by "very well" and "less than very well". Spanish is the first.
 export const LANGUAGE_ROWS = Array.from({ length: 12 }, (_, k) => 3 + 3 * k);
-const OTHER_LANGUAGES = LANGUAGE_ROWS.slice(1).flatMap((n) => codes("C16001", n, n + 1, n + 2));
+// A group total already includes its two "very well" rows, so only the totals are summed.
+const OTHER_LANGUAGES = LANGUAGE_ROWS.slice(1).map((n) => code("C16001", n));
 
 // topic, total variable(s) and categories. `minus` removes rows that are not part of the base.
 export const SPECS: Record<string, Spec> = {
@@ -64,7 +71,7 @@ export const SPECS: Record<string, Spec> = {
     { label: "5 to 9 units", vars: codes("B25024", 6) }, { label: "10 to 19 units", vars: codes("B25024", 7) },
     { label: "20 or more units", vars: codes("B25024", 8, 9) }, { label: "Mobile home", vars: codes("B25024", 10) },
     { label: "Boat, RV, van, etc.", vars: codes("B25024", 11) }] },
-  householdType: { topic: "households", den: codes("B11012", 1), categories: [
+  householdType: { topic: "households", since: 2019, den: codes("B11012", 1), categories: [
     { label: "Married couple", vars: codes("B11012", 2) }, { label: "Cohabiting couple", vars: codes("B11012", 5) },
     { label: "Female householder, no partner", vars: codes("B11012", 8) }, { label: "Male householder, no partner", vars: codes("B11012", 13) }] },
   income: { topic: "income", den: codes("B19001", 1), categories: [
@@ -89,7 +96,7 @@ export const SPECS: Record<string, Spec> = {
     { label: "20% to 29%", vars: [...codes("B25091", 6, 7), ...codes("B25091", 17, 18)] },
     { label: "30% to 34%", vars: codes("B25091", 8, 19) }, { label: "35% to 49%", vars: [...codes("B25091", 9, 10), ...codes("B25091", 20, 21)] },
     { label: "50% or more", vars: codes("B25091", 11, 22) }] },
-  rentBands: { topic: "housing", den: codes("B25063", 1), minus: codes("B25063", 27), categories: [
+  rentBands: { topic: "housing", since: 2015, den: codes("B25063", 1), minus: codes("B25063", 27), categories: [
     { label: "Under $500", vars: span("B25063", 3, 11) }, { label: "$500 to $999", vars: span("B25063", 12, 19) },
     { label: "$1,000 to $1,499", vars: codes("B25063", 20, 21) }, { label: "$1,500 to $1,999", vars: codes("B25063", 22) },
     { label: "$2,000 to $2,499", vars: codes("B25063", 23) }, { label: "$2,500 or more", vars: span("B25063", 24, 26) }] },
@@ -100,14 +107,14 @@ export const SPECS: Record<string, Spec> = {
   disability: { topic: "social", den: codes("B18101", 1), categories: [
     { label: "With a disability", vars: DISABLED }, { label: "No disability", vars: NOT_DISABLED }] },
   language: { topic: "social", den: codes("C16001", 1), categories: [
-    { label: "English only", vars: codes("C16001", 2) }, { label: "Spanish", vars: codes("C16001", 3, 4, 5) },
+    { label: "English only", vars: codes("C16001", 2) }, { label: "Spanish", vars: codes("C16001", 3) },
     { label: "Another language", vars: OTHER_LANGUAGES }] },
   raceEthnicity: { topic: "population", den: codes("B03002", 1), categories: [
     { label: "White, not Hispanic", vars: codes("B03002", 3) }, { label: "Hispanic or Latino", vars: codes("B03002", 12) },
     { label: "Asian, not Hispanic", vars: codes("B03002", 6) }, { label: "Black, not Hispanic", vars: codes("B03002", 4) },
     { label: "Two or more races, not Hispanic", vars: codes("B03002", 9) },
     { label: "Another race, not Hispanic", vars: codes("B03002", 5, 7, 8) }] },
-  nativity: { topic: "population", den: codes("B05002", 1), categories: [
+  nativity: { topic: "population", legacy: { before: 2015, map: { B05002_021: "B05002_015" } }, den: codes("B05002", 1), categories: [
     { label: "Born in this state", vars: codes("B05002", 3) }, { label: "Born in another state", vars: codes("B05002", 4) },
     { label: "Born abroad to U.S. citizens", vars: codes("B05002", 9) }, { label: "Naturalized citizen", vars: codes("B05002", 14) },
     { label: "Not a U.S. citizen", vars: codes("B05002", 21) }] },
@@ -119,13 +126,17 @@ export const SPECS: Record<string, Spec> = {
     { label: "For rent", vars: codes("B25004", 2) }, { label: "For sale", vars: codes("B25004", 4) },
     { label: "Rented or sold, not occupied", vars: codes("B25004", 3, 5) }, { label: "Seasonal or occasional use", vars: codes("B25004", 6) },
     { label: "Other vacant", vars: codes("B25004", 7, 8) }] },
-  householdDetail: { topic: "households", den: codes("B11012", 1), categories: [
+  householdDetail: { topic: "households", since: 2019, den: codes("B11012", 1), categories: [
     { label: "Married couple with children", vars: codes("B11012", 3) }, { label: "Married couple, no children", vars: codes("B11012", 4) },
     { label: "Cohabiting couple", vars: codes("B11012", 5) }, { label: "Single parent", vars: codes("B11012", 10, 15) },
     { label: "Living alone", vars: codes("B11012", 9, 14) }, { label: "Other households", vars: codes("B11012", 11, 12, 16, 17) }] },
-  internetType: { topic: "social", den: codes("B28002", 1), categories: [
-    { label: "Cable, fiber or DSL", vars: codes("B28002", 7) }, { label: "Cellular data only", vars: codes("B28002", 6) },
-    { label: "Satellite or other", vars: codes("B28002", 3, 9, 11) }, { label: "No subscription", vars: codes("B28002", 12, 13) }] },
+  // B28002 "any" rows overlap, so the categories use the "no other type" rows; what is left of "broadband of any type" is people
+  // with more than one kind. The six categories add to the total.
+  internetType: { topic: "social", since: 2017, den: codes("B28002", 1), categories: [
+    { label: "Cable, fiber or DSL only", vars: codes("B28002", 8) }, { label: "Cellular data only", vars: codes("B28002", 6) },
+    { label: "Satellite only", vars: codes("B28002", 10) }, { label: "Dial-up or other service only", vars: codes("B28002", 3, 11) },
+    { label: "More than one type", vars: codes("B28002", 4), less: codes("B28002", 6, 8, 10) },
+    { label: "No subscription", vars: codes("B28002", 12, 13) }] },
   english: { topic: "social", den: LANGUAGE_ROWS.flatMap((n) => codes("C16001", n + 1, n + 2)), categories: [
     { label: "Speak English very well", vars: LANGUAGE_ROWS.map((n) => code("C16001", n + 1)) },
     { label: "Less than very well", vars: LANGUAGE_ROWS.map((n) => code("C16001", n + 2)) }] },
@@ -155,6 +166,16 @@ export const SPECS: Record<string, Spec> = {
 
 const unique = <T,>(xs: T[]) => [...new Set(xs)];
 
+// The spec as it applies to one vintage: null when its table layout does not exist yet, codes renamed where the Census moved a row.
+export function specFor(spec: Spec, vintage: number): Spec | null {
+  if (spec.since && vintage < spec.since) return null;
+  const m = spec.legacy && vintage < spec.legacy.before ? spec.legacy.map : null;
+  if (!m) return spec;
+  const re = (xs: string[]) => xs.map((x) => m[x] ?? x);
+  return { ...spec, den: re(spec.den), minus: spec.minus && re(spec.minus),
+    categories: spec.categories.map((c) => ({ ...c, vars: re(c.vars), less: c.less && re(c.less) })) };
+}
+
 // Short display names for the 20 NAICS sectors, keyed by LODES variable (CNS01...) and by NAICS code (QCEW),
 // so chart axes do not need a quarter of the card for labels.
 const SECTORS = [
@@ -172,8 +193,11 @@ export const SECTOR_BY_NAICS: Record<string, string> = Object.fromEntries(SECTOR
 
 // Share rows for each area: [{category, series, value, count, moe, note}]. An empty result means the table does
 // not exist for this vintage (for example household type in 2015 to 2018).
-export async function distribution(handle: Db, spec: Spec, refs: AreaRef[], vintage: number, categories: Category[] = spec.categories): Promise<ShareRow[]> {
-  const vars = unique([...categories.flatMap((c) => c.vars), ...spec.den, ...(spec.minus ?? [])]);
+export async function distribution(handle: Db, base: Spec, refs: AreaRef[], vintage: number, given?: Category[]): Promise<ShareRow[]> {
+  const spec = specFor(base, vintage);
+  if (!spec) return [];
+  const categories = given ?? spec.categories;
+  const vars = unique([...categories.flatMap((c) => [...c.vars, ...(c.less ?? [])]), ...spec.den, ...(spec.minus ?? [])]);
   const map = await acsVariables(handle, spec.topic, refs, vintage, vars);
   const rows: ShareRow[] = [];
   for (const ref of refs) {
@@ -182,12 +206,15 @@ export async function distribution(handle: Db, spec: Spec, refs: AreaRef[], vint
     const den = total.any ? (total.value ?? 0) - (minus.value ?? 0) : null;
     const denMoe = total.moe == null ? null : Math.sqrt(total.moe ** 2 + (minus.moe ?? 0) ** 2);
     for (const cat of categories) {
-      const s = sumOf(map, ref.id, cat.vars);
-      if (!s.any || !den) continue;
+      const parts = sumOf(map, ref.id, cat.vars);
+      const less = cat.less ? sumOf(map, ref.id, cat.less) : null;
+      if (!parts.any || !den) continue;
+      const value = (parts.value ?? 0) - (less?.value ?? 0);
+      const moe = less ? (parts.moe == null || less.moe == null ? null : Math.sqrt(parts.moe ** 2 + less.moe ** 2)) : parts.moe;
       rows.push({
-        category: cat.label, series: ref.label, value: (s.value ?? 0) / den, count: s.value ?? 0,
-        moe: shareMoe(s.value, den, s.moe, denMoe),
-        note: fmtInt(s.value), method: methodOf(Math.max(s.rank, total.rank)),
+        category: cat.label, series: ref.label, value: value / den, count: value,
+        moe: shareMoe(value, den, moe, denMoe),
+        note: fmtInt(value), method: methodOf(Math.max(parts.rank, less?.rank ?? 0, total.rank)),
       });
     }
   }
@@ -278,7 +305,7 @@ export async function distributionOverTime(handle: Db, spec: Spec, ref: AreaRef,
 // ---- rates by group ----------------------------------------------------------------------------------------
 // A rate is a share inside a group (people with a disability among 18 to 34 year olds), unlike a distribution, whose shares add to one.
 export interface Rate { label: string; num: string[]; den: string[] }
-export interface RateSpec { topic: string; rates: Rate[] }
+export interface RateSpec { topic: string; rates: Rate[]; since?: number }
 
 const both = (table: string, m: number[], f: number[]) => [...m, ...f].map((n) => code(table, n));
 // [label, numerator rows for men, for women, denominator rows for men, for women]
@@ -301,7 +328,7 @@ export const RATES: Record<string, RateSpec> = {
     ["18 to 24", [10], [24], [39], [53]], ["25 to 34", [11], [25], [40], [54]], ["35 to 44", [12], [26], [41], [55]],
     ["45 to 54", [13], [27], [42], [56]], ["55 to 64", [14], [28], [43], [57]], ["65 to 74", [15], [29], [44], [58]],
     ["75 and over", [16], [30], [45], [59]]]) },
-  veteransByAge: { topic: "population", rates: ageRates("B21001", [
+  veteransByAge: { topic: "population", since: 2010, rates: ageRates("B21001", [
     ["18 to 34", [8], [26], [7], [25]], ["35 to 54", [11], [29], [10], [28]], ["55 to 64", [14], [32], [13], [31]],
     ["65 to 74", [17], [35], [16], [34]], ["75 and over", [20], [38], [19], [37]]]) },
   costBurden: { topic: "housing", rates: [
@@ -312,6 +339,7 @@ export const RATES: Record<string, RateSpec> = {
 
 // The rate of each group for each area in one vintage.
 export async function rates(handle: Db, spec: RateSpec, refs: AreaRef[], vintage: number): Promise<ShareRow[]> {
+  if (spec.since && vintage < spec.since) return [];
   const vars = unique(spec.rates.flatMap((r) => [...r.num, ...r.den]));
   const map = await acsVariables(handle, spec.topic, refs, vintage, vars);
   const rows: ShareRow[] = [];

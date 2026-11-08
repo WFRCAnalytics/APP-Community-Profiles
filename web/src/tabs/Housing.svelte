@@ -36,7 +36,7 @@
     </div>
   {:else if sub === "prices"}
     <div class="g c3r2">
-      <ShareCard title="Monthly gross rent" spec={SPECS.rentBands} note="Renter households paying cash rent." />
+      <ShareCard title="Monthly gross rent" spec={SPECS.rentBands} note="Renter households paying cash rent. Published from 2015, when the top rent bands were split." />
       <ShareCard title="Home value" spec={SPECS.valueBands} note="Owner-occupied homes, as the owner estimates it." />
       <TrendCard title="Median household income" id="median_income" />
       <TrendCard title="Median gross rent" id="median_rent" />

@@ -18,6 +18,7 @@ export interface Indicator {
   format: FormatId;
   map: boolean;
   group: string;
+  since?: number;   // first vintage whose table layout the codes describe; earlier vintages have no value
 }
 
 const v = (table: string, ...n: number[]) => n.map((i) => `${table}_${String(i).padStart(3, "0")}`);
@@ -36,7 +37,7 @@ export const INDICATORS: Indicator[] = [
   { id: "nh_white", label: "White, not Hispanic", topic: "population", type: "share", num: v("B03002", 3), den: v("B03002", 1), format: "pct", map: true, group: P },
   { id: "foreign_born", label: "Foreign-born residents", topic: "population", type: "share", num: v("B05002", 13), den: v("B05002", 1), format: "pct", map: true, group: P },
   { id: "movers", label: "Moved in the past year", topic: "population", type: "share", num: v("B07003", 7, 10, 13, 16), den: v("B07003", 1), format: "pct", map: true, group: P },
-  { id: "veterans", label: "Veterans", topic: "population", type: "share", num: v("B21001", 2), den: v("B21001", 1), format: "pct", map: true, group: P },
+  { id: "veterans", label: "Veterans", topic: "population", type: "share", since: 2010, num: v("B21001", 2), den: v("B21001", 1), format: "pct", map: true, group: P },
   { id: "never_married", label: "Never married (15 and over)", topic: "population", type: "share", num: v("B12001", 3, 12), den: v("B12001", 1), format: "pct", map: true, group: P },
   { id: "uninsured", label: "People without health insurance", topic: "social", type: "share", num: v("B27001", 5, 8, 11, 14, 17, 20, 23, 26, 29, 33, 36, 39, 42, 45, 48, 51, 54, 57), den: v("B27001", 1), format: "pct", map: true, group: P },
   { id: "female", label: "Women", topic: "population", type: "share", num: v("B01001", 26), den: v("B01001", 1), format: "pct", map: true, group: P },
@@ -49,9 +50,9 @@ export const INDICATORS: Indicator[] = [
   { id: "race_two", label: "Two or more races", topic: "population", type: "share", num: v("B02001", 8), den: v("B02001", 1), format: "pct", map: true, group: P },
   { id: "spanish_home", label: "Speak Spanish at home", topic: "social", type: "share", num: v("C16001", 3), den: v("C16001", 1), format: "pct", map: true, group: P },
   { id: "households", label: "Households", topic: "households", type: "count", num: v("B25003", 1), format: "int", map: true, group: H },
-  { id: "married", label: "Married-couple households", topic: "households", type: "share", num: v("B11012", 2), den: v("B11012", 1), format: "pct", map: true, group: H },
+  { id: "married", label: "Married-couple households", topic: "households", type: "share", since: 2019, num: v("B11012", 2), den: v("B11012", 1), format: "pct", map: true, group: H },
   { id: "avg_hh_size", label: "Average household size", topic: "households", type: "share", num: v("B25008", 1), den: v("B25003", 1), format: "one", map: true, group: H },
-  { id: "living_alone", label: "People living alone", topic: "households", type: "share", num: v("B11012", 9, 14), den: v("B11012", 1), format: "pct", map: true, group: H },
+  { id: "living_alone", label: "People living alone", topic: "households", type: "share", since: 2019, num: v("B11012", 9, 14), den: v("B11012", 1), format: "pct", map: true, group: H },
   { id: "renters", label: "Renter households", topic: "households", type: "share", num: v("B25003", 3), den: v("B25003", 1), format: "pct", map: true, group: H },
   { id: "no_vehicle", label: "Households with no vehicle", topic: "households", type: "share", num: [...v("B25044", 3), ...v("B25044", 10)], den: v("B25044", 1), format: "pct", map: true, group: H },
   { id: "no_internet", label: "Households with no internet access", topic: "social", type: "share", num: v("B28002", 13), den: v("B28002", 1), format: "pct", map: true, group: H },

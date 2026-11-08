@@ -28,8 +28,8 @@
   <SubTabs items={SUBS} bind:active={sub} />
   {#if sub === "types"}
     <div class="g c3r2">
-      <ShareCard title="Household types" spec={SPECS.householdType} note="Not published for 2015 to 2018." />
-      <ShareCard title="Households in more detail" spec={SPECS.householdDetail} note="Not published for 2015 to 2018." />
+      <ShareCard title="Household types" spec={SPECS.householdType} note="Published from 2019; earlier years used a different table layout." />
+      <ShareCard title="Households in more detail" spec={SPECS.householdDetail} note="Published from 2019; earlier years used a different table layout." />
       <ShareCard title="Own or rent" spec={SPECS.tenure} />
       <TrendCard title="Households" id="households" />
       <TrendCard title="Average household size" id="avg_hh_size" />

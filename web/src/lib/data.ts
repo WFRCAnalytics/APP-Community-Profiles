@@ -126,6 +126,9 @@ export const AGG_COLUMNS = (ind: Indicator) => {
   return [part("num", num), part("den", den || null), part("minus_", minus || null)].join(",\n");
 };
 
+// Vintages before an indicator's layout existed are left out, so no wrong share is computed from re-used variable ids.
+const since = (ind: Indicator) => (ind.since ? `AND vintage >= ${+ind.since}` : "");
+
 const METHOD_RANK = `max(CASE method WHEN 'direct' THEN 0 WHEN 'aggregated' THEN 1 ELSE 2 END)::INTEGER AS rank`;
 
 // Indicator values for areas in one vintage: Map(id) -> value. `refs` null means every area of `type` (map layers).
@@ -136,7 +139,7 @@ export async function indicatorValues(h: Db, ind: Indicator, refs: Ref[] | null,
     const rows = await sql<AggRow & { geo_id: string }>(h, `
       SELECT geo_id, ${AGG_COLUMNS(ind)}, ${METHOD_RANK}, max(flag) AS flag
       FROM read_parquet('${dataUrl(`acs/${ind.topic}/${t}.parquet`)}')
-      WHERE vintage = ${+vintage} ${ids ? `AND geo_id IN (${list(ids)})` : ""} AND variable IN (${list(variablesOf(ind))})
+      WHERE vintage = ${+vintage} ${ids ? `AND geo_id IN (${list(ids)})` : ""} AND variable IN (${list(variablesOf(ind))}) ${since(ind)}
       GROUP BY geo_id`);
     for (const r of rows) out.set(r.geo_id, summarize(ind, r));
   }));
@@ -149,7 +152,7 @@ export async function indicatorHistory(h: Db, ind: Indicator, type: string) {
   const rows = await sql<AggRow & { geo_id: string; vintage: number }>(h, `
     SELECT geo_id, vintage, ${AGG_COLUMNS(ind)}, ${METHOD_RANK}, max(flag) AS flag
     FROM read_parquet('${dataUrl(`acs/${ind.topic}/${type}.parquet`)}')
-    WHERE variable IN (${list(variablesOf(ind))})
+    WHERE variable IN (${list(variablesOf(ind))}) ${since(ind)}
     GROUP BY geo_id, vintage ORDER BY vintage`);
   const out = new Map<string, { x: number; y: number }[]>();
   for (const r of rows) {
@@ -167,7 +170,7 @@ export async function indicatorSeries(h: Db, ind: Indicator, refs: Ref[]) {
     const rows = await sql<AggRow & { geo_id: string; vintage: number }>(h, `
       SELECT geo_id, vintage, ${AGG_COLUMNS(ind)}, ${METHOD_RANK}, max(flag) AS flag
       FROM read_parquet('${dataUrl(`acs/${ind.topic}/${t}.parquet`)}')
-      WHERE geo_id IN (${list(ids)}) AND variable IN (${list(variablesOf(ind))})
+      WHERE geo_id IN (${list(ids)}) AND variable IN (${list(variablesOf(ind))}) ${since(ind)}
       GROUP BY geo_id, vintage`);
     for (const r of rows) out.push({ id: r.geo_id, vintage: r.vintage, ...summarize(ind, r) });
   }));

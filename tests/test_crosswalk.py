@@ -74,6 +74,7 @@ def test_allocation_scales_estimate_and_moe(con):
     crosswalk.quality(con, "sh", "rel", "q", whole=0.9999, equivalent_iou=0.995)
     con.execute("CREATE TEMP TABLE shares AS SELECT 2020 AS era, * FROM sh")
     con.execute("CREATE TEMP TABLE quality AS SELECT 2020 AS era, * FROM q")
+    con.execute("CREATE TEMP TABLE county_unions (geo_id VARCHAR, county VARCHAR)")      # no whole-county areas in this fixture
     con.register("v_df", pd.DataFrame([{"vintage": 2024, "variable": "B01001_001", "agg": "sum", "weight": "pop", "custom": True, "unit": "bg"}]))
     con.execute("CREATE TEMP TABLE variables AS SELECT * FROM v_df")
     con.register("bg_df", pd.DataFrame([

@@ -18,6 +18,7 @@ export interface Indicator {
   format: FormatId;
   map: boolean;
   group: string;
+  ratio?: boolean;  // a share whose numerator is not part of its denominator (average household size, mean travel time)
   since?: number;   // first vintage whose table layout the codes describe; earlier vintages have no value
 }
 
@@ -51,7 +52,7 @@ export const INDICATORS: Indicator[] = [
   { id: "spanish_home", label: "Speak Spanish at home", topic: "social", type: "share", num: v("C16001", 3), den: v("C16001", 1), format: "pct", map: true, group: P },
   { id: "households", label: "Households", topic: "households", type: "count", num: v("B25003", 1), format: "int", map: true, group: H },
   { id: "married", label: "Married-couple households", topic: "households", type: "share", since: 2019, num: v("B11012", 2), den: v("B11012", 1), format: "pct", map: true, group: H },
-  { id: "avg_hh_size", label: "Average household size", topic: "households", type: "share", num: v("B25008", 1), den: v("B25003", 1), format: "one", map: true, group: H },
+  { id: "avg_hh_size", label: "Average household size", topic: "households", type: "share", ratio: true, num: v("B25008", 1), den: v("B25003", 1), format: "one", map: true, group: H },
   { id: "living_alone", label: "People living alone", topic: "households", type: "share", since: 2019, num: v("B11012", 9, 14), den: v("B11012", 1), format: "pct", map: true, group: H },
   { id: "renters", label: "Renter households", topic: "households", type: "share", num: v("B25003", 3), den: v("B25003", 1), format: "pct", map: true, group: H },
   { id: "no_vehicle", label: "Households with no vehicle", topic: "households", type: "share", num: [...v("B25044", 3), ...v("B25044", 10)], den: v("B25044", 1), format: "pct", map: true, group: H },
@@ -78,7 +79,7 @@ export const INDICATORS: Indicator[] = [
   { id: "enrolled", label: "People enrolled in school", topic: "education", type: "share", num: range("B14001", 3, 9), den: v("B14001", 1), format: "pct", map: true, group: I },
   { id: "unemployment", label: "Unemployment rate", topic: "employment", type: "share", num: v("B23025", 5), den: v("B23025", 3), format: "pct", map: true, group: I },
   { id: "labor_force", label: "In the labor force", topic: "employment", type: "share", num: v("B23025", 2), den: v("B23025", 1), format: "pct", map: true, group: I },
-  { id: "mean_travel", label: "Average commute (minutes)", topic: "commute", type: "share", num: v("B08013", 1), den: v("B08301", 1), minus: v("B08301", 21), format: "one", map: true, group: C },
+  { id: "mean_travel", label: "Average commute (minutes)", topic: "commute", type: "share", ratio: true, num: v("B08013", 1), den: v("B08301", 1), minus: v("B08301", 21), format: "one", map: true, group: C },
   { id: "drive_alone", label: "Workers who drive alone", topic: "commute", type: "share", num: v("B08301", 3), den: v("B08301", 1), format: "pct", map: true, group: C },
   { id: "transit", label: "Workers who take transit", topic: "commute", type: "share", num: v("B08301", 10), den: v("B08301", 1), format: "pct", map: true, group: C },
   { id: "wfh", label: "Workers who work from home", topic: "commute", type: "share", num: v("B08301", 21), den: v("B08301", 1), format: "pct", map: true, group: C },

@@ -4,7 +4,10 @@ Rows are written next to the Census geographies (data/acs/<topic>/<geo_type>.par
 mpo, rpo or fws) with the same columns and a `method`:
 
 - direct: the area equals a county, so the county's published value is used as is;
-- aggregated: every block group lies wholly inside the area (alignment of 1), so the sum is exact;
+- aggregated: every block group lies wholly inside the area (alignment of 1), so the sum is exact. An area that is a union of
+  whole counties (the WFRC region) is summed from the counties' published rows, with the margin of error the Census
+  handbook gives for a sum (the root sum of squares of the county margins) rather than from block-group margins, which
+  are far wider for the same people;
 - allocated: some block groups are split, so their values are apportioned by Decennial block counts
   and the result is a WFRC estimate;
 - derived: a median interpolated from allocated or aggregated bracket counts (also a WFRC estimate).
@@ -33,6 +36,9 @@ def load_inputs(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(f"CREATE OR REPLACE TEMP TABLE shares AS {shares}")
     con.execute(f"CREATE OR REPLACE TEMP TABLE quality AS SELECT * FROM read_parquet('{sql_path(META / 'boundary_quality.parquet')}')")
     con.execute(f"CREATE OR REPLACE TEMP TABLE variables AS SELECT * FROM read_parquet('{sql_path(META / 'variables.parquet')}')")
+    con.execute(f"""CREATE OR REPLACE TEMP TABLE county_unions AS
+        SELECT geo_id, county FROM read_parquet('{sql_path(META / 'area_counties.parquet')}')
+        WHERE geo_id NOT IN (SELECT geo_id FROM quality WHERE equivalent_to IS NOT NULL)""")
 
 
 def allocation_sql(acs_src: str, era_boundary: int, whole: float, unit: str = "bg", min_vintage: int = 0) -> str:
@@ -51,7 +57,26 @@ def allocation_sql(acs_src: str, era_boundary: int, whole: float, unit: str = "b
                      AND s.era = CASE WHEN a.vintage >= {era_boundary} THEN 2020 ELSE 2010 END
         JOIN quality q ON q.geo_id = s.geo_id AND q.unit = s.unit AND q.weight = v.weight AND q.era = s.era
         WHERE v.agg = 'sum' AND v.custom AND s.share > 0 AND q.equivalent_to IS NULL AND a.vintage >= {min_vintage}
+          AND s.geo_id NOT IN (SELECT geo_id FROM county_unions)
         GROUP BY s.geo_id, a.vintage, a.variable, q.alignment
+    """
+
+
+def county_union_sql(acs_county: str, min_vintage: int) -> str:
+    """Areas that are unions of whole counties: sum the counties' published rows. The estimate is null unless every
+    county has one. A county margin of error that is null beside an estimate (a Census-controlled count) counts as
+    zero, as in the Census handbook, so a fully controlled variable stays without a margin."""
+    return f"""
+        SELECT u.geo_id, split_part(u.geo_id, '-', 1) AS geo_type, c.vintage, c.variable,
+               CASE WHEN count(c.estimate) = count(*) THEN sum(c.estimate) END AS estimate,
+               CASE WHEN count(c.estimate) = count(*) AND count(c.moe) > 0
+                    THEN round(sqrt(sum(power(coalesce(c.moe, 0), 2))), 2) END AS moe,
+               NULL::VARCHAR AS flag, 'aggregated' AS method
+        FROM {acs_county} c
+        JOIN county_unions u ON u.county = c.geo_id
+        JOIN variables v ON v.variable = c.variable AND v.vintage = c.vintage
+        WHERE v.agg = 'sum' AND v.custom AND c.vintage >= {min_vintage}
+        GROUP BY u.geo_id, c.vintage, c.variable
     """
 
 
@@ -89,6 +114,7 @@ def run(refresh: bool = False) -> None:
             con.execute(f"CREATE OR REPLACE TEMP VIEW acs_{unit} AS SELECT * FROM read_parquet('{sql_path(src)}')")
             parts.append(allocation_sql(f"acs_{unit}", xw["era_boundary"], xw["whole_unit_share"], unit, min_vintage))
         con.execute("CREATE OR REPLACE TEMP TABLE built AS " + " UNION ALL ".join(parts)
+                    + " UNION ALL " + county_union_sql("acs_county", min_vintage)
                     + " UNION ALL " + equivalent_sql("acs_county", xw["era_boundary"]))
         derived = medians.derive(con, "built", [m for m in cfg["medians"] if m["table"] in topic_tables[topic]])
         if len(derived):

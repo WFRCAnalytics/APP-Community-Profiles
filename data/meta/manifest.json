@@ -228,7 +228,7 @@
   },
   "aggregate": {
     "commute/aog": {
-      "bytes": 5133,
+      "bytes": 5109,
       "rows": 444
     },
     "commute/fws": {
@@ -244,7 +244,7 @@
       "rows": 1546
     },
     "education/aog": {
-      "bytes": 4733,
+      "bytes": 4665,
       "rows": 420
     },
     "education/fws": {
@@ -260,7 +260,7 @@
       "rows": 905
     },
     "employment/aog": {
-      "bytes": 9673,
+      "bytes": 9552,
       "rows": 1092
     },
     "employment/fws": {
@@ -276,7 +276,7 @@
       "rows": 2450
     },
     "households/aog": {
-      "bytes": 4668,
+      "bytes": 4604,
       "rows": 384
     },
     "households/fws": {
@@ -292,7 +292,7 @@
       "rows": 912
     },
     "housing/aog": {
-      "bytes": 12759,
+      "bytes": 12728,
       "rows": 1620
     },
     "housing/fws": {
@@ -308,7 +308,7 @@
       "rows": 3760
     },
     "income/aog": {
-      "bytes": 8984,
+      "bytes": 8872,
       "rows": 972
     },
     "income/fws": {
@@ -324,7 +324,7 @@
       "rows": 2265
     },
     "population/aog": {
-      "bytes": 17828,
+      "bytes": 16919,
       "rows": 2256
     },
     "population/fws": {
@@ -340,7 +340,7 @@
       "rows": 5218
     },
     "social/aog": {
-      "bytes": 12937,
+      "bytes": 12426,
       "rows": 1598
     },
     "social/fws": {

@@ -73,18 +73,20 @@ export async function acsVariables(h: Db, topic: string, refs: Ref[], vintage: n
   return out;
 }
 
-// The sum of some variables in a Map from acsVariables, with its margin of error.
+// The sum of some variables in a Map from acsVariables, with its margin of error. A term with an estimate but no margin is a
+// Census-controlled count (its margin is zero, as in the Census handbook); the sum has no margin only when no term has one.
+// The same rule is applied in SQL by AGG_COLUMNS, so a figure reads the same on every card.
 export function sumOf(map: Map<string, AcsRow>, id: string, variables: string[]) {
-  let total: number | null = null, sq = 0, rank = 0, any = false, moeNull = false;
+  let total: number | null = null, sq = 0, rank = 0, any = false, anyMoe = false;
   for (const variable of variables) {
     const r = map.get(`${id}|${variable}`);
     if (!r || r.estimate == null) continue;
     any = true;
     total = (total ?? 0) + r.estimate;
-    if (r.moe == null) moeNull = true; else sq += r.moe ** 2;
+    if (r.moe != null) { anyMoe = true; sq += r.moe ** 2; }
     rank = Math.max(rank, r.method === "direct" ? 0 : r.method === "aggregated" ? 1 : 2);
   }
-  return { value: total, moe: any && !moeNull ? Math.sqrt(sq) : null, rank, any };
+  return { value: total, moe: any && anyMoe ? Math.sqrt(sq) : null, rank, any };
 }
 
 // Margin of error of a proportion num/den (Census handbook formula).
@@ -94,6 +96,14 @@ export function shareMoe(num: number | null, den: number | null, numMoe: number 
   const inner = numMoe ** 2 - (denMoe == null ? 0 : p ** 2 * denMoe ** 2);
   const radicand = inner > 0 ? inner : numMoe ** 2 + (denMoe == null ? 0 : p ** 2 * denMoe ** 2);
   return Math.sqrt(radicand) / den;
+}
+
+// Margin of error of a ratio num/den where the numerator is not part of the denominator (average household size, mean travel
+// time): the Census handbook's ratio formula, which has no cap on the numerator's share the way the proportion formula does.
+export function ratioMoe(num: number | null, den: number | null, numMoe: number | null, denMoe: number | null) {
+  if (num == null || !den || numMoe == null) return null;
+  const r = num / den;
+  return Math.sqrt(numMoe ** 2 + (denMoe == null ? 0 : r ** 2 * denMoe ** 2)) / den;
 }
 
 interface AggRow {
@@ -112,7 +122,7 @@ export function summarize(ind: Indicator, row: AggRow): IndicatorValue {
   const denMoe = row.den_moe == null ? null : Math.sqrt(row.den_moe ** 2 + (row.minus_moe ?? 0) ** 2);
   return {
     value: den > 0 && num != null ? num / den : null,
-    moe: shareMoe(num, den, row.num_moe, denMoe),
+    moe: (ind.ratio ? ratioMoe : shareMoe)(num, den, row.num_moe, denMoe),
     method: methodOf(row.rank ?? 0), flag: row.flag ?? null, num, den,
   };
 }
@@ -121,7 +131,8 @@ export const AGG_COLUMNS = (ind: Indicator) => {
   const num = list(ind.num), den = list(ind.den ?? []), minus = list(ind.minus ?? []);
   const part = (name: string, vars: string | null) => vars
     ? `sum(estimate) FILTER (WHERE variable IN (${vars}))::DOUBLE AS ${name},
-       sqrt(sum(power(moe, 2)) FILTER (WHERE variable IN (${vars})))::DOUBLE AS ${name}_moe`
+       CASE WHEN count(moe) FILTER (WHERE variable IN (${vars})) = 0 THEN NULL
+            ELSE sqrt(sum(power(coalesce(moe, 0), 2)) FILTER (WHERE variable IN (${vars}))) END::DOUBLE AS ${name}_moe`
     : `NULL::DOUBLE AS ${name}, NULL::DOUBLE AS ${name}_moe`;
   return [part("num", num), part("den", den || null), part("minus_", minus || null)].join(",\n");
 };

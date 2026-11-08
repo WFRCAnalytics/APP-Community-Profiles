@@ -34,7 +34,7 @@ An ACS 5-year estimate pools five years of survey responses, so "2020–2024" is
 1. **Assign blocks to areas.** Each Census block belongs to an area if its internal point falls inside the area's boundary.
 2. **Split block groups.** The ACS publishes counts for block groups, which are larger than blocks. A block group that is only partly inside an area is split by the people living in each of its blocks, using the Decennial Census count for every block: the share of the block group's population that lives in blocks inside the area. Every table uses these population weights, so the share is the same whichever table is being split. It is the number of people in each block, not the number of blocks, that sets the share. Where a block group has no population count (for example new development since the Census), housing units and finally land area are used.
 3. **Sum.** Values for the pieces are added up. Margins of error are combined by adding squares and taking the square root, scaled by the share used.
-4. **Label.** If every block group is wholly inside the area the sum is exact and is labelled a WFRC aggregate. Otherwise it is a WFRC estimate. The WFRC region (five whole counties) is exact, and Morgan RPO is the same as Morgan County, so it uses the county's published values.
+4. **Label.** If every block group is wholly inside the area the sum is exact and is labelled a WFRC aggregate. Otherwise it is a WFRC estimate. "Exact" describes the estimate: a margin of error always remains, because the underlying survey is a sample. The WFRC region (five whole counties) is summed from the counties' published estimates, with the margins of error combined as in step 3, which gives much narrower margins than adding up block groups; Morgan RPO is the same as Morgan County, so it uses the county's published values. A Census-controlled count (such as total population for a county) has no margin of error, so a sum made only of controlled counts has none either.
 
 A few ACS tables, including poverty status and disability, are not published at block group, so for those the same method is applied to tracts, which are larger. They are the more approximate tables for the smaller areas.
 
@@ -42,7 +42,7 @@ LODES counts are already at the block, so jobs and workers for every area are ex
 
 ### Medians
 
-A median cannot be added across pieces. For WFRC areas, medians (household income, rent, home value and age) are interpolated from the distribution of allocated bracket counts, assuming values are spread evenly within a bracket. Checked against published county medians, the interpolation is within about 3% for counties of 50,000 people or more. These medians have no margin of error; the Census method for it needs design factors that are not published through the data service.
+A median cannot be added across pieces. For WFRC areas, medians (household income, rent, home value and age) are interpolated from the distribution of allocated bracket counts, assuming values are spread evenly within a bracket. Checked against published county medians, the interpolation is within about 1.5% for rent, home value and age, and within about 3.3% for household income (on average 0.4% high), for counties of 50,000 people or more. These medians have no margin of error; the Census method for it needs design factors that are not published through the data service.
 
 ### Time
 

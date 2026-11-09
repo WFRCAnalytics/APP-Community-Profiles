@@ -174,3 +174,56 @@ for (const scheme of ["light", "dark"] as const) {
     await context.close();
   });
 }
+
+// The PDF report: built in the browser from the same data, in both orientations, with a comparison.
+for (const [orientation, box] of [["portrait", "[0 0 612 792]"], ["landscape", "[0 0 792 612]"]] as const) {
+  test(`downloads a ${orientation} PDF report`, async ({ page }) => {
+    test.setTimeout(180_000);
+    const errors = watchErrors(page);
+    await page.goto("/#type=county&id=49035&cmp=49049&v=2024");
+    await ready(page);
+    await page.getByRole("button", { name: /PDF report/ }).click();
+    await page.getByRole("button", { name: new RegExp(orientation, "i") }).click();
+    const [download] = await Promise.all([page.waitForEvent("download", { timeout: 150_000 }), page.getByRole("button", { name: "Download PDF" }).click()]);
+    expect(download.suggestedFilename()).toBe(`WFRC-Community-Profile_salt-lake-county-vs-utah-county_2024_${orientation}.pdf`);
+    const bytes = await (await import("node:fs/promises")).readFile((await download.path())!);
+    const text = bytes.toString("latin1");
+    expect(text.startsWith("%PDF")).toBe(true);
+    expect(text).toContain(`/MediaBox ${box}`);
+    expect(bytes.length).toBeGreaterThan(200_000);
+    expect(errors).toEqual([]);
+  });
+}
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`no axe violations on the PDF report panel in ${scheme} mode`, async ({ browser }) => {
+    const context = await browser.newContext({ colorScheme: scheme, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await page.goto("/#type=county&id=49035");
+    await ready(page);
+    await page.getByRole("button", { name: /PDF report/ }).click();
+    await expect(page.getByRole("dialog", { name: "Download a PDF report" })).toBeVisible();
+    const result = await new AxeBuilder({ page }).analyze();
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(" | ")}`)).toEqual([]);
+    await context.close();
+  });
+}
+
+// The poster is one fixed 24 by 36 inch page.
+for (const [orientation, box] of [["portrait", "[0 0 1728 2592]"], ["landscape", "[0 0 2592 1728]"]] as const) {
+  test(`downloads a ${orientation} poster`, async ({ page }) => {
+    test.setTimeout(120_000);
+    const errors = watchErrors(page);
+    await page.goto("/#type=county&id=49035&cmp=49049&v=2024");
+    await ready(page);
+    await page.getByRole("button", { name: /PDF report/ }).click();
+    await page.getByRole("button", { name: "Poster", exact: true }).click();
+    await page.getByRole("button", { name: new RegExp(orientation, "i") }).click();
+    const [download] = await Promise.all([page.waitForEvent("download", { timeout: 90_000 }), page.getByRole("button", { name: "Download PDF" }).click()]);
+    expect(download.suggestedFilename()).toBe(`WFRC-Community-Profile_salt-lake-county-vs-utah-county_2024_poster_${orientation}.pdf`);
+    const text = (await (await import("node:fs/promises")).readFile((await download.path())!)).toString("latin1");
+    expect(text.startsWith("%PDF")).toBe(true);
+    expect(text).toContain(`/MediaBox ${box}`);
+    expect(errors).toEqual([]);
+  });
+}

@@ -4,6 +4,7 @@
   import logoColor from "../assets/wfrc-color.png";
   import logoWhite from "../assets/wfrc-white.png";
   import Icon from "./Icon.svelte";
+  import ReportButton from "./ReportButton.svelte";
 
   const themeName = $derived(theme.pref === "system" ? "Auto" : theme.pref === "light" ? "Light" : "Dark");
   const themeIcon = $derived(theme.pref === "system" ? "monitor" : theme.pref === "light" ? "sun" : "moon");
@@ -20,6 +21,7 @@
     <Icon name="chevron" size={15} />
   </button>
   <div class="spacer"></div>
+  <ReportButton />
   <button class="btn-ghost" onclick={() => (app.page = app.page === "methods" ? "" : "methods")}><Icon name="info" size={15} /><span>{app.page === "methods" ? "Back to the data" : "Documentation"}</span></button>
   <button class="btn-ghost" onclick={() => theme.cycle()} aria-label="Theme: {themeName}" title="Theme: {themeName} (click to change)"><Icon name={themeIcon} size={15} /></button>
   <a class="btn-ghost" href="https://github.com/WFRCAnalytics/APP-Community-Profiles" target="_blank" rel="noopener" aria-label="Source code and data on GitHub" title="Source code and data on GitHub"><Icon name="github" size={15} /></a>

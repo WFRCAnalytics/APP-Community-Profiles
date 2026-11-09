@@ -19,8 +19,12 @@
     style?: string;
     view?: "donut" | "bars";
     history?: boolean; // false where a trend adds nothing
+    basis?: { id: string; label: string; spec: Spec }[]; // the same chart on another basis, chosen by a switch in the header
   }
-  let { title, spec, sort = false, note, style = "", view, history = true }: Props = $props();
+  let { title, spec, sort = false, note, style = "", view, history = true, basis }: Props = $props();
+  // svelte-ignore state_referenced_locally
+  let which = $state(basis?.[0]?.id ?? "");
+  const current = $derived(basis ? basis.find((b) => b.id === which)?.spec ?? spec : spec);
 
   // A static spec knows its category count; a spec built from the data (year built) is long, so it starts as bars and has no history.
   // svelte-ignore state_referenced_locally
@@ -43,6 +47,7 @@
 
   async function load(): Promise<Data> {
     const refs = app.refs, v = app.v, db = app.db!;
+    const spec = current;
     if (trend && typeof spec !== "function") {
       const raw = await distributionOverTime(db, spec, refs[0], app.years);
       const last = (s: LineSeries) => s.points.at(-1)?.y ?? 0;
@@ -74,6 +79,7 @@
   table={(d) => (d.kind === "time" ? trendTable(d.lines, pct1, (x) => `${x - 4}–${x}`) : shareTable(d.rows, d.series, pct1))}
 >
   {#snippet headerExtra()}
+    {#if basis}<ModeToggle label="Basis" bind:value={which} options={basis.map((b) => ({ id: b.id, label: b.label }))} />{/if}
     {#if trend}
       {#if sort}<ModeToggle label="Categories" bind:value={scope} options={[{ id: "all", label: "All" }, { id: "rest", label: "Smaller groups" }]} />{/if}
     {:else}

@@ -8,7 +8,7 @@ import { fillZeroYears } from "./data";
 import { shareTable, trendTable } from "./tables";
 import { SPECS, lodesBase } from "./specs";
 import { INDICATORS, variablesOf } from "./indicators";
-import { buildFlows, summarizeFlows } from "./flows";
+import { COMMUTE_MIX, buildFlows, commuteSides, summarizeFlows } from "./flows";
 
 describe("hash state", () => {
   it("round-trips the shareable state", () => {
@@ -135,5 +135,28 @@ describe("LODES breakdown base", () => {
     expect(lodesBase("education", [10, 20, 30, 10], 100)).toBe(70);      // workers 30+ only: 70 of 100 jobs
     expect(lodesBase("firm_size", [0, 0, 0, 0, 0], 100)).toBeNull();
     expect(lodesBase("race", [0, 0, 0, 0, 0, 0], 100)).toBeNull();       // 2002 to 2008
+  });
+});
+
+describe("commute balance", () => {
+  const rows = [
+    { origin_id: "a", dest_id: "a", jobs: 100, SE01: 10, SE02: 30, SE03: 60 },   // live and work in a: in neither direction
+    { origin_id: "a", dest_id: "b", jobs: 40, SE01: 8, SE02: 12, SE03: 20 },     // a resident works in b: commute out
+    { origin_id: "c", dest_id: "a", jobs: 25, SE01: 5, SE02: 10, SE03: 10 },     // a worker lives in c: commute in
+    { origin_id: "b", dest_id: "a", jobs: 5, SE01: 1, SE02: 2, SE03: 2 },
+    { origin_id: "b", dest_id: "c", jobs: 99, SE01: 9, SE02: 9, SE03: 9 },       // not a's flow
+  ];
+  it("keeps the two directions apart, by area and by breakdown", () => {
+    const s = commuteSides(rows, "a", ["SE01", "SE02", "SE03"]);
+    expect(s.here).toEqual({ SE01: 10, SE02: 30, SE03: 60 });
+    expect(s.out).toEqual({ SE01: 8, SE02: 12, SE03: 20 });
+    expect(s.inn).toEqual({ SE01: 6, SE02: 12, SE03: 12 });
+    expect(s.byArea.get("b")).toEqual({ out: 40, inn: 5 });
+    expect(s.byArea.get("c")).toEqual({ out: 0, inn: 25 });
+    expect(s.byArea.has("a")).toBe(false);
+  });
+  it("splits every flow into groups that add to its total", () => {
+    for (const m of COMMUTE_MIX) expect(m.groups).toHaveLength(3);
+    expect(new Set(COMMUTE_MIX.flatMap((m) => m.groups.map(([k]) => k))).size).toBe(9);
   });
 });

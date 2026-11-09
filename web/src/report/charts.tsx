@@ -34,20 +34,30 @@ export function Txt({ x, y, s, size = 6.8, fill = C.ink, anchor = "start", weigh
 export const seriesColors = (n: number) => (n > 1 ? [C.sel, C.cmp] : [C.sel]);
 
 /** A row of colour keys; returns the elements and the width used. */
-export function Legend({ items, x = 0, y }: { items: { label: string; color: string }[]; x?: number; y: number }): ReactElement {
-  let cx = x;
+/** Where each key of a legend goes when the row is wrapped to `width`: the row it falls on and its x. */
+function legendLayout(items: { label: string }[], width: number): { x: number; row: number }[] {
+  let cx = 0, row = 0;
+  return items.map((it) => {
+    const need = 14 + textW(it.label, 6.6) + 8;
+    if (cx > 0 && cx + need > width) { row++; cx = 0; }
+    const at = { x: cx, row };
+    cx += need;
+    return at;
+  });
+}
+export const legendRows = (items: { label: string }[], width: number) => 1 + Math.max(0, ...legendLayout(items, width).map((p) => p.row));
+
+/** A row of colour keys, wrapped onto more rows when `width` is given and they do not fit. */
+export function Legend({ items, x = 0, y, width = Infinity }: { items: { label: string; color: string }[]; x?: number; y: number; width?: number }): ReactElement {
+  const where = legendLayout(items, width);
   return (
     <G>
-      {items.map((it) => {
-        const at = cx;
-        cx += 14 + textW(it.label, 6.6) + 8;
-        return (
-          <G key={it.label}>
-            <Rect x={n2(at)} y={n2(y - 6)} width={6.5} height={6.5} rx={1.5} fill={it.color} />
-            <Txt x={at + 9.5} y={y} s={it.label} size={6.6} fill={C.muted} />
-          </G>
-        );
-      })}
+      {items.map((it, i) => (
+        <G key={it.label}>
+          <Rect x={n2(x + where[i].x)} y={n2(y + where[i].row * 9 - 6)} width={6.5} height={6.5} rx={1.5} fill={it.color} />
+          <Txt x={x + where[i].x + 9.5} y={y + where[i].row * 9} s={it.label} size={6.6} fill={C.muted} />
+        </G>
+      ))}
     </G>
   );
 }
@@ -156,6 +166,100 @@ export function ColumnChart({ rows, order, series, w, h, fmt, max }: { rows: Row
   );
 }
 
+// ---- diverging bars ------------------------------------------------------------------------------------------------
+
+// Commute out is violet, in is teal, and live and work here is grey: three hues that stay apart, and none is the blue or brick of the selected and compared areas.
+export const OUT_COLOUR = "#8e6bb8", IN_COLOUR = "#3f97a6";
+
+/** Two directions on one axis: `left` bars run left from a centre line and `right` bars run right, on one scale. Rows may carry a `group`
+ * heading (earnings, industry, age). */
+export function DivergingChart({ rows, w, h, leftLabel, rightLabel, fmt }: { rows: { label: string; group?: string; left: number; right: number }[]; w: number; h: number; leftLabel: string; rightLabel: string; fmt: Fmt }): ReactElement {
+  const fs = 6.4;
+  const lw = Math.min(w * 0.4, Math.max(40, Math.max(...rows.map((r) => labelW(r.label, fs))) + 10));
+  const half = (w - lw) / 2;
+  const x0 = lw + half;
+  const peak = Math.max(1e-9, ...rows.flatMap((r) => [r.left, r.right]));
+  const room = half - 26;
+  const heads = new Set(rows.map((r) => r.group).filter(Boolean)).size;
+  const top = 15;
+  const pitch = Math.min(20, (h - top) / (rows.length + heads * 0.9));
+  const th = Math.max(3, Math.min(10, pitch * 0.58));
+  let y = top;
+  return (
+    <Svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      <Rect x={0} y={1.5} width={6.5} height={6.5} rx={1.5} fill={OUT_COLOUR} />
+      <Txt x={10} y={7.4} s={`${leftLabel}`} size={6.6} fill={C.muted} />
+      <Txt x={w - 2} y={7.4} s={`${rightLabel}`} size={6.6} fill={C.muted} anchor="end" />
+      <Rect x={w - 4 - textW(rightLabel, 6.6) - 10} y={1.5} width={6.5} height={6.5} rx={1.5} fill={IN_COLOUR} />
+      <Line x1={n2(x0)} x2={n2(x0)} y1={top - 3} y2={n2(h)} stroke={C.grid} strokeWidth={0.8} />
+      {rows.map((r, i) => {
+        const head = r.group && r.group !== rows[i - 1]?.group;
+        if (head) y += pitch * 0.9;
+        const cy = y + pitch / 2;
+        const lenL = (r.left / peak) * room, lenR = (r.right / peak) * room;
+        y += pitch;
+        return (
+          <G key={`${r.group}|${r.label}`}>
+            {head && <Txt x={0} y={cy - pitch * 0.62} s={r.group!.toUpperCase()} size={5.4} fill={C.navy} weight={700} />}
+            <Txt x={0} y={cy + fs * 0.35} s={fit(r.label, lw - 6, fs)} size={fs} />
+            <Rect x={n2(x0 - lenL)} y={n2(cy - th / 2)} width={n2(Math.max(0.6, lenL))} height={th} rx={Math.min(1.6, th / 2)} fill={OUT_COLOUR} />
+            <Rect x={n2(x0)} y={n2(cy - th / 2)} width={n2(Math.max(0.6, lenR))} height={th} rx={Math.min(1.6, th / 2)} fill={IN_COLOUR} />
+            <Txt x={x0 - lenL - 2.5} y={cy + 2.1} s={fmt(r.left)} size={5.8} fill={C.muted} weight={600} anchor="end" />
+            <Txt x={x0 + lenR + 2.5} y={cy + 2.1} s={fmt(r.right)} size={5.8} fill={C.muted} weight={600} />
+          </G>
+        );
+      })}
+    </Svg>
+  );
+}
+
+export const HERE_COLOUR = "#8a93a5";
+
+/** Three aligned columns of bars (commute out, live and work here, commute in) for the same classes, each bar a share of its own group, so
+ * groups of very different size compare. Rows may carry a `group` heading (earnings, industry, age). */
+export function TripleChart({ rows, w, h, fmt }: { rows: { group: string; label: string; out: number; here: number; inn: number }[]; w: number; h: number; fmt: Fmt }): ReactElement {
+  const fs = 6.4;
+  const lw = Math.min(w * 0.36, Math.max(40, Math.max(...rows.map((r) => labelW(r.label, fs))) + 8));
+  const gap = 6;
+  const colW = (w - lw - gap * 2) / 3;
+  const room = colW - 22;
+  const peak = Math.max(1e-9, ...rows.flatMap((r) => [r.out, r.here, r.inn]));
+  const heads = new Set(rows.map((r) => r.group)).size;
+  const top = 14;
+  const pitch = Math.min(18, (h - top) / (rows.length + heads * 0.9));
+  const th = Math.max(3, Math.min(9, pitch * 0.56));
+  const cols: { key: "out" | "here" | "inn"; label: string; colour: string }[] = [
+    { key: "out", label: "Commute out", colour: OUT_COLOUR }, { key: "here", label: "Live & work", colour: HERE_COLOUR }, { key: "inn", label: "Commute in", colour: IN_COLOUR },
+  ];
+  let y = top;
+  return (
+    <Svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      {cols.map((c, i) => <Txt key={c.key} x={lw + i * (colW + gap)} y={7.4} s={fit(c.label, colW, 6.4)} size={6.4} fill={c.colour} weight={700} />)}
+      {rows.map((r, i) => {
+        const head = r.group !== rows[i - 1]?.group;
+        if (head) y += pitch * 0.9;
+        const cy = y + pitch / 2;
+        y += pitch;
+        return (
+          <G key={`${r.group}|${r.label}`}>
+            {head && <Txt x={0} y={cy - pitch * 0.62} s={r.group.toUpperCase()} size={5.4} fill={C.navy} weight={700} />}
+            <Txt x={0} y={cy + fs * 0.35} s={fit(r.label, lw - 6, fs)} size={fs} />
+            {cols.map((c, k) => {
+              const v = r[c.key], x0 = lw + k * (colW + gap), len = (v / peak) * room;
+              return (
+                <G key={c.key}>
+                  <Rect x={n2(x0)} y={n2(cy - th / 2)} width={n2(Math.max(0.6, len))} height={th} rx={Math.min(1.6, th / 2)} fill={c.colour} />
+                  <Txt x={x0 + len + 2.5} y={cy + 2.1} s={fmt(v)} size={5.8} fill={C.muted} weight={600} />
+                </G>
+              );
+            })}
+          </G>
+        );
+      })}
+    </Svg>
+  );
+}
+
 // ---- donut --------------------------------------------------------------------------------------------------------
 
 function arc(cx: number, cy: number, r0: number, r1: number, a0: number, a1: number): string {
@@ -234,21 +338,25 @@ export function DonutChart({ rows, order, series, w, h, fmt }: { rows: Row[]; or
 
 // ---- one 100% bar per area ----------------------------------------------------------------------------------------
 
-export function StackedChart({ rows, order, series, w, h, fmt }: { rows: Row[]; order: string[]; series: string[]; w: number; h: number; fmt: Fmt }): ReactElement {
+/** One 100% bar per row of `series`, split into the categories. `plain` keeps the row labels neutral (they name groups, not areas). */
+export function StackedChart({ rows, order, series, w, h, fmt, plain = false }: { rows: Row[]; order: string[]; series: string[]; w: number; h: number; fmt: Fmt; plain?: boolean }): ReactElement {
   const cats = order.filter((c) => rows.some((r) => r.category === c));
-  const lw = series.length > 1 ? Math.min(w * 0.3, Math.max(...series.map((s) => textW(s, 6.6))) + 6) : 0;
+  const lw = series.length > 1 ? Math.min(w * 0.34, Math.max(...series.map((s) => textW(s, 6.6))) + 8) : 0;
   const bw = w - lw;
-  const bh = Math.min(18, Math.max(10, (h - LEGEND_H - 4) / series.length - 8));
+  const items = cats.map((c, i) => ({ label: c, color: CATS[i % CATS.length] }));
+  const top = legendRows(items, w) * 9 + 8;
+  const bh = Math.min(34, Math.max(10, (h - top) / series.length - 12));
+  const pitch = Math.min(bh + 20, (h - top) / series.length);
   return (
     <Svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-      <Legend y={8} items={cats.map((c, i) => ({ label: c, color: CATS[i % CATS.length] }))} />
+      <Legend y={8} items={items} width={w} />
       {series.map((s, j) => {
-        const y = LEGEND_H + 4 + j * (bh + 9);
+        const y = top + j * pitch + (pitch - bh) / 2;
         const total = cats.reduce((a, c) => a + (rows.find((r) => r.category === c && r.series === s)?.value ?? 0), 0) || 1;
         let x = lw;
         return (
           <G key={s}>
-            {lw > 0 && <Txt x={0} y={y + bh / 2 + 2.3} s={fit(s, lw - 4, 6.6)} fill={seriesColors(2)[j]} weight={600} />}
+            {lw > 0 && <Txt x={0} y={y + bh / 2 + 2.3} s={fit(s, lw - 4, 6.6)} fill={plain ? C.ink : seriesColors(2)[j]} weight={600} />}
             {cats.map((c, i) => {
               const v = rows.find((r) => r.category === c && r.series === s)?.value ?? 0;
               const sw = (v / total) * bw;
@@ -256,8 +364,8 @@ export function StackedChart({ rows, order, series, w, h, fmt }: { rows: Row[]; 
               x += sw;
               return (
                 <G key={c}>
-                  <Rect x={n2(at + 0.4)} y={y} width={n2(Math.max(0, sw - 0.8))} height={bh} rx={1.6} fill={CATS[i % CATS.length]} />
-                  {sw > 24 && <Txt x={at + sw / 2} y={y + bh / 2 + 2.2} s={fmt(v)} size={6.2} fill={C.white} anchor="middle" weight={600} />}
+                  <Rect x={n2(at + 0.4)} y={n2(y)} width={n2(Math.max(0, sw - 0.8))} height={n2(bh)} rx={1.6} fill={CATS[i % CATS.length]} />
+                  {sw > 24 && <Txt x={at + sw / 2} y={y + bh / 2 + 2.2} s={fmt(v)} size={6.4} fill={C.white} anchor="middle" weight={600} />}
                 </G>
               );
             })}

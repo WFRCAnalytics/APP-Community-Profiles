@@ -164,6 +164,12 @@ export const SPECS: Record<string, Spec> = {
     { label: "45 to 59", vars: codes("B08303", 11) }, { label: "60 minutes or more", vars: codes("B08303", 12, 13) }] },
 };
 
+// The Census also publishes means of transportation (B08601) and travel time (B08603) by where people work, with the
+// same rows as the by-residence tables. They exist for the state, counties, cities and tracts, not for the planning areas built from tracts.
+const swapTable = (spec: Spec, from: string, to: string): Spec => JSON.parse(JSON.stringify(spec).split(from).join(to));
+SPECS.commuteModeWork = swapTable(SPECS.commuteMode, "B08301", "B08601");
+SPECS.travelTimeWork = swapTable(SPECS.travelTime, "B08303", "B08603");
+
 const unique = <T,>(xs: T[]) => [...new Set(xs)];
 
 // The spec as it applies to one vintage: null when its table layout does not exist yet, codes renamed where the Census moved a row.

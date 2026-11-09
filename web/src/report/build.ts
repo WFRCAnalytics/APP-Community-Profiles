@@ -11,7 +11,7 @@ type Feature = GeoJSON.Feature<GeoJSON.Geometry, any>;
 
 export interface GridPage { type: "grid"; id: string; section: string; kicker: string; title: string; tiles: Tile[]; panels: Panel[] }
 export interface TablePage { type: "table"; id: string; section: string; title: string; rows: ({ group: string } | IndicatorRow)[]; part: number; parts: number }
-export type Page = GridPage | TablePage | { type: "about"; id: string; section: string; title: string };
+export type Page = GridPage | TablePage;
 
 export interface ReportModel {
   ctx: Ctx;
@@ -20,7 +20,6 @@ export interface ReportModel {
   coverTiles: Tile[];
   locator: { state: Feature | null; area: Feature | null; cmp: Feature | null };
   pages: Page[];
-  toc: { label: string; page: number }[];
   mapYear: number;
 }
 
@@ -44,8 +43,10 @@ export async function buildReport(ctx: Ctx, { orientation, progress }: BuildOpti
     aborted(ctx);
     const [tiles, panels] = await Promise.all([
       def.tiles ? loadTiles(ctx, def.tiles.ids, def.tiles.jobs).catch((e) => { console.error("report: tiles", e); return [] as Tile[]; }) : Promise.resolve([] as Tile[]),
-      Promise.all(def.panels.map(async (p): Promise<Panel> => {
-        const data = await p.load(ctx).catch((e) => lost(p.title, e));
+      Promise.all(def.panels.map(async (first): Promise<Panel> => {
+        let p = first;
+        let data = await p.load(ctx).catch((e) => lost(p.title, e));
+        if (data.kind === "empty" && first.instead) { p = first.instead; data = await p.load(ctx).catch((e) => lost(p.title, e)); }
         const note = [p.note, data.kind === "line" ? data.note : undefined, SOURCES[p.source ?? "acs"](ctx)].filter(Boolean).join(" ");
         return { title: p.title, note, span: p.span, data };
       })),
@@ -68,14 +69,15 @@ export async function buildReport(ctx: Ctx, { orientation, progress }: BuildOpti
           lodesTrend("rac")(ctx).catch((e) => lost("workers", e)).then((data): Panel => ({ title: "Resident workers over time", note: lodesNote("Workers by place of residence, all jobs."), data })),
         ])
       : [];
+    const only = ctx.cmp ? ` ${ctx.sel.label} only.` : "";
     pages.push({
       type: "grid", id: "commute-flows", section: "Commute", kicker: "Commute", title: "Where people commute", tiles: flow.tiles,
       panels: [
         { title: "Commute flows", span, note: summary
           ? lodesNote(`Where ${ctx.sel.label}'s resident workers have their jobs, and who holds the jobs located there.`)
-          : lodesNote(`Routes carrying most of the jobs between ${ctx.sel.label} and the areas where its workers live and work. Each flow runs from where workers live to where they work, with an arrow at the job end; colour and thickness show the number of jobs.`), data: flow.map },
-        { title: "Where workers live", note: lodesNote("People who work here but live elsewhere, top 8."), data: flow.origins },
-        { title: "Where residents work", note: lodesNote("Workers who live here but work elsewhere, top 8."), data: flow.destinations },
+          : lodesNote(`Each flow runs from where workers live to where they work, with an arrow at the job end; colour and thickness show the number of jobs.`), data: flow.map },
+        { title: "Commute balance", note: lodesNote(`Jobs: residents who work in each area (left) and workers who live there and work here (right), top 8.${only}`), data: flow.byArea },
+        { title: "Commute mix", note: lodesNote(`Share of each group's jobs by worker earnings, industry class and age: residents who work elsewhere (commute out), people who live and work here, and workers who live elsewhere (commute in).${only}`), data: flow.mix },
         ...extra,
       ],
     });
@@ -121,7 +123,6 @@ export async function buildReport(ctx: Ctx, { orientation, progress }: BuildOpti
   chunks.forEach((rowsOnPage, p) => pages.push({ type: "table", id: `indicators-${p}`, section: "Appendix", title: "Indicators", rows: rowsOnPage, part: p + 1, parts: chunks.length }));
   tick("Indicators");
 
-  pages.push({ type: "about", id: "about", section: "Methods and the full profile", title: "Methods, sources and the full profile" });
   tick("Finishing");
 
   // Cover pieces.
@@ -131,13 +132,11 @@ export async function buildReport(ctx: Ctx, { orientation, progress }: BuildOpti
     ctx.cmp ? geojson(ctx.cmp.type).catch(() => null) : null,
   ]);
   const pick = (fc: GeoJSON.FeatureCollection | null, id: string): Feature | null => fc?.features.find((f: Feature) => f.properties.id === id) ?? null;
-  const toc: ReportModel["toc"] = [];
-  pages.forEach((p, i) => { if (!toc.some((t) => t.label === p.section)) toc.push({ label: p.section, page: i + 2 }); });
 
   return {
     ctx, orientation, generated: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
     coverTiles: (pages[0] as GridPage).tiles,
     locator: { state: state?.features?.[0] ?? null, area: pick(areas, ctx.sel.id), cmp: ctx.cmp ? pick(cmpAreas, ctx.cmp.id) : null },
-    pages, toc, mapYear: my,
+    pages, mapYear: my,
   };
 }

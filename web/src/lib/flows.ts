@@ -62,3 +62,32 @@ export function buildFlows(rows: OdRow[], id: string, direction: Direction, limi
 
 // How many routes the map draws. A city has hundreds, and every one drawn makes the large ones harder to see.
 export const ROUTE_LIMITS = [{ id: "50", label: "Top 50 routes" }, { id: "100", label: "Top 100 routes" }, { id: "250", label: "Top 250 routes" }, { id: "0", label: "All routes" }];
+
+// The breakdowns LEHD gives every origin-destination flow: monthly earnings (SE), industry class (SI) and worker age (SA), three groups each.
+export const COMMUTE_MIX: { id: "earnings" | "industry" | "age"; label: string; groups: [string, string][] }[] = [
+  { id: "earnings", label: "Earnings", groups: [["SE01", "$1,250 a month or less"], ["SE02", "$1,251 to $3,333"], ["SE03", "More than $3,333"]] },
+  { id: "industry", label: "Industry", groups: [["SI01", "Goods producing"], ["SI02", "Trade, transport, utilities"], ["SI03", "All other services"]] },
+  { id: "age", label: "Age", groups: [["SA01", "29 or younger"], ["SA02", "30 to 54"], ["SA03", "55 or older"]] },
+];
+
+export interface CommuteSides {
+  out: Record<string, number>;   // residents who work elsewhere, by breakdown column
+  inn: Record<string, number>;   // workers who live elsewhere and work here
+  here: Record<string, number>;  // people who live and work in the area (in neither direction)
+  byArea: Map<string, { out: number; inn: number }>;   // the other area of each flow: where residents work (out), where workers live (inn)
+}
+
+/** The two directions of an area's commute, summed: by the other end of each flow, and by each breakdown column named in `keys`. */
+export function commuteSides(rows: (OdRow & Record<string, any>)[], id: string, keys: string[]): CommuteSides {
+  const out: Record<string, number> = {}, inn: Record<string, number> = {}, here: Record<string, number> = {};
+  const byArea = new Map<string, { out: number; inn: number }>();
+  const at = (other: string) => byArea.get(other) ?? byArea.set(other, { out: 0, inn: 0 }).get(other)!;
+  for (const r of rows) {
+    const o = r.origin_id === id, d = r.dest_id === id;
+    if (!o && !d) continue;
+    const side = o && d ? here : o ? out : inn;
+    if (o && !d) at(r.dest_id).out += r.jobs; else if (d && !o) at(r.origin_id).inn += r.jobs;
+    for (const k of keys) side[k] = (side[k] ?? 0) + (r[k] ?? 0);
+  }
+  return { out, inn, here, byArea };
+}

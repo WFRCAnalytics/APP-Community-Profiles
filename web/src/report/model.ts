@@ -1,10 +1,10 @@
 // Everything the report shows, loaded once from the same queries the dashboard uses and held as plain data. Nothing here reads
 // the app's live state: the caller freezes it in a `Ctx` first, so changing the area or year while a report builds cannot mix two
 // views in one document.
-import { centroids, geojson, hasPep, indicatorSeries, indicatorValues, lodesSeries, lodesValues, odFlows, odTop, pepSeries, qcewCodes, qcewIndustries } from "../lib/data";
+import { areaCounties, centroids, geojson, hasPep, indicatorSeries, indicatorValues, lodesSeries, lodesValues, odCountyFlows, odFlowsBy, pepSeries, qcewCodes, qcewIndustries } from "../lib/data";
 import type { Db } from "../lib/db";
 import { quantileBreaks } from "../lib/classes";
-import { buildFlows, summarizeFlows, type OdRow } from "../lib/flows";
+import { COMMUTE_MIX, buildFlows, commuteSides, summarizeFlows, type OdRow, type Unmapped } from "../lib/flows";
 import { FORMATS, fmtCompact, fmtInt, fmtMoney, fmtOne, fmtPct, fmtPctTick, lowReliability, type Method } from "../lib/format";
 import { BY_ID, type Indicator } from "../lib/indicators";
 import {
@@ -45,10 +45,12 @@ export interface Tile {
 }
 
 export type PanelData =
-  | { kind: "bars" | "donut" | "stacked" | "columns"; rows: Row[]; order: string[]; series: string[]; fmt: Fmt }
+  | { kind: "bars" | "donut" | "stacked" | "columns"; rows: Row[]; order: string[]; series: string[]; fmt: Fmt; plain?: boolean }
   | { kind: "line"; series: LineSeries[]; fmt: Fmt; tick: Fmt; highlight?: number; zero?: boolean; note?: string }
   | { kind: "pyramid"; rows: PyramidRow[]; other: PyramidRow[] | null; ages: string[]; otherLabel?: string }
   | { kind: "map"; uid: string; tracts: Feature[]; values: Map<string, number | null>; cuts: number[]; area: Feature; tick: Fmt; summary: string; context: Feature[]; names: Map<string, string> }
+  | { kind: "triple"; rows: { group: string; label: string; out: number; here: number; inn: number }[]; fmt: Fmt }
+  | { kind: "diverging"; rows: { label: string; group?: string; left: number; right: number }[]; leftLabel: string; rightLabel: string; fmt: Fmt }
   | { kind: "flowsum"; out: Segment[]; inn: Segment[]; outTitle: string; innTitle: string; fmt: Fmt; outside: string }
   | { kind: "flow"; uid: string; frame: Frame; context: Feature[]; shapes: Feature[]; focusId: string; places: Map<string, { lon: number; lat: number }>; flows: { origin: string; dest: string; count: number }[]; names: Map<string, string>; fmt: Fmt; outside: string }
   | { kind: "empty"; text: string };
@@ -288,62 +290,97 @@ export async function loadMap(ctx: Ctx, bases: MapBase[], def: MapDef): Promise<
 
 export const OD_TYPES = ["aog", "mpo", "rpo", "fws", "county", "place"];
 
-export interface FlowPage { tiles: Tile[]; map: PanelData; origins: PanelData; destinations: PanelData }
+export interface FlowPage { tiles: Tile[]; map: PanelData; byArea: PanelData; mix: PanelData }
+
+// The two directions of a commute by earnings, industry class and age, as the dashboard draws them.
+const MIX: [string, [string, string][]][] = COMMUTE_MIX.map((x) => [x.label, x.groups]);
 
 export async function loadFlows(ctx: Ctx): Promise<FlowPage | null> {
   const { sel, db, lodes } = ctx;
   if (!OD_TYPES.includes(sel.type) || !lodes) return null;
   const name = (id: string) => (id === ctx.outsideId ? `Elsewhere in ${ctx.state.name}` : id === "out-of-state" ? `Outside ${ctx.state.name}` : ctx.names.get(id) ?? id);
-  const [rows, places, shapes, up, down] = await Promise.all([
-    odFlows(db, sel.type, sel.id, lodes) as Promise<OdRow[]>, centroids(db, sel.type), geojson(sel.type),
-    odTop(db, sel.type, sel.id, lodes, "origins", 9), odTop(db, sel.type, sel.id, lodes, "destinations", 9),
-  ]);
+  const [raw, places, shapes] = await Promise.all([odFlowsBy(db, sel.type, sel.id, lodes), centroids(db, sel.type), geojson(sel.type)]);
+  const rows: (OdRow & Record<string, number>)[] = raw.map((r) => ({ ...r, jobs: r.S000 })) as any;
   if (!rows.length) return null;
   const s = summarizeFlows(rows, sel.id);
   const tile = (label: string, value: string, meta: string): Tile => ({ label, value, meta, method: "aggregated", compare: null, spark: [] });
-  const pct = (x: number | null) => (x == null ? "–" : fmtPct(x, 0));
+  const pct = (x: number | null) => (x == null ? "\u2013" : fmtPct(x, 0));
   const tiles = [
     tile("Live and work here", pct(s.liveShare), `${fmtInt(s.both)} of ${fmtInt(s.workers)} resident workers`),
     tile("Commute in", pct(s.inShare), `${fmtInt(s.inflow)} of ${fmtInt(s.jobs)} jobs here`),
     tile("Commute out", pct(s.outShare), `${fmtInt(s.outflow)} of ${fmtInt(s.workers)} resident workers`),
     tile("Jobs located here", fmtInt(s.jobs), `LODES8 ${lodes}`),
   ];
-  const { flows, unmapped } = buildFlows(rows, sel.id, "both", 0, new Set(places.keys()));
+  let { flows, unmapped } = buildFlows(rows, sel.id, "both", 0, new Set(places.keys()));
+  let mapPlaces = places;
   const feats: Feature[] = shapes.features;
   const area = feats.find((f) => f.properties.id === sel.id) ?? null;
-  const frame = flowFrame(flows, places, sel.id, area);
-  // The area's own flow to itself is the "live and work here" tile, and drawn as a bar it would dwarf every other area.
-  const bars = (all: { other: string; jobs: number }[], series: string): PanelData => {
-    const list = all.filter((r) => r.other !== sel.id).slice(0, 8);
-    return list.length
-      ? { kind: "bars", rows: list.map((r) => ({ category: name(r.other), series, value: r.jobs })), order: list.map((r) => name(r.other)), series: [series], fmt: FMT.compact }
-      : empty();
-  };
+  // An area made of whole counties (the region) has no neighbours of its own kind to draw lines to, so its flows are drawn between the
+  // area and the counties around it, summed from the county flow file.
+  if (places.size < 4 && ["aog", "mpo", "rpo", "fws"].includes(sel.type)) {
+    const members = new Set(await areaCounties(db, sel.id).catch(() => [] as string[]));
+    const here = places.get(sel.id);
+    if (members.size && here) {
+      const [crows, cplaces] = await Promise.all([odCountyFlows(db, [...members], lodes), centroids(db, "county")]);
+      const outAgg = new Map<string, number>(), inAgg = new Map<string, number>();
+      for (const r of crows) {
+        const o = members.has(r.origin_id), d = members.has(r.dest_id);
+        if (o && !d) outAgg.set(r.dest_id, (outAgg.get(r.dest_id) ?? 0) + r.jobs);
+        else if (!o && d) inAgg.set(r.origin_id, (inAgg.get(r.origin_id) ?? 0) + r.jobs);
+      }
+      mapPlaces = new Map([...cplaces].filter(([id]) => !members.has(id)));
+      mapPlaces.set(sel.id, here);
+      const known = new Set(mapPlaces.keys());
+      flows = [...[...outAgg].filter(([id]) => known.has(id)).map(([dest, count]) => ({ origin: sel.id, dest, count })), ...[...inAgg].filter(([id]) => known.has(id)).map(([origin, count]) => ({ origin, dest: sel.id, count }))];
+      const hidden = new Map<string, Unmapped>();
+      for (const [id, n] of outAgg) if (!known.has(id)) hidden.set(id, { id, work: n, live: hidden.get(id)?.live ?? 0 });
+      for (const [id, n] of inAgg) if (!known.has(id)) hidden.set(id, { id, work: hidden.get(id)?.work ?? 0, live: n });
+      unmapped = [...hidden.values()].sort((a, b) => b.work + b.live - (a.work + a.live));
+    }
+  }
+  const frame = flowFrame(flows, mapPlaces, sel.id, area);
   const outside = unmapped.slice(0, 3).map((u) => `${name(u.id)} ${fmtCompact(u.work + u.live)}`).join(" · ");
+
+  // Commute in and out with each area, side by side: residents who work there on the left, workers who live there on the right.
+  const sides = new Map<string, { out: number; inn: number }>();
+  const side = (id: string) => sides.get(id) ?? sides.set(id, { out: 0, inn: 0 }).get(id)!;
+  for (const f of flows) { if (f.origin === sel.id && f.dest !== sel.id) side(f.dest).out += f.count; else if (f.dest === sel.id && f.origin !== sel.id) side(f.origin).inn += f.count; }
+  for (const u of unmapped) { side(u.id).out += u.work; side(u.id).inn += u.live; }
+  const top = [...sides].sort((a, b) => b[1].out + b[1].inn - (a[1].out + a[1].inn)).slice(0, 8);
+  const byArea: PanelData = top.length ? { kind: "diverging", rows: top.map(([id, v]) => ({ label: name(id), left: v.out, right: v.inn })), leftLabel: "Commute out (residents)", rightLabel: "Commute in (workers)", fmt: FMT.compact } : empty();
+
+  // The people who commute out, live and work here, and commute in, by earnings, industry class and age of their jobs, as shares of each group.
+  const keys = MIX.flatMap(([, list]) => list.map(([k]) => k));
+  const sums = commuteSides(rows, sel.id, keys);
+  const share = (side: Record<string, number>, list: [string, string][], k: string) => {
+    const total = list.reduce((t, [kk]) => t + (side[kk] ?? 0), 0);
+    return total ? (side[k] ?? 0) / total : 0;
+  };
+  const mixRows = MIX.flatMap(([group, list]) => list.map(([k, label]) => ({ group, label, out: share(sums.out, list, k), here: share(sums.here, list, k), inn: share(sums.inn, list, k) })));
+  const mix: PanelData = mixRows.some((r) => r.out + r.here + r.inn > 0) ? { kind: "triple", rows: mixRows, fmt: pct0 } : empty();
+
   let map: PanelData = empty("Commute flows are not available for this area.");
-  if (frame && flows.length && places.size >= 4) {
+  if (frame && flows.length && mapPlaces.size >= 4) {
     const countyFc = await geojson("county");
     // Draw the routes the frame reaches; a route whose far end is off the frame is clipped by the map edge.
     const inside = feats.filter((f) => { const b = boxOfFeature(f); return b.w <= frame.e && b.e >= frame.w && b.s <= frame.n && b.n >= frame.s; });
-    // A city has hundreds of routes and every extra thin line hides the large ones, so the map draws the 40 busiest.
     // Both directions are kept in view: the 25 busiest routes in and the 15 busiest out (a city's inflow would otherwise hide its outflow).
     const byCount = [...flows].sort((a, b) => b.count - a.count);
-    const top = [...byCount.filter((f) => f.dest === sel.id).slice(0, 25), ...byCount.filter((f) => f.origin === sel.id).slice(0, 15)];
-    map = { kind: "flow", uid: "", frame, context: countyFc.features, shapes: inside, focusId: sel.id, places, flows: top, names: new Map([...places.keys()].map((id) => [id, name(id)])), fmt: FMT.compact,
+    const drawn = [...byCount.filter((f) => f.dest === sel.id).slice(0, 25), ...byCount.filter((f) => f.origin === sel.id).slice(0, 15)];
+    map = { kind: "flow", uid: "", frame, context: countyFc.features, shapes: inside, focusId: sel.id, places: mapPlaces, flows: drawn, names: new Map([...mapPlaces.keys()].map((id) => [id, id === sel.id ? sel.label : name(id)])), fmt: FMT.compact,
             outside: `${frame.beyond.routes ? `${frame.beyond.routes} smaller routes lie beyond the frame (${fmtCompact(frame.beyond.jobs)} jobs). ` : ""}${outside ? `Not on the map: ${outside}.` : ""}`.trim() };
-  } else if (rows.length) {
-    // Too few neighbouring areas to draw lines between (the region is one area): show where the numbers go as two bars instead.
+  } else {
+    // Too few neighbouring areas to draw lines between: show where the numbers go as two bars instead.
     const split = (side: "origin_id" | "dest_id", own: string): Segment[] => {
-      const other = side === "origin_id" ? "origin_id" : "dest_id";
       const mine = rows.filter((r) => r.origin_id === sel.id && r.dest_id === sel.id).reduce((t, r) => t + r.jobs, 0);
       const rest = rows.filter((r) => !(r.origin_id === sel.id && r.dest_id === sel.id) && (side === "origin_id" ? r.dest_id === sel.id : r.origin_id === sel.id)).sort((a, b) => b.jobs - a.jobs);
-      const named = rest.slice(0, 3).map((r) => ({ label: name(r[other]), value: r.jobs }));
+      const named = rest.slice(0, 3).map((r) => ({ label: name(r[side]), value: r.jobs }));
       const others = rest.slice(3).reduce((t, r) => t + r.jobs, 0);
       return [{ label: own, value: mine }, ...named, ...(others > 0 ? [{ label: "Other areas", value: others }] : [])].filter((x) => x.value > 0);
     };
     map = { kind: "flowsum", out: split("dest_id", "Live and work here"), inn: split("origin_id", "Residents who work here"), outTitle: "Where residents work", innTitle: "Who holds the jobs here", fmt: FMT.compact, outside: "" };
   }
-  return { tiles, map, origins: bars(up, "Jobs"), destinations: bars(down, "Jobs") };
+  return { tiles, map, byArea, mix };
 }
 
 function boxOfFeature(f: Feature) {

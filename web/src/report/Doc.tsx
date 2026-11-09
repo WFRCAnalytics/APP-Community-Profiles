@@ -9,7 +9,7 @@ import logoColor from "../assets/wfrc-color.png";
 import logoWhite from "../assets/wfrc-white.png";
 import { TYPE_LABEL } from "../lib/indicators";
 import type { GridPage, Page as ReportPage, ReportModel, TablePage } from "./build";
-import { BarChart, ColumnChart, DonutChart, LineChart, Pyramid, Sparkline, StackedChart } from "./charts";
+import { BarChart, ColumnChart, DivergingChart, TripleChart, DonutChart, LineChart, Pyramid, Sparkline, StackedChart } from "./charts";
 import { ChoroplethMap, FlowDiagram, FlowRouteMap } from "./maps";
 import { placePanels } from "./layout";
 import type { Orientation, Panel, PanelData, Tile } from "./model";
@@ -103,11 +103,13 @@ function Chart({ data, w, h }: { data: PanelData; w: number; h: number }): React
     case "bars": return <BarChart rows={data.rows} order={data.order} series={data.series} w={w} h={h} fmt={data.fmt} />;
     case "columns": return <ColumnChart rows={data.rows} order={data.order} series={data.series} w={w} h={h} fmt={data.fmt} />;
     case "donut": return <DonutChart rows={data.rows} order={data.order} series={data.series} w={w} h={h} fmt={data.fmt} />;
-    case "stacked": return <StackedChart rows={data.rows} order={data.order} series={data.series} w={w} h={h} fmt={data.fmt} />;
+    case "stacked": return <StackedChart rows={data.rows} order={data.order} series={data.series} w={w} h={h} fmt={data.fmt} plain={data.plain} />;
     case "line": return <LineChart series={data.series} w={w} h={h} fmt={data.fmt} tick={data.tick} highlight={data.highlight} zero={data.zero} />;
     case "pyramid": return <Pyramid rows={data.rows} other={data.other} ages={data.ages} w={w} h={h} otherLabel={data.otherLabel} />;
     case "map": return <ChoroplethMap w={w} h={h - 9} uid={data.uid} tracts={data.tracts} values={data.values} cuts={data.cuts} area={data.area} tick={data.tick} context={data.context} names={data.names} />;
     case "flow": return <FlowRouteMap w={w} h={h - (data.outside ? 16 : 0)} uid={data.uid || "flow"} frame={data.frame} context={data.context} shapes={data.shapes} focusId={data.focusId} places={data.places} flows={data.flows} names={(id) => data.names.get(id) ?? id} fmt={data.fmt} />;
+    case "triple": return <TripleChart rows={data.rows} w={w} h={h} fmt={data.fmt} />;
+    case "diverging": return <DivergingChart rows={data.rows} w={w} h={h} leftLabel={data.leftLabel} rightLabel={data.rightLabel} fmt={data.fmt} />;
     case "flowsum": return <FlowDiagram w={w} h={h} out={data.out} inn={data.inn} outTitle={data.outTitle} innTitle={data.innTitle} fmt={data.fmt} />;
     default: return null;
   }
@@ -177,17 +179,42 @@ export function Locator({ locator, w, h }: { locator: ReportModel["locator"]; w:
   );
 }
 
-function Toc({ m, w }: { m: ReportModel; w: number }): ReactElement {
+/** How to read the numbers, the sources, and the QR code to the live profile: what used to need a page of its own. */
+function CoverAbout({ m, w }: { m: ReportModel; w: number }): ReactElement {
+  const qr = 112;
+  const textW = w - qr - 20;
+  const url = m.ctx.url;
+  const h = (s: string) => <Text style={display(8.4, { marginBottom: 2.5, marginTop: 7 })}>{s}</Text>;
+  const t = (s: string) => <Text style={body(6.9, { lineHeight: 1.4, marginBottom: 2 })}>{s}</Text>;
+  const way = (k: keyof typeof METHOD_STYLE, label: string, text: string) => (
+    <View key={label} style={{ flexDirection: "row", gap: 5, marginBottom: 2.5 }}>
+      <View style={{ width: 11, alignItems: "center", paddingTop: 0.5 }}><MethodChip method={k as Tile["method"]} /></View>
+      <Text style={body(6.9, { lineHeight: 1.4, flex: 1 })}><Text style={{ fontWeight: 700 }}>{label}. </Text>{text}</Text>
+    </View>
+  );
   return (
-    <View style={{ width: w }}>
-      <Text style={body(7, { color: C.sel, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 })}>In this report</Text>
-      {m.toc.map((t) => (
-        <View key={t.label} style={{ flexDirection: "row", alignItems: "flex-end", paddingVertical: 3.5, borderBottomWidth: 0.5, borderBottomColor: C.border }}>
-          <Text style={body(8.4, { fontWeight: 500 })}>{t.label}</Text>
-          <View style={{ flexGrow: 1, height: 1, marginHorizontal: 5, marginBottom: 2.5, borderBottomWidth: 0.75, borderBottomColor: C.faint, borderBottomStyle: "dotted" }} />
-          <Text style={body(8, { color: C.muted })}>{t.page}</Text>
-        </View>
-      ))}
+    <View style={{ width: w, flexDirection: "row", gap: 20 }}>
+      <View style={{ width: textW }}>
+        <Text style={body(7, { color: C.sel, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" })}>How to read this report</Text>
+        {h("How each number was made")}
+        {way("direct", "Published", "The Census Bureau publishes this value for exactly this area.")}
+        {way("aggregated", "Aggregate", "An exact sum of whole Census blocks or block groups inside the area.")}
+        {way("allocated", "Estimate", "A WFRC estimate, split from block groups only partly inside the area. A median is interpolated from allocated brackets.")}
+        {h("Margins of error")}
+        {t("Every American Community Survey figure has a 90 percent margin of error. It is marked use with caution when the margin is over 30 percent of the estimate.")}
+        {h("Maps")}
+        {t(`Tract maps show the Census tracts that make up the area, in five groups of equal count on the same breaks for every area here. A tract that crosses the boundary is drawn whole; the ${m.mapYear - 4}\u2013${m.mapYear} tracts are used. A flow map reaches the routes that carry about 75 percent of the jobs between the area and areas of its own kind.`)}
+        {h("Sources")}
+        {t(`American Community Survey 5-year estimates, ${m.ctx.v - 4}\u2013${m.ctx.v}; Census Population Estimates Program; LEHD LODES8 jobs and commute flows, ${m.ctx.lodes}; BLS QCEW employment and pay, ${m.ctx.qcew}.`)}
+        {t("Built in your browser from the same data as the live profile. The text is selectable and the charts are vectors. The PDF has bookmarks but no accessibility tags; the live profile has a table view and CSV download for every chart.")}
+      </View>
+      <View style={{ width: qr, alignItems: "center", paddingTop: 2 }}>
+        <Link src={url}><View style={{ padding: 5, borderWidth: 0.75, borderColor: C.border, borderRadius: 6 }}><Qr url={url} size={qr - 10} /></View></Link>
+        <Text style={display(8.6, { textAlign: "center", marginTop: 7, lineHeight: 1.2 })}>See the full, live profile</Text>
+        <Text style={body(6.6, { color: C.muted, textAlign: "center", marginTop: 3, lineHeight: 1.4 })}>Scan to explore every indicator, any map and the commute flows, and to compare areas.</Text>
+        <Link src={url} style={body(5.8, { color: C.sel, textAlign: "center", marginTop: 4 })}>{url.replace(/^https?:\/\//, "").split("#")[0]}</Link>
+        <Text style={body(6, { color: C.muted, textAlign: "center", marginTop: 6 })}>Generated {m.generated}</Text>
+      </View>
     </View>
   );
 }
@@ -210,11 +237,6 @@ function Cover({ m }: { m: ReportModel }): ReactElement {
   const tcols = portrait ? 3 : 2;
   const area = portrait ? W - 2 * M : W - 290 - 2 * 36;
   const tw = (area - 8 * (tcols - 1)) / tcols;
-  const link = (
-    <Text style={body(7, { color: C.muted, lineHeight: 1.5 })}>
-      Generated {m.generated}. See the full, live profile at <Link src={m.ctx.url} style={{ color: C.sel }}>{m.ctx.url.replace(/^https?:\/\//, "").split("#")[0]}</Link>.
-    </Text>
-  );
   const tileGrid = (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, width: area }}>
       {tiles.map((t) => <TileView key={t.label} t={t} w={tw} h={56} />)}
@@ -228,8 +250,7 @@ function Cover({ m }: { m: ReportModel }): ReactElement {
         <View style={{ position: "absolute", left: M, top: 100, width: W - 2 * M - 150 }}>{name}</View>
         <View style={{ position: "absolute", right: 40, top: 40 }}><Locator locator={m.locator} w={116} h={160} /></View>
         <View style={{ position: "absolute", left: M, top: 292 }}>{tileGrid}</View>
-        <View style={{ position: "absolute", left: M, top: 292 + Math.ceil(tiles.length / tcols) * 64 + 24 }}><Toc m={m} w={W - 2 * M} /></View>
-        <View style={{ position: "absolute", left: M, right: M, bottom: 26 }}>{link}</View>
+        <View style={{ position: "absolute", left: M, top: 292 + Math.ceil(tiles.length / tcols) * 64 + 20 }}><CoverAbout m={m} w={W - 2 * M} /></View>
       </Page>
     );
   }
@@ -240,8 +261,7 @@ function Cover({ m }: { m: ReportModel }): ReactElement {
       <View style={{ position: "absolute", left: 32, top: 150, width: 230 }}>{name}</View>
       <View style={{ position: "absolute", left: 32, bottom: 30 }}><Locator locator={m.locator} w={92} h={130} /></View>
       <View style={{ position: "absolute", left: 326, top: 40 }}>{tileGrid}</View>
-      <View style={{ position: "absolute", left: 326, top: 40 + Math.ceil(tiles.length / tcols) * 64 + 24 }}><Toc m={m} w={area} /></View>
-      <View style={{ position: "absolute", left: 326, right: M, bottom: 26 }}>{link}</View>
+      <View style={{ position: "absolute", left: 326, top: 40 + Math.ceil(tiles.length / tcols) * 64 + 18 }}><CoverAbout m={m} w={area} /></View>
     </Page>
   );
 }
@@ -302,74 +322,6 @@ export function Qr({ url, size }: { url: string; size: number }): ReactElement {
   );
 }
 
-function About({ m, p }: { m: ReportModel; p: ReportPage }): ReactElement {
-  const { W, H } = SIZE[m.orientation];
-  const bw = W - 2 * M;
-  const wide = m.orientation === "landscape";
-  const url = m.ctx.url;
-  const top = TOP + 44;
-  const leftW = wide ? 250 : bw;
-  const q = wide ? 150 : 120;
-  const textW = wide ? bw - leftW - 24 : bw;
-  const colW = (textW - 20) / 2;
-  const h = (s: string) => <Text style={display(9, { marginBottom: 4, marginTop: 9 })}>{s}</Text>;
-  const t = (s: string) => <Text style={body(wide ? 7.4 : 8, { lineHeight: 1.42, marginBottom: 4 })}>{s}</Text>;
-  const way = (k: keyof typeof METHOD_STYLE, label: string, text: string) => (
-    <View key={label} style={{ flexDirection: "row", gap: 6, marginBottom: 4 }}>
-      <View style={{ width: 12, alignItems: "center", paddingTop: 1 }}><MethodChip method={k as Tile["method"]} /></View>
-      <Text style={body(7.4, { lineHeight: 1.42, flex: 1 })}><Text style={{ fontWeight: 700 }}>{label}. </Text>{text}</Text>
-    </View>
-  );
-  const explore = (
-    <View style={{ width: leftW, flexDirection: wide ? "column" : "row", gap: wide ? 10 : 16, alignItems: wide ? "flex-start" : "center" }}>
-      <View style={{ alignItems: "center" }}>
-        <Link src={url}><View style={{ padding: 5, borderWidth: 0.75, borderColor: C.border, borderRadius: 6 }}><Qr url={url} size={q} /></View></Link>
-        <Text style={body(6.4, { color: C.muted, marginTop: 4 })}>Scan to open this view</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={display(wide ? 13 : 14, { lineHeight: 1.22, marginBottom: 6 })}>See the full, live profile to explore more data and maps.</Text>
-        <Text style={body(7.6, { lineHeight: 1.45, marginBottom: 5 })}>Every indicator for any city, county or planning area, a year slider with trends back to 2009, maps of any variable by area or tract, an interactive commute flow map, table views and CSV downloads, and a second area to compare against.</Text>
-        <Link src={url} style={body(7, { color: C.sel, lineHeight: 1.4 })}>{url}</Link>
-        <Text style={body(6.4, { color: C.muted, marginTop: 4 })}>The link opens this report{"’"}s area{m.ctx.cmp ? ", comparison" : ""} and year.</Text>
-      </View>
-    </View>
-  );
-  const methods = (
-    <View style={{ width: textW, flexDirection: "row", gap: 20 }}>
-      <View style={{ width: colW }}>
-        {h("How each number was made")}
-        {way("direct", "Published", "The Census Bureau publishes this value for exactly this area.")}
-        {way("aggregated", "Aggregate", "An exact sum of whole Census blocks or block groups inside the area.")}
-        {way("allocated", "Estimate", "A WFRC estimate, split from block groups only partly inside the area, using Census block counts. A median is interpolated from allocated brackets.")}
-        {h("Margins of error")}
-        {t("Every American Community Survey figure carries a 90 percent margin of error. A figure is marked use with caution when its margin is more than 30 percent of the estimate. Small areas and short trends move more from year to year than they appear to.")}
-        {h("Maps")}
-        {t(`Tract maps show the Census tracts that make up the area, in five groups of equal count, on the same breaks for every area in the report. A tract that crosses the boundary is drawn whole. Census redrew tracts in 2020, so the maps use the ${m.mapYear - 4}–${m.mapYear} tracts. A commute flow map is framed to the routes that carry about 75 percent of the jobs between the area and areas of its own kind and draws the busiest of them.`)}
-      </View>
-      <View style={{ width: colW }}>
-        {h("Sources and vintages")}
-        {t(`American Community Survey 5-year estimates, ${m.ctx.v - 4}–${m.ctx.v}.`)}
-        {t("Census Population Estimates Program, annual estimates for the state, counties, cities and the WFRC planning areas that are whole counties.")}
-        {t(`LEHD LODES8 jobs and commute flows, ${m.ctx.lodes}. Block counts carry noise, so small areas are rough.`)}
-        {t(`Bureau of Labor Statistics QCEW, private-sector employment and pay by industry, ${m.ctx.qcew}.`)}
-        {h("About this PDF")}
-        {t("Built in your browser from the same data as the live profile. The text is selectable and the charts are vector graphics. The PDF has bookmarks and a document language but no accessibility tags; the table view and CSV download in the live profile are the accessible form of every chart.")}
-        {t("Full definitions and the allocation method are in the Documentation page of the live profile.")}
-      </View>
-    </View>
-  );
-  return (
-    <Page size={[W, H]} style={{ backgroundColor: C.white }} bookmark={p.section}>
-      <Furniture m={m} section={p.section} />
-      <Heading m={m} kicker="Methods and next steps" title="Methods, sources and the full profile" w={bw} />
-      <View style={{ position: "absolute", left: M, top, width: bw, flexDirection: wide ? "row" : "column", gap: wide ? 24 : 6 }}>
-        {explore}
-        {methods}
-      </View>
-    </Page>
-  );
-}
-
 // ---- document -----------------------------------------------------------------------------------------------------
 
 export function ReportDocument({ m }: { m: ReportModel }): ReactElement<DocumentProps> {
@@ -379,8 +331,7 @@ export function ReportDocument({ m }: { m: ReportModel }): ReactElement<Document
       <Cover m={m} />
       {m.pages.map((p, i) =>
         p.type === "grid" ? <GridPageView key={p.id} p={p} m={m} index={i} /> :
-        p.type === "table" ? <TableView key={p.id} p={p} m={m} /> :
-        <About key={p.id} p={p} m={m} />,
+        <TableView key={p.id} p={p} m={m} />,
       )}
     </Document>
   );

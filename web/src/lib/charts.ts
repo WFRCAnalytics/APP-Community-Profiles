@@ -148,6 +148,72 @@ export function bars({ rows, order, seriesOrder, pal, colors, format, tickFormat
   return tipOverMarks(withLegend(series.map((s) => ({ label: s, color: color[s] })), chart, "rect"), chart, tipFor);
 }
 
+// ---- diverging bars -----------------------------------------------------------------------------------------
+
+export interface DivRow { label: string; group?: string; left: number; right: number }
+
+// Two directions on one axis: the `left` value of each row runs left from the centre line and the `right` value runs right, on one
+// scale. Rows with a `group` are set in panels under that heading (earnings, industry, age).
+export function diverging({ rows, pal, format, width, height, leftLabel, rightLabel }: {
+  rows: DivRow[]; pal: Palette; format: Fmt; width: number; height?: number; leftLabel: string; rightLabel: string;
+}) {
+  const labels = rows.map((r) => r.label);
+  const groups = [...new Set(rows.map((r) => r.group).filter((g): g is string => !!g))];
+  const faceted = groups.length > 0;
+  const available = innerHeight(height, 2, 9999);
+  const unit = Math.max(15, Math.min(34, (available - 48 - groups.length * 24) / Math.max(1, rows.length)));
+  const peak = Math.max(0.0001, ...rows.flatMap((r) => [r.left, r.right])) * 1.28;
+  const leftColor = CATEGORY_COLORS[4], rightColor = pal.c3;
+  const facet = faceted ? { fy: "group" } : {};
+  const marks: any[] = [
+    Plot.ruleX([0], { stroke: pal.ink2, strokeOpacity: 0.6 }),
+    Plot.barX(rows, { y: "label", ...facet, x1: (d: DivRow) => -d.left, x2: 0, fill: leftColor, rx: 3, insetTop: 3, insetBottom: 3, ariaLabel: tipLabel("l") }),
+    Plot.barX(rows, { y: "label", ...facet, x1: 0, x2: (d: DivRow) => d.right, fill: rightColor, rx: 3, insetTop: 3, insetBottom: 3, ariaLabel: tipLabel("r") }),
+    Plot.text(rows, { y: "label", ...facet, x: (d: DivRow) => -d.left, text: (d: DivRow) => format(d.left), dx: -5, textAnchor: "end", fill: pal.ink, fontSize: 11 }),
+    Plot.text(rows, { y: "label", ...facet, x: (d: DivRow) => d.right, text: (d: DivRow) => format(d.right), dx: 5, textAnchor: "start", fill: pal.ink, fontSize: 11 }),
+  ];
+  const chart = Plot.plot(base(pal, {
+    width, height: rows.length * unit + 34 + groups.length * 24, marginLeft: labelMargin(labels, width), marginRight: 8, marginTop: 4, marginBottom: 24,
+    x: { domain: [-peak, peak], grid: true, label: null, ticks: 4, tickSize: 0, tickFormat: (d: number) => format(Math.abs(d)) },
+    y: { domain: labels, label: null, tickSize: 0 },
+    fy: faceted ? { domain: groups, label: null, tickSize: 0, padding: 0.12 } : undefined,
+    marks,
+  }));
+  const tipFor = (_: string, i: number): TipData => ({
+    title: rows[i].label,
+    rows: [{ label: leftLabel, value: format(rows[i].left), color: leftColor }, { label: rightLabel, value: format(rows[i].right), color: rightColor }],
+  });
+  return tipOverMarks(withLegend([{ label: leftLabel, color: leftColor }, { label: rightLabel, color: rightColor }], chart, "rect"), chart, tipFor);
+}
+
+// ---- commute mix --------------------------------------------------------------------------------------------
+
+export interface MixRow { label: string; series: string; value: number; count: number }
+
+// One column of bars for each group of people (here: commute out, live and work here, commute in), the same classes down the side. Every
+// bar is that class's share of its own group's jobs, so groups of very different size can be compared.
+export function mixChart({ rows, series, colors, pal, format, width, height }: {
+  rows: MixRow[]; series: string[]; colors: string[]; pal: Palette; format: Fmt; width: number; height?: number;
+}) {
+  const labels = [...new Set(rows.map((r) => r.label))];
+  const color = Object.fromEntries(series.map((s, i) => [s, colors[i]]));
+  const available = innerHeight(height, 2, 9999);
+  const unit = Math.max(24, Math.min(44, (available - 50) / Math.max(1, labels.length)));
+  const peak = Math.max(0.0001, ...rows.map((r) => r.value)) * 1.35;
+  const chart = Plot.plot(base(pal, {
+    width, height: labels.length * unit + 50, marginLeft: labelMargin(labels, width), marginRight: 6, marginTop: 26, marginBottom: 4,
+    x: { axis: null, domain: [0, peak] },
+    y: { domain: labels, label: null, tickSize: 0 },
+    fx: { domain: series, axis: "top", label: null, tickSize: 0, padding: 0.1 },
+    marks: [
+      Plot.barX(rows, { x: "value", y: "label", fx: "series", fill: (d: MixRow) => color[d.series], rx: 3, insetTop: 4, insetBottom: 4, ariaLabel: tipLabel("m") }),
+      Plot.text(rows, { x: "value", y: "label", fx: "series", text: (d: MixRow) => format(d.value), dx: 4, textAnchor: "start", fill: pal.ink, fontSize: 11 }),
+    ],
+  }));
+  const tipFor = (_: string, i: number): TipData => ({ title: rows[i].label, rows: [{ label: rows[i].series, value: format(rows[i].value), sub: `${Math.round(rows[i].count).toLocaleString("en-US")} jobs`, color: color[rows[i].series] }] });
+  return tipOverMarks(withLegend(series.map((s) => ({ label: s, color: color[s] })), chart, "rect"), chart, tipFor);
+}
+
 // Stacked horizontal bars: rows [{category, series, value}] stacked per category with a gap between fills.
 export function stacked({ rows, order, seriesOrder, pal, colors, format, tickFormat = format, width, height }: {
   rows: BarRow[]; order: string[]; seriesOrder: string[]; pal: Palette; colors: string[]; format: Fmt; tickFormat?: Fmt; width: number; height?: number;

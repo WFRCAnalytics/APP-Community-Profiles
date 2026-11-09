@@ -15,6 +15,8 @@ export interface PanelDef {
   source?: Source;
   span?: Record<Orientation, [number, number]>;
   load: Loader;
+  /** Used in this panel's place when `load` finds nothing (a table the Census does not publish for this kind of area). */
+  instead?: PanelDef;
 }
 
 export interface GridPageDef {
@@ -166,12 +168,14 @@ export const PAGES: GridPageDef[] = [
     id: "commute", section: "Commute", kicker: "Commute", title: "How people travel to work",
     tiles: { ids: ["drive_alone", "transit", "wfh", "walk_bike", "long_commute", "mean_travel"] },
     panels: [
-      { title: "How workers get to work", load: share(SPECS.commuteMode, { as: "donut" }) },
-      { title: "Travel time to work", load: share(SPECS.travelTime, { as: "columns" }) },
+      { title: "How resident workers get to work", note: "Workers by where they live.", load: share(SPECS.commuteMode, { as: "donut" }) },
+      { title: "How workers here get to work", note: "Workers by where they work; published for the state, counties and cities.", load: share(SPECS.commuteModeWork, { as: "donut" }),
+        instead: { title: "Workers who take transit", load: trend("transit") } },
+      { title: "Travel time, resident workers", note: "Workers by where they live.", load: share(SPECS.travelTime, { as: "columns" }) },
+      { title: "Travel time, workers here", note: "Workers by where they work; published for the state, counties and cities.", load: share(SPECS.travelTimeWork, { as: "columns" }),
+        instead: { title: "Commuting 45 minutes or more", load: trend("long_commute") } },
       { title: "Average commute (minutes)", load: trend("mean_travel") },
       { title: "Workers who work from home", load: trend("wfh") },
-      { title: "Workers who take transit", load: trend("transit") },
-      { title: "Commuting 45 minutes or more", load: trend("long_commute") },
     ],
   },
 ];

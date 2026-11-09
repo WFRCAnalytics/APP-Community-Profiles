@@ -263,6 +263,24 @@ export const odFlows = (h: Db, type: string, id: string, year: number) =>
     SELECT origin_id, dest_id, S000::DOUBLE AS jobs FROM read_parquet('${dataUrl(`lodes/od/${type}.parquet`)}')
     WHERE year = ${+year} AND (origin_id = ${lit(id)} OR dest_id = ${lit(id)})`);
 
+// The whole counties an area is made of (the WFRC region, Morgan RPO); none for an area that cuts across counties.
+export const areaCounties = (h: Db, id: string) =>
+  sql<{ county: string }>(h, `SELECT county FROM read_parquet('${dataUrl("meta/area_counties.parquet")}') WHERE geo_id = ${lit(id)}`).then((r) => r.map((x) => x.county));
+
+// Flows between a set of counties and everywhere else, for one year, from the county OD file.
+export const odCountyFlows = (h: Db, ids: string[], year: number) =>
+  sql<{ origin_id: string; dest_id: string; jobs: number }>(h, `
+    SELECT origin_id, dest_id, S000::DOUBLE AS jobs FROM read_parquet('${dataUrl("lodes/od/county.parquet")}')
+    WHERE year = ${+year} AND (origin_id IN (${list(ids)}) OR dest_id IN (${list(ids)}))`);
+
+// Flows of one area with the LEHD breakdowns of each flow: age (SA), monthly earnings (SE) and industry class (SI), three groups each.
+export const odFlowsBy = (h: Db, type: string, id: string, year: number) =>
+  sql<Record<string, any>>(h, `
+    SELECT origin_id, dest_id, S000::DOUBLE AS S000, SA01::DOUBLE AS SA01, SA02::DOUBLE AS SA02, SA03::DOUBLE AS SA03,
+           SE01::DOUBLE AS SE01, SE02::DOUBLE AS SE02, SE03::DOUBLE AS SE03, SI01::DOUBLE AS SI01, SI02::DOUBLE AS SI02, SI03::DOUBLE AS SI03
+    FROM read_parquet('${dataUrl(`lodes/od/${type}.parquet`)}')
+    WHERE year = ${+year} AND (origin_id = ${lit(id)} OR dest_id = ${lit(id)})`);
+
 // A point inside each area of a type that has commute flows (computed by the pipeline's export step), keyed by geo_id.
 export async function centroids(h: Db, type: string) {
   const rows = await sql<{ geo_id: string; lon: number; lat: number }>(h, `

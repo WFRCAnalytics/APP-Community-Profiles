@@ -4,7 +4,7 @@
 import { Circle, ClipPath, Defs, G, Path, Rect, Svg } from "@react-pdf/renderer";
 import { geoCentroid, geoMercator, geoPath, type GeoProjection } from "d3-geo";
 import type { ReactElement } from "react";
-import { NO_DATA, RAMPS, colourFor } from "../lib/classes";
+import { FLOW_RAMPS, NO_DATA, RAMPS, colourFor } from "../lib/classes";
 import type { Frame } from "./geo";
 import { Txt, fit, type Fmt } from "./charts";
 import { C } from "./theme";
@@ -17,7 +17,6 @@ const GROUND = "#eef1f5";   // the map's page, a little cooler than the panel
 const LAND = "#f8f9fb";     // neighbouring counties
 const LAND_LINE = "#cbd2dc";
 const LABEL = "#7b8596";
-const OUT_COLOUR = "#12355b", IN_COLOUR = "#3f97a6";
 
 const corners = (west: number, south: number, east: number, north: number): GeoJSON.MultiPoint => ({ type: "MultiPoint", coordinates: [[west, south], [east, north]] });
 const countyName = (names: Map<string, string>, id: string) => (names.get(id) ?? "").replace(/ County$/, "").toUpperCase();
@@ -82,6 +81,14 @@ export function ChoroplethMap({ w, h, uid, tracts, values, cuts, area, tick, con
 
 export interface RouteDraw { origin: string; dest: string; count: number }
 
+// The look of Flowmap.gl, as in the dashboard: straight flows drawn from the smallest up, one colour ramp for the number of jobs, an
+// arrowhead at the destination that grows with the line, a pale outline round each flow, and circles sized by the jobs at each place.
+const lerp = (stops: readonly string[], t: number): string => {
+  const x = Math.min(1, Math.max(0, t)) * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(x)), f = x - i;
+  const hex = (c: string, k: number) => parseInt(c.slice(1 + 2 * k, 3 + 2 * k), 16);
+  return `#${[0, 1, 2].map((k) => Math.round(hex(stops[i], k) + (hex(stops[i + 1], k) - hex(stops[i], k)) * f).toString(16).padStart(2, "0")).join("")}`;
+};
+
 export function FlowRouteMap({ w, h, uid, frame, context, shapes, focusId, places, flows, names, fmt }: {
   w: number; h: number; uid: string; frame: Frame; context: Feature[]; shapes: Feature[]; focusId: string;
   places: Map<string, { lon: number; lat: number }>; flows: RouteDraw[]; names: (id: string) => string; fmt: Fmt;
@@ -91,11 +98,15 @@ export function FlowRouteMap({ w, h, uid, frame, context, shapes, focusId, place
   const path = geoPath(projection);
   const at = (id: string): [number, number] | null => { const p = places.get(id); return p ? (projection([p.lon, p.lat]) as [number, number]) : null; };
   const peak = Math.max(1, ...flows.map((f) => f.count));
-  // Routes in come first and routes out are drawn over them, each from the smallest up, so neither direction hides the other.
-  const sorted = [...flows].sort((a, b) => Number(a.origin === focusId) - Number(b.origin === focusId) || a.count - b.count);
+  const floor = Math.min(...flows.map((f) => f.count), peak);
+  // Thickness follows the job counts closely (a power of 0.7): the busiest flow is more than 30 times as thick as the smallest.
+  const widthOf = (c: number) => 0.35 + 11.5 * Math.pow(c / peak, 0.7);
+  const colourOf = (c: number) => lerp(FLOW_RAMPS.light, Math.pow((c - floor) / Math.max(1, peak - floor), 0.5));
+  const sorted = [...flows].sort((a, b) => a.count - b.count);
   const totals = new Map<string, number>();
   for (const f of flows) for (const id of [f.origin, f.dest]) totals.set(id, (totals.get(id) ?? 0) + f.count);
   const peakNode = Math.max(1, ...[...totals].filter(([id]) => id !== focusId).map(([, v]) => v));
+  const nodeR = (id: string) => (id === focusId ? 4.2 : 1.8 + 3.4 * Math.sqrt((totals.get(id) ?? 0) / peakNode));
   const labelled = [...totals].filter(([id]) => id !== focusId).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([id]) => id);
   // Labels go on in order of importance; one that would land on a label already placed is left off (the bars beside the map name them).
   const placed: { id: string; x: number; y: number; s: string; right: boolean; box: [number, number, number, number] }[] = [];
@@ -103,10 +114,11 @@ export function FlowRouteMap({ w, h, uid, frame, context, shapes, focusId, place
     const p = at(id);
     if (!p) continue;
     const s = fit(names(id), 70, 5.8), tw = s.length * 5.8 * 0.5, right = p[0] < w * 0.7;
-    const x = p[0] + (right ? 5 : -5), box: [number, number, number, number] = [right ? x : x - tw, p[1] - 4, tw, 7];
+    const x = p[0] + (right ? nodeR(id) + 2.5 : -nodeR(id) - 2.5), box: [number, number, number, number] = [right ? x : x - tw, p[1] - 4, tw, 7];
     if (placed.some((o) => box[0] < o.box[0] + o.box[2] && o.box[0] < box[0] + box[2] && box[1] < o.box[1] + o.box[3] && o.box[1] < box[1] + box[3])) continue;
     placed.push({ id, x, y: p[1] + 2, s, right, box });
   }
+  const ramp = [0, 1, 2, 3, 4, 5].map((k) => lerp(FLOW_RAMPS.light, k / 5));
   return (
     <Svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
       <Defs><ClipPath id={`f${uid}`}><Rect x={0} y={0} width={w} height={mh} /></ClipPath></Defs>
@@ -125,28 +137,41 @@ export function FlowRouteMap({ w, h, uid, frame, context, shapes, focusId, place
         {sorted.map((f, i) => {
           const a = at(f.origin), b = at(f.dest);
           if (!a || !b) return null;
-          const out = f.origin === focusId;
-          const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
-          const cx = mx + (dy / len) * len * 0.14, cy = my - (dx / len) * len * 0.14;
-          const wd = 0.6 + 3.2 * Math.sqrt(f.count / peak), col = out ? OUT_COLOUR : IN_COLOUR;
-          const ang = Math.atan2(b[1] - cy, b[0] - cx), ah = 2.4 + wd * 0.9;
-          const tip = `M${n2(b[0])},${n2(b[1])}L${n2(b[0] - ah * Math.cos(ang - 0.4))},${n2(b[1] - ah * Math.sin(ang - 0.4))}L${n2(b[0] - ah * Math.cos(ang + 0.4))},${n2(b[1] - ah * Math.sin(ang + 0.4))}Z`;
+          const dx0 = b[0] - a[0], dy0 = b[1] - a[1], len = Math.hypot(dx0, dy0) || 1;
+          const ux = dx0 / len, uy = dy0 / len;
+          const wd = widthOf(f.count), col = colourOf(f.count);
+          // Straight, like the dashboard. Each flow is one shape: a bar whose left edge runs straight on to the arrow tip, with a barb out to
+          // the right at the end (Flowmap.gl's half arrowhead). The bar sits a hair to the right of the line between the two places, so a flow
+          // and its return, which point the other way, run side by side.
+          const rx = -uy, ry = ux;
+          const ra = nodeR(f.origin), rb = nodeR(f.dest) + 0.6, gap = 0.6;
+          const ah = Math.min(len * 0.45, 4 + wd * 1.7), hw = wd * 0.9 + 2.4;
+          const at0 = (along: number, across: number): string => `${n2(a[0] + ux * along + rx * (gap + across))},${n2(a[1] + uy * along + ry * (gap + across))}`;
+          const tipAt = len - rb;
+          const shape = `M${at0(ra, 0)}L${at0(tipAt, 0)}L${at0(tipAt - ah, wd + hw)}L${at0(tipAt - ah, wd)}L${at0(ra, wd)}Z`;
           return (
             <G key={`${f.origin}>${f.dest}|${i}`}>
-              <Path d={`M${n2(a[0])},${n2(a[1])}Q${n2(cx)},${n2(cy)} ${n2(b[0])},${n2(b[1])}`} stroke={col} strokeWidth={n2(wd)} strokeOpacity={out ? 0.8 : 0.75} fill="none" strokeLinecap="round" />
-              <Path d={tip} fill={col} fillOpacity={0.9} />
+              <Path d={shape} fill={C.white} fillOpacity={0.55} stroke={C.white} strokeWidth={1.4} strokeOpacity={0.55} strokeLinejoin="round" />
+              <Path d={shape} fill={col} fillOpacity={0.93} />
             </G>
           );
         })}
-        {[...totals].filter(([id]) => id !== focusId).map(([id, v]) => { const p = at(id); return p ? <Circle key={id} cx={n2(p[0])} cy={n2(p[1])} r={n2(1.4 + 2.2 * Math.sqrt(v / peakNode))} fill={C.white} stroke={C.navy} strokeWidth={0.7} /> : null; })}
-        {(() => { const p = at(focusId); return p ? <Circle cx={n2(p[0])} cy={n2(p[1])} r={3.6} fill={C.sel} stroke={C.white} strokeWidth={1.2} /> : null; })()}
+        {[...totals].filter(([id]) => id !== focusId).map(([id]) => { const p = at(id); return p ? <Circle key={id} cx={n2(p[0])} cy={n2(p[1])} r={n2(nodeR(id))} fill={C.white} fillOpacity={0.85} stroke="#5b6577" strokeWidth={0.6} /> : null; })}
+        {(() => { const p = at(focusId); return p ? <Circle cx={n2(p[0])} cy={n2(p[1])} r={nodeR(focusId)} fill={C.sel} fillOpacity={0.9} stroke={C.white} strokeWidth={1.2} /> : null; })()}
         {placed.map((l) => <Txt key={l.id} x={l.x} y={l.y} s={l.s} size={5.8} fill={l.id === focusId ? C.sel : C.ink} anchor={l.right ? "start" : "end"} weight={l.id === focusId ? 700 : 500} halo />)}
       </G>
-      <Rect x={4} y={mh + 8} width={14} height={2.4} rx={1.2} fill={OUT_COLOUR} />
-      <Txt x={22} y={mh + 11.5} s="Residents work there" size={5.6} fill={C.muted} />
-      <Rect x={96} y={mh + 8} width={14} height={2.4} rx={1.2} fill={IN_COLOUR} />
-      <Txt x={114} y={mh + 11.5} s="Workers live there" size={5.6} fill={C.muted} />
-      <Txt x={w - 4} y={mh + 11.5} s={`Wider = more jobs (busiest ${fmt(peak)})`} size={5.6} fill={C.muted} anchor="end" />
+      {ramp.map((c, i) => <Rect key={i} x={4 + i * 12} y={mh + 7} width={11} height={5} fill={c} />)}
+      <Txt x={4} y={mh + 19} s={`${fmt(floor)} jobs`} size={5.6} fill={C.muted} />
+      <Txt x={4 + 6 * 12} y={mh + 19} s={`${fmt(peak)} jobs`} size={5.6} fill={C.muted} anchor="end" />
+      <Txt x={84} y={mh + 11.5} s="Arrows point to where the job is" size={5.6} fill={C.muted} />
+      {w >= 330 && (
+        <G>
+          {[floor, Math.sqrt(floor * peak), peak].map((v, k) => {
+            const x = w - 3 * 50 + k * 50;
+            return <G key={k}><Rect x={x} y={mh + 10.5 - widthOf(v) / 2} width={16} height={Math.max(0.6, widthOf(v))} rx={0.4} fill={C.muted} /><Txt x={x + 19} y={mh + 12.5} s={fmt(v)} size={5.6} fill={C.muted} /></G>;
+          })}
+        </G>
+      )}
     </Svg>
   );
 }

@@ -73,7 +73,7 @@ export async function buildReport(ctx: Ctx, { orientation, progress }: BuildOpti
       panels: [
         { title: "Commute flows", span, note: summary
           ? lodesNote(`Where ${ctx.sel.label}'s resident workers have their jobs, and who holds the jobs located there.`)
-          : lodesNote(`Routes carrying most of the jobs between ${ctx.sel.label} and the areas where its workers live and work. Arrows point toward the job; lines curve to the right of travel and widen with jobs.`), data: flow.map },
+          : lodesNote(`Routes carrying most of the jobs between ${ctx.sel.label} and the areas where its workers live and work. Each flow runs from where workers live to where they work, with an arrow at the job end; colour and thickness show the number of jobs.`), data: flow.map },
         { title: "Where workers live", note: lodesNote("People who work here but live elsewhere, top 8."), data: flow.origins },
         { title: "Where residents work", note: lodesNote("Workers who live here but work elsewhere, top 8."), data: flow.destinations },
         ...extra,

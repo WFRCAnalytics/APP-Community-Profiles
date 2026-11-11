@@ -18,10 +18,10 @@
   --focus: #1b5cb8;
   --shadow: 0 1px 2px rgb(20 28 45 / 8%), 0 8px 28px rgb(20 28 45 / 13%);
 
-  /* colour grammar: the selected area is blue, the compared area orange-brown, everywhere */
-  --sel: #0072b2;
+  /* colour grammar: the selected area is the accent, the compared area orange-brown, everywhere */
+  --sel: var(--accent); /* the selected area is drawn in the accent, on the maps and everywhere else */
   --cmp: #bd4b00;
-  --sel-text: #0a5f93;
+  --sel-text: var(--accent);
   --cmp-text: #a14100;
   --male: #0072b2;
   --on-male: #ffffff;
@@ -47,9 +47,9 @@
   --accent-text: #0e131c;
   --focus: #9cc2ff;
   --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 10px 30px rgb(0 0 0 / 50%);
-  --sel: #56b4e9;
+  --sel: var(--accent);
   --cmp: #f08a3c;
-  --sel-text: #8fcbe6;
+  --sel-text: var(--accent);
   --cmp-text: #f4a972;
   --male: #56b4e9;
   --on-male: #0e131c;
@@ -127,7 +127,7 @@ button { cursor: pointer; }
 .mark .shape { fill: var(--sel); }
 .mark .other { fill: var(--cmp); fill-opacity: 0.85; }
 .mark .ring { fill: none; stroke: var(--sel); stroke-width: 1.6; }
-/* one area on its own takes the theme accent, like the charts; with a comparison it is blue and the other brick */
+/* one area on its own takes the theme accent, like the charts; with a comparison it takes the selected colour and the other brick */
 .mark.solo .shape { fill: var(--accent); }
 .mark.solo .ring { stroke: var(--accent); }
 .ctx h1 { font: 700 1.25rem/1.1 var(--f-display); }

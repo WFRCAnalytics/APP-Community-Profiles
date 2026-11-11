@@ -57,7 +57,7 @@ A floating icon rail switches between ten screens (Overview, Map, People, Househ
 | `components/` | Navbar, area picker, rail, context bar, panels (`ChartCard`, `ShareCard`, `TrendCard`, `PyramidCard`, `SeriesCard`), tiles, map card |
 | `tabs/` | One file per screen |
 
-Colour grammar, everywhere: **blue is the selected area and orange-brown is the compared area**; the population pyramid keeps the usual men blue, women pink. Method chips are tinted (green published, blue aggregate, amber estimate) and explain themselves on hover. The map's data ramps are neutral teal and a 3 by 3 bivariate palette, never the selection colours.
+Colour grammar, everywhere: **the selected area takes the interface accent (navy, pale blue-grey in dark mode) and the compared area is orange-brown**; the population pyramid keeps the usual men blue, women pink. Method chips are tinted (green published, blue aggregate, amber estimate) and explain themselves on hover. The map's data ramp is yellow to green (ColorBrewer YlGn) and the bivariate map a 3 by 3 palette, never the selection colours.
 
 ## Run the pipeline
 

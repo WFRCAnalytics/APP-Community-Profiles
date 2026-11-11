@@ -173,10 +173,10 @@ export class MapController {
     add({ id: "areas-line", type: "line", source: "areas", paint: { "line-color": line, "line-width": 0.8, "line-opacity": 0.9 } });
     add({ id: "tracts-fill", type: "fill", source: "tracts", paint: { "fill-color": NO_DATA[mode], "fill-opacity": 0.88, "fill-color-transition": { duration: 600, delay: 0 } } });
     add({ id: "tracts-line", type: "line", source: "tracts", paint: { "line-color": line, "line-width": 0.4, "line-opacity": 0.8 } });
-    // Selected: a surface-coloured casing under a blue line. Compared: a dashed brick line.
-    add({ id: "focus-casing", type: "line", source: "focus", paint: { "line-color": line, "line-width": 6, "line-opacity": 0.9 }, layout: { "line-join": "round" } });
+    // Selected: a surface-coloured casing under an accent-coloured line. Compared: a dashed brick line.
+    add({ id: "focus-casing", type: "line", source: "focus", paint: { "line-color": line, "line-width": 8, "line-opacity": 1 }, layout: { "line-join": "round" } });
     add({ id: "focus-cmp", type: "line", source: "focus", filter: ["==", ["get", "role"], "cmp"], paint: { "line-color": COMPARED[mode], "line-width": 3, "line-dasharray": [2, 1.2] }, layout: { "line-join": "round" } });
-    add({ id: "focus-sel", type: "line", source: "focus", filter: ["==", ["get", "role"], "sel"], paint: { "line-color": SELECTED[mode], "line-width": 3.2 }, layout: { "line-join": "round" } });
+    add({ id: "focus-sel", type: "line", source: "focus", filter: ["==", ["get", "role"], "sel"], paint: { "line-color": SELECTED[mode], "line-width": 3.4 }, layout: { "line-join": "round" } });
     // County and place names sit above everything else.
     map.addLayer({
       id: "areas-label", type: "symbol", source: "areas",

@@ -1,21 +1,23 @@
 // Choropleth classes and colours (pure, so they are unit tested; the map itself needs a browser).
-// One neutral slate hue, light to dark. Blue and brick mean "selected" and "compared" everywhere, so data never uses them.
+// One yellow-to-green hue (ColorBrewer YlGn), light to dark and, in dark mode, dim to bright. The accent and brick mean "selected"
+// and "compared" everywhere, so data never uses them and both outlines stay readable on every fill.
 export const RAMPS = {
-  light: ["#EDF5F2", "#BFE0D6", "#82C3BE", "#3F97A6", "#1E5F85"],
-  dark: ["#17343B", "#21545A", "#2F7F7F", "#5CAFA0", "#B5E3CF"],
+  light: ["#FFFFCC", "#C2E699", "#78C679", "#31A354", "#006837"],
+  dark: ["#006837", "#31A354", "#78C679", "#C2E699", "#FFFFCC"],
 } as const;
 export const NO_DATA = { light: "#DCE0E3", dark: "#22384A" };
-export const SELECTED = { light: "#0A6CA0", dark: "#5CC4E8" };
+// The selected area is drawn in the interface accent (the same values as --accent in app.css; MapLibre cannot read CSS variables).
+export const SELECTED = { light: "#1B2A47", dark: "#C9D6F2" };
 export const COMPARED = { light: "#C85327", dark: "#F0916B" };
-// Hover highlight on the flow map: amber, because blue and brick already mean selected and compared.
+// Hover highlight on the flow map: amber, because the accent and brick already mean selected and compared.
 export const HIGHLIGHT = { light: "#C98A00", dark: "#E6B53A" };
 export type Mode = "light" | "dark";
 
-// Flow lines, fewest jobs first. Light mode runs from a mid teal to deep navy so thin lines read on a pale basemap; dark mode
-// fades up to the theme accent, so the busiest routes glow in it.
+// Flow lines, fewest jobs first, in the same green as the choropleth. Light mode drops the palest steps and ends on a deeper green,
+// so thin lines read on a pale basemap; dark mode fades up to pale yellow, so the busiest routes glow.
 export const FLOW_RAMPS = {
-  light: ["#5AAAB2", "#2F86A0", "#1E5F85", "#102F52"],
-  dark: ["#4A5B80", "#7186AD", "#9DB0D8", "#C9D6F2"], // ends on the dark theme accent (--accent)
+  light: [RAMPS.light[2], RAMPS.light[3], RAMPS.light[4], "#00441B"],
+  dark: [RAMPS.dark[1], RAMPS.dark[2], RAMPS.dark[3], RAMPS.dark[4]],
 } as const;
 
 

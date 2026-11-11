@@ -32,8 +32,8 @@ export const C = {
 
 // Categories in a share chart (the app's CATEGORY_COLORS) and the neutral teal ramp of the maps.
 export const CATS = ["#009E73", "#E69F00", "#56B4E9", "#CC79A7", "#8E6BB8", "#7A8497", "#B07A4B", "#4C7A6B", "#C9B21E", "#D1495B", "#3D5A80", "#98C1D9"];
-export const RAMP = ["#EDF5F2", "#BFE0D6", "#82C3BE", "#3F97A6", "#1E5F85"];
-export const FLOW_RAMP = ["#5AAAB2", "#2F86A0", "#1E5F85", "#102F52"];
+export const RAMP = ["#FFFFCC", "#C2E699", "#78C679", "#31A354", "#006837"];
+export const FLOW_RAMP = ["#78C679", "#31A354", "#006837", "#00441B"];
 
 export const F = { display: "Bricolage", body: "Instrument" } as const;
 

@@ -22,7 +22,7 @@ Decided with the maintainer after reviewing layout prototypes (canvas "Community
 ## The map
 
 - The map is not a permanent column. It is its own tab, large enough to use, with any variable, an optional second variable (bivariate), counties, cities or tracts, and a Wasatch Front or all-of-Utah extent. The Overview carries a smaller locator map.
-- Real basemap (OpenFreeMap), county and place names, selected outline in blue, compared outline dashed orange, legend overlaid with markers for the selected and compared areas.
+- Real basemap (OpenFreeMap), county and place names, selected outline in the accent, compared outline dashed orange, legend overlaid with markers for the selected and compared areas.
 
 ## Years and sources
 
@@ -35,9 +35,9 @@ Published, Aggregate and Estimate are colour-tinted chips (green, blue, amber; s
 
 ## Colour grammar
 
-- Selected area blue (`#0072B2`), compared area orange-brown (`#BD4B00`), everywhere including the map outlines and tile compare lines. Okabe-Ito chart palette; separate light and dark steps.
+- Selected area in the interface accent (`--accent`: navy `#1B2A47`, pale blue-grey `#C9D6F2` in dark mode), compared area orange-brown (`#BD4B00`), everywhere on screen including the map outlines and tile compare lines. (The PDF report keeps its own blue.) Okabe-Ito chart palette; separate light and dark steps.
 - **Population pyramid uses the industry convention:** males blue on the left, females pink (`#CC79A7`) on the right. A compared area is a dashed outline.
-- Map data ramps are neutral slate-blue and a standard 3 by 3 bivariate palette, never the blue or orange used for selection.
+- Map data ramp is yellow to green (ColorBrewer YlGn) and a standard 3 by 3 bivariate palette, never the accent or orange used for selection.
 
 ## The period control
 

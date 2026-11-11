@@ -18,14 +18,14 @@
 </script>
 
 <!-- svelte-ignore a11y_interactive_supports_focus -->
-<div class="subtabs" role="tablist" aria-label="Topics" tabindex="-1" onkeydown={key}>
+<div class="subtabs" data-tour="subtabs" role="tablist" aria-label="Topics" tabindex="-1" onkeydown={key}>
   {#each items as t}
     <button role="tab" id="sub-{t.id}" aria-selected={current === t.id} tabindex={current === t.id ? 0 : -1} onclick={() => (app.sub = t.id)}>{t.label}</button>
   {/each}
 </div>
 
 <style>
-  .subtabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: none; padding: 1px; }
+  .subtabs { width: fit-content; max-width: 100%; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: none; padding: 1px; }
   button { border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.78rem; font-weight: 500; line-height: 1; padding: 6px 11px; border-radius: 7px; white-space: nowrap; cursor: pointer; transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease; }
   button:hover { color: var(--text); background: var(--surface-2); }
   button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }

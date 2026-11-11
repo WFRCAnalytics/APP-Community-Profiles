@@ -6,6 +6,12 @@ const ready = async (page: Page) => {
   await expect(page.locator(".tile-number").first()).not.toHaveText("–", { timeout: 30_000 });
 };
 
+// The guided tour offers itself on the homepage; every test but the tour's own opts out, as a returning visitor would.
+test.beforeEach(async ({ page }, info) => {
+  if (info.title.startsWith("tour")) return;
+  await page.addInitScript(() => localStorage.setItem("wfrc-profiles-tour-off", "1"));
+});
+
 function watchErrors(page: Page) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -227,3 +233,36 @@ for (const [orientation, box] of [["portrait", "[0 0 1728 2592]"], ["landscape",
     expect(errors).toEqual([]);
   });
 }
+
+test("tour: Skip only closes it for the visit, Don't show this again is remembered, Tour replays it", async ({ page }) => {
+  await page.goto("/");
+  await ready(page);
+  const pop = page.locator(".driver-popover");
+  await expect(pop).toBeVisible({ timeout: 10_000 });
+  await expect(pop).toContainText("Pick an area");
+  await pop.getByRole("button", { name: "Next" }).click();
+  await expect(pop).toContainText("The overview map");
+  await pop.getByRole("button", { name: "Skip tour" }).click();
+  await expect(pop).toHaveCount(0);
+  // Skip does not opt out: it comes back on the next visit.
+  await page.reload();
+  await ready(page);
+  await expect(pop).toBeVisible({ timeout: 10_000 });
+  // Walk to the topic tabs (this opens People), then on to the end; the tour returns to the overview.
+  for (let i = 0; i < 6; i++) await pop.getByRole("button", { name: "Next" }).click();
+  await expect(pop).toContainText("Topics within a category");
+  await expect(page.getByRole("tab", { name: "People" })).toHaveAttribute("aria-selected", "true");
+  await pop.getByRole("button", { name: "Don't show this again" }).click();
+  await expect(pop).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+  await page.reload();
+  await ready(page);
+  await page.waitForTimeout(2000);
+  await expect(pop).toHaveCount(0);
+  // The navbar button clears the choice and starts it again.
+  await page.getByRole("button", { name: "Tour" }).click();
+  await expect(pop).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("wfrc-profiles-tour-off"))).toBeNull();
+  await page.keyboard.press("Escape");
+  await expect(pop).toHaveCount(0);
+});

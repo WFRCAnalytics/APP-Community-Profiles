@@ -9,6 +9,7 @@
   import RailNav from "./components/RailNav.svelte";
   import Splash from "./components/Splash.svelte";
   import { app } from "./lib/app.svelte";
+  import { autoStartTour } from "./lib/tour";
   import Commute from "./tabs/Commute.svelte";
   import Education from "./tabs/Education.svelte";
   import Households from "./tabs/Households.svelte";
@@ -27,6 +28,8 @@
     app.type; app.id; app.cmp; app.v; app.tab; app.sub; app.page;
     app.writeHash();
   });
+  // The tour offers itself on the homepage (the overview, with no documentation page open) once the data has loaded.
+  $effect(() => { if (app.ready) return autoStartTour(); });
   $effect(() => { document.title = app.selected ? `${app.selected.label} · ${site.title}` : site.title; });
 </script>
 

@@ -4,6 +4,7 @@
   import Download from "@lucide/svelte/icons/download";
   import GraduationCap from "@lucide/svelte/icons/graduation-cap";
   import House from "@lucide/svelte/icons/house";
+  import CircleHelp from "@lucide/svelte/icons/circle-question-mark";
   import Info from "@lucide/svelte/icons/info";
   import LayoutDashboard from "@lucide/svelte/icons/layout-dashboard";
   import Maximize from "@lucide/svelte/icons/maximize-2";
@@ -47,7 +48,7 @@
   const ICONS: Record<string, Component<{ size?: number; "aria-hidden"?: boolean | "true" | "false"; style?: string }>> = {
     search: Search, sun: Sun, moon: Moon, monitor: Monitor, layout: LayoutDashboard, users: Users, house: House,
     wallet: Wallet, cap: GraduationCap, briefcase: Briefcase, route: Route, table: Table, play: Play, pause: Pause,
-    maximize: Maximize, minimize: Minimize, info: Info, download: Download, chevron: ChevronDown, x: X, plus: Plus, "chart-bars": ChartColumn, "chart-line": ChartLine, trend: TrendingUp, sliders: Sliders,
+    maximize: Maximize, minimize: Minimize, info: Info, help: CircleHelp, download: Download, chevron: ChevronDown, x: X, plus: Plus, "chart-bars": ChartColumn, "chart-line": ChartLine, trend: TrendingUp, sliders: Sliders,
     cake: Cake, globe: Globe, languages: Languages, accessibility: Accessibility, car: Car, key: KeyRound, percent: Percent, school: School, book: BookOpen, banknote: Banknote, coins: HandCoins, factory: Factory, people: UsersRound, bus: Bus, pin: MapPin, wifi: Wifi,
   };
   const Glyph = $derived(ICONS[name] ?? Info);

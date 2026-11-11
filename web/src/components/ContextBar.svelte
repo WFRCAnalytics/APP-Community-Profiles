@@ -46,12 +46,12 @@
     <div class="sub">{app.selectedGeo ? TYPE_LABEL[app.selectedGeo.geo_type] : ""}{#if app.selectedGeo?.organization}{" · "}{app.selectedGeo.organization}{/if}</div>
   </div>
   {#if app.compare}
-    <span class="cmp-pill"><i class="dot cmp"></i>Compared with <b>{app.compare.label}</b>
+    <span class="cmp-pill" data-tour="compare"><i class="dot cmp"></i>Compared with <b>{app.compare.label}</b>
       <button onclick={() => (app.picker = "compare")} aria-label="Change the area to compare with"><Icon name="chevron" size={14} /></button>
       <button onclick={() => app.setCompare("")} aria-label="Stop comparing"><Icon name="x" size={14} /></button>
     </span>
   {:else}
-    <button class="cmp-pill" onclick={() => (app.picker = "compare")}><Icon name="plus" size={14} />Compare with another area</button>
+    <button class="cmp-pill" data-tour="compare" onclick={() => (app.picker = "compare")}><Icon name="plus" size={14} />Compare with another area</button>
   {/if}
   <div style="flex:1"></div>
   <button class="play" onclick={toggle}><Icon name={playing ? "pause" : "play"} size={14} />{playing ? "Pause" : "Play"}</button>

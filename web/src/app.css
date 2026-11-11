@@ -339,3 +339,25 @@ button.cmp-pill:hover { background: var(--surface-2); }
 .dtip .bkey { display: grid; grid-template-columns: repeat(3, 15px); grid-template-rows: repeat(3, 15px); gap: 2px; flex: none; }
 .dtip .bkey i { border-radius: 3px; }
 .dtip .bkey i.on { outline: 2px solid var(--text); outline-offset: 1px; }
+
+/* ---------- guided tour (Driver.js), in the app's colours. Driver.js's stylesheet loads after this one, so the rules are prefixed with
+   `body` to win over it in both themes. ---------- */
+body .driver-popover { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); font-family: var(--f-body); padding: 14px 16px; max-width: min(340px, calc(100vw - 24px)); }
+body .driver-popover-title { font: 700 1rem/1.2 var(--f-display); color: var(--text); }
+body .driver-popover-description { color: var(--muted); font-size: 0.8125rem; line-height: 1.45; }
+body .driver-popover-progress-text { color: var(--muted); font-size: 0.72rem; }
+body .driver-popover-close-btn { color: var(--muted); }
+body .driver-popover-close-btn:hover, body .driver-popover-close-btn:focus { color: var(--text); }
+body .driver-popover-footer button { font-family: var(--f-body); text-shadow: none; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.8125rem; padding: 6px 12px; }
+body .driver-popover-footer button:hover, body .driver-popover-footer button:focus-visible { background: var(--surface-2); }
+body .driver-popover-footer .driver-popover-next-btn { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+body .driver-popover-footer .driver-popover-next-btn:hover, body .driver-popover-footer .driver-popover-next-btn:focus-visible { background: var(--accent); filter: brightness(1.15); }
+body .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: var(--surface); }
+body .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: var(--surface); }
+body .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: var(--surface); }
+body .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: var(--surface); }
+/* The two ways out, under the step buttons: quiet, evenly sized buttons that read as controls. */
+body .tour-opt { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+body .tour-opt button { flex: 1; border: 1px solid transparent; background: var(--surface-2); color: var(--muted); font: 500 0.75rem/1.2 var(--f-body); padding: 7px 8px; border-radius: 8px; cursor: pointer; text-align: center; }
+body .tour-opt button:hover { background: var(--raised); color: var(--text); }
+body .tour-opt button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

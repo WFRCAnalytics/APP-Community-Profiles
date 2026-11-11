@@ -13,7 +13,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<nav class="rail" aria-label="Sections" onkeydown={key}>
+<nav class="rail" data-tour="rail" aria-label="Sections" onkeydown={key}>
   <div role="tablist" aria-orientation="vertical" style="display:contents">
     {#each TABS as t}
       <button class="tip" role="tab" id="tab-{t.id}" data-tip={t.label} aria-label={t.label} aria-selected={app.tab === t.id} aria-current={app.tab === t.id ? "page" : undefined} tabindex={app.tab === t.id ? 0 : -1} onclick={() => app.go(t.id)}>

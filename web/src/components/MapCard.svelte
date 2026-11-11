@@ -150,7 +150,7 @@
   <div class="canvas" bind:this={el} role="application" aria-label="Map of {layerPlural}, shaded by {indX.label}{indY ? ` and ${indY.label}` : ''}. Use the search to pick an area with the keyboard."></div>
 
   <div class="top">
-    <div class="pill seg" role="group" aria-label="Map layer">
+    <div class="pill seg" data-tour="map-layer" role="group" aria-label="Map layer">
         <button aria-pressed={layer === "areas"} onclick={() => (layer = "areas")}>{layerPlural.replace(/^./, (c) => c.toUpperCase())}</button>
         <button aria-pressed={layer === "tracts"} onclick={() => (layer = "tracts")}>Tracts</button>
     </div>
@@ -158,7 +158,7 @@
   </div>
 
   <div class="maplegend" aria-live="polite">
-    <div class="vars">
+    <div class="vars" data-tour="map-vars">
       <div class="vr"><span>Colour by</span><Dropdown bind:value={idX} options={mapInds.map((i) => ({ id: i.id, label: i.label }))} label="Colour the map by" /></div>
       <div class="vr"><span>and</span><Dropdown bind:value={idY} options={[{ id: "", label: "No second variable" }, ...mapInds.filter((i) => i.id !== idX).map((i) => ({ id: i.id, label: i.label }))]} label="Add a second variable for a bivariate map" /></div>
     </div>

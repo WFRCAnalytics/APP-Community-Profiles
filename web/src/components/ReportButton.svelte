@@ -78,7 +78,7 @@
 </script>
 
 <div class="report" bind:this={root}>
-  <button class="btn-ghost" aria-haspopup="dialog" aria-expanded={open} {disabled} onclick={() => (open = !open)} title="Download a PDF profile of this area">
+  <button class="btn-ghost" data-tour="report" aria-haspopup="dialog" aria-expanded={open} {disabled} onclick={() => (open = !open)} title="Download a PDF profile of this area">
     <Icon name="download" size={15} /><span>PDF report</span>
   </button>
   {#if open}

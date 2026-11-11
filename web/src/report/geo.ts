@@ -87,3 +87,23 @@ export function flowFrame(flows: FlowLine[], places: Map<string, { lon: number; 
   const left = ranked.filter((f) => !inFrame(f.origin) || !inFrame(f.dest));
   return { ...frame, kept: keep.length, beyond: { routes: left.length, jobs: left.reduce((s, f) => s + f.count, 0) } };
 }
+
+// The view the map opens on: the area and the few routes that carry most of its jobs (the PDF report's rule, a little tighter). A
+// route only counts toward it if it ends within REACH times the area's own size (at least MIN_REACH degrees) of the area, so one long
+// route to the far end of the state does not shrink a small city to a dot. Every route is still drawn, and the reader can zoom out.
+const REACH = 8, MIN_REACH = 0.8;
+export function flowViewFrame(flows: { origin: string; dest: string; count: number }[], places: { id: string; lon: number; lat: number }[], selId: string, area: Feature | null): Frame | null {
+  const at = new Map(places.map((p) => [p.id, { lon: p.lon, lat: p.lat }]));
+  const all = flows.filter((q) => q.origin !== q.dest);
+  let near = all;
+  if (area) {
+    const b = boxOf(area), cx = (b.w + b.e) / 2, cy = (b.s + b.n) / 2, reach = Math.max(REACH * Math.max(b.e - b.w, b.n - b.s), MIN_REACH);
+    const close = (id: string) => { const p = at.get(id); return !!p && Math.hypot((p.lon - cx) * 0.76, p.lat - cy) <= reach; };
+    near = all.filter((q) => close(q.origin) && close(q.dest));
+  }
+  const f = flowFrame(near, at, selId, area, 0.6, 3, 15);
+  if (!f) return null;
+  const inFrame = (id: string) => { const p = at.get(id); return !!p && p.lon >= f.w && p.lon <= f.e && p.lat >= f.s && p.lat <= f.n; };
+  const left = all.filter((q) => !inFrame(q.origin) || !inFrame(q.dest));
+  return { ...f, beyond: { routes: left.length, jobs: left.reduce((n, q) => n + q.count, 0) } };
+}

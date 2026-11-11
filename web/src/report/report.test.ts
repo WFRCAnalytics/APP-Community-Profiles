@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BY_ID } from "../lib/indicators";
-import { flowFrame, tractsFor } from "./geo";
+import { flowFrame, flowViewFrame, tractsFor } from "./geo";
 import { placePanels } from "./layout";
 import { MAPS, empty, type Panel } from "./model";
 import { GRID, posterRects } from "./posterBuild";
@@ -106,4 +106,23 @@ describe("the poster layout", () => {
       expect(seen.size).toBe(cols * rows);
     });
   }
+});
+
+describe("flowViewFrame", () => {
+  const sq = (w: number, s: number, e: number, n: number) => ({ type: "Feature" as const, properties: {}, geometry: { type: "Polygon" as const, coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] } });
+  const where = [{ id: "me", lon: -113.58, lat: 37.1 }, { id: "near", lon: -113.3, lat: 37.12 }, { id: "far", lon: -111.9, lat: 40.7 }];
+  const flows = [{ origin: "me", dest: "far", count: 7000 }, { origin: "near", dest: "me", count: 3000 }, { origin: "me", dest: "near", count: 2000 }];
+
+  it("leaves a route to the far end of the state out of a small city's frame, and counts it", () => {
+    const f = flowViewFrame(flows, where, "me", sq(-113.65, 37.05, -113.5, 37.15))!;
+    expect(f.n).toBeLessThan(38);
+    expect(f.beyond).toEqual({ routes: 1, jobs: 7000 });
+  });
+  it("reaches every route when the area is large", () => {
+    const f = flowViewFrame(flows, where, "me", sq(-114, 37, -109, 42))!;
+    expect(f.beyond.routes).toBe(0);
+  });
+  it("is null with nothing to frame", () => {
+    expect(flowViewFrame([], [], "me", null)).toBeNull();
+  });
 });

@@ -5,6 +5,7 @@ import * as maplibregl from "maplibre-gl";
 import { makeTooltip, type TipData } from "./charts";
 import { FLOW_RAMPS, HIGHLIGHT, SELECTED, type Mode } from "./classes";
 import type { MapFlow } from "./flows";
+import { flowViewFrame } from "../report/geo";
 import { BLANK, STYLES, addViewControls, boundsOf } from "./map";
 
 export interface FlowPlace { id: string; name: string; lon: number; lat: number }
@@ -146,20 +147,11 @@ export class FlowMapController {
     });
   }
 
-  // The view that frames every route drawn: the box around both ends of every flow and the selected area, as in WFRC's regional
-  // commuter flows app.
+  // The view that frames the area and the routes that matter (see flowViewFrame), so one long thin route to another part of the state
+  // does not shrink the area to a dot.
   private measure(view: FlowView) {
-    const at = new Map(view.places.map((p) => [p.id, p]));
-    const b = new maplibregl.LngLatBounds();
-    const home = at.get(view.selId);
-    if (home) b.extend([home.lon, home.lat]);
-    for (const f of view.flows) {
-      for (const id of [f.origin, f.dest]) {
-        const p = at.get(id);
-        if (p) b.extend([p.lon, p.lat]);
-      }
-    }
-    this.bounds = b.isEmpty() ? null : b;
+    const f = flowViewFrame(view.flows, view.places, view.selId, view.focus.features[0] ?? null);
+    this.bounds = f ? new maplibregl.LngLatBounds([f.w, f.s], [f.e, f.n]) : null;
   }
 
   fit(animate: boolean) {
@@ -167,7 +159,7 @@ export class FlowMapController {
     if (!this.bounds) return;
     const single = this.bounds.getSouthWest().distanceTo(this.bounds.getNorthEast()) < 1;
     if (single) this.map.easeTo({ center: this.bounds.getCenter(), zoom: 9, duration: animate ? 600 : 0 });
-    else this.map.fitBounds(this.bounds, { padding: 60, maxZoom: 11, duration: animate ? 600 : 0, bearing: 0, pitch: 0 });
+    else this.map.fitBounds(this.bounds, { padding: 40, maxZoom: 11, duration: animate ? 600 : 0, bearing: 0, pitch: 0 });
   }
 
   // Close on the selected area alone.

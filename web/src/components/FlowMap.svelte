@@ -7,6 +7,7 @@
   import { centroids, geojson, odFlows, restShape } from "../lib/data";
   import { buildFlows, ROUTE_LIMITS, summarizeFlows, type Direction, type OdRow } from "../lib/flows";
   import { FlowMapController, type FlowTip } from "../lib/flowmap";
+  import { flowViewFrame } from "../report/geo";
   import type { TipData } from "../lib/charts";
   import { fmtCompact, fmtInt, fmtPct } from "../lib/format";
   import { site } from "../lib/site";
@@ -72,6 +73,12 @@
   });
   const places = $derived(data ? [...data.places].map(([id, p]) => ({ id, name: name(id), lon: p.lon, lat: p.lat })) : []);
   const drawn = $derived(lines ? lines.flows.filter((f) => f.origin !== f.dest) : []);
+  // Routes the opening view leaves off, so the note under the map can say they are there.
+  const beyond = $derived.by(() => {
+    if (!data || !lines) return null;
+    const f = flowViewFrame(lines.flows, places, data.id, data.shapes.features.find((q: any) => q.properties.id === data!.id) ?? null);
+    return f && f.beyond.routes ? f.beyond : null;
+  });
   const range = $derived(drawn.length ? [Math.min(...drawn.map((f) => f.count)), Math.max(...drawn.map((f) => f.count))] : null);
   const alone = $derived(!!data && data.places.size < 2);
   const ramp = $derived(`linear-gradient(to right, ${FLOW_RAMPS[mode].join(", ")})`);
@@ -221,7 +228,7 @@
       {/if}
     </div>
     <p class="src">
-      Source: LEHD LODES8 {lodes}, jobs counted where the worker lives and where the job is. Jobs outside {site.state.name} are not in this data. Click an area to select it.{data?.rest.features.length ? ` The dashed outline is the rest of ${site.state.name}, outside every area of this kind; the point is where lines to it end.` : ""}{app.compare ? " The map follows the main area, not the compared one." : ""}
+      Source: LEHD LODES8 {lodes}, jobs counted where the worker lives and where the job is. Jobs outside {site.state.name} are not in this data. Click an area to select it.{beyond ? ` The map opens on the main routes; ${fmtInt(beyond.routes)} smaller ones (${fmtCompact(beyond.jobs)} jobs) reach beyond it, so zoom out to see them.` : ""}{data?.rest.features.length ? ` The dashed outline is the rest of ${site.state.name}, outside every area of this kind; the point is where lines to it end.` : ""}{app.compare ? " The map follows the main area, not the compared one." : ""}
     </p>
   {/if}
 </section>

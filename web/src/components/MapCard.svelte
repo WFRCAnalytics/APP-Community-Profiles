@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import { app } from "../lib/app.svelte";
   import { BIVARIATE } from "../lib/classes";
+  import { frameOf } from "../lib/extent";
   import { geojson, indicatorHistory, indicatorValues } from "../lib/data";
   import { FORMATS, fmtCompact, fmtPct, tractName, type FormatId } from "../lib/format";
   import { BY_ID, INDICATORS } from "../lib/indicators";
@@ -116,8 +117,8 @@
         details: y ? undefined : new Map([...vx].map(([id, v]) => [id, { moe: v.moe, method: v.method }])),
         names: tracts ? new Map([...vx.keys()].map((id) => [id, tractName(id)])) : app.names,
         format: FORMATS[x.format], label: y ? `${x.label} and ${y.label}` : x.label,
-        bounds: eff === "front" ? FRONT : STATE,
-        fitKey: `${eff}|${type}|${sel.id}|${cmp?.id ?? ""}`,
+        bounds: ext === "auto" ? (sel.type === "state" ? STATE : frameOf(focusFeatures, STATE)) : eff === "front" ? FRONT : STATE,
+        fitKey: `${ext}|${eff}|${type}|${sel.id}|${cmp?.id ?? ""}`,
         onSelect: tracts ? undefined : (id, shift) => (shift && id !== app.id ? (app.cmp = id) : app.select(id)),
       };
       c.update(view);

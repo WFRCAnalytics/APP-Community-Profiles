@@ -12,7 +12,6 @@
   import { theme } from "../lib/theme.svelte";
   import Dropdown from "./Dropdown.svelte";
 
-  const FRONT: [[number, number], [number, number]] = [[-113.25, 39.55], [-110.85, 41.95]];
   const STATE: [[number, number], [number, number]] = [[-114.1, 36.95], [-108.95, 42.05]];
 
   // idX and plural are bindable so the panel can title itself.
@@ -25,18 +24,6 @@
   let marks = $state.raw<{ sel: [number | null, number | null]; cmp: [number | null, number | null] }>({ sel: [null, null], cmp: [null, null] });
   let idY = $state("");
   let layer = $state<"areas" | "tracts">("areas");
-  // "auto" frames the Wasatch Front, or all of Utah when the selected (or compared) area is the state or lies outside the Front;
-  // the button overrides it until another area is chosen.
-  let extent = $state<"auto" | "front" | "state">("auto");
-  let effective = $state<"front" | "state">("front");
-  $effect(() => { app.id; app.cmp; extent = "auto"; });
-  const inFront = (f: any) => {
-    let w = Infinity, e = -Infinity, so = Infinity, n = -Infinity;
-    const walk = (c: any) => (typeof c[0] === "number" ? (w = Math.min(w, c[0]), e = Math.max(e, c[0]), so = Math.min(so, c[1]), n = Math.max(n, c[1])) : c.forEach(walk));
-    walk(f.geometry.coordinates);
-    const cx = (w + e) / 2, cy = (so + n) / 2;
-    return cx > FRONT[0][0] && cx < FRONT[1][0] && cy > FRONT[0][1] && cy < FRONT[1][1] && e - w < 2.2;
-  };
   const indX = $derived(BY_ID[idX]);
   const indY = $derived(idY ? BY_ID[idY] : null);
   const mapInds = INDICATORS.filter((i) => i.map);
@@ -70,7 +57,7 @@
   $effect(() => {
     const c = controller;
     if (!c || !app.ready || !app.selected) return;
-    const x = indX, y = indY, tracts = layer === "tracts", sel = app.selected, cmp = app.compare, ext = extent;
+    const x = indX, y = indY, tracts = layer === "tracts", sel = app.selected, cmp = app.compare;
     // Areas that are one or two polygons (the state, the region, the MPO, the RPOs) are shown against the counties.
     const type = tracts ? "tract" : ["state", "aog", "mpo", "rpo"].includes(sel.type) ? "county" : sel.type, period = app.v, db = app.db!;
     const mine = ++token;
@@ -82,8 +69,6 @@
       ]);
       if (mine !== token) return;
       const focusFeatures = [selShapes, cmpShapes].flatMap((fc, i) => (fc ? fc.features.filter((f: any) => f.properties.id === (i === 0 ? sel.id : cmp?.id)) : []));
-      const eff: "front" | "state" = ext === "auto" ? (sel.type === "state" || focusFeatures.some((f: any) => !inFront(f)) ? "state" : "front") : ext;
-      effective = eff;
       const named = {
         ...shapes,
         features: shapes.features.map((f: any) => ({ ...f, properties: { ...f.properties, name: shortName(app.names.get(f.properties.id) ?? "") } })),
@@ -117,8 +102,8 @@
         details: y ? undefined : new Map([...vx].map(([id, v]) => [id, { moe: v.moe, method: v.method }])),
         names: tracts ? new Map([...vx.keys()].map((id) => [id, tractName(id)])) : app.names,
         format: FORMATS[x.format], label: y ? `${x.label} and ${y.label}` : x.label,
-        bounds: ext === "auto" ? (sel.type === "state" ? STATE : frameOf(focusFeatures, STATE)) : eff === "front" ? FRONT : STATE,
-        fitKey: `${ext}|${eff}|${type}|${sel.id}|${cmp?.id ?? ""}`,
+        bounds: sel.type === "state" ? STATE : frameOf(focusFeatures, STATE),
+        fitKey: `${type}|${sel.id}|${cmp?.id ?? ""}`,
         onSelect: tracts ? undefined : (id, shift) => (shift && id !== app.id ? (app.cmp = id) : app.select(id)),
       };
       c.update(view);
@@ -151,11 +136,10 @@
   <div class="canvas" bind:this={el} role="application" aria-label="Map of {layerPlural}, shaded by {indX.label}{indY ? ` and ${indY.label}` : ''}. Use the search to pick an area with the keyboard."></div>
 
   <div class="top">
-    <div class="pill seg" data-tour="map-layer" role="group" aria-label="Map layer">
-        <button aria-pressed={layer === "areas"} onclick={() => (layer = "areas")}>{layerPlural.replace(/^./, (c) => c.toUpperCase())}</button>
-        <button aria-pressed={layer === "tracts"} onclick={() => (layer = "tracts")}>Tracts</button>
-    </div>
-    <button class="pill btn" onclick={() => (extent = effective === "front" ? "state" : "front")}>{effective === "front" ? "Show all of Utah" : "Zoom to Wasatch Front"}</button>
+    <button class="pill btn sw" data-tour="map-layer" role="switch" aria-checked={layer === "tracts"} onclick={() => (layer = layer === "tracts" ? "areas" : "tracts")}>
+      <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      Show census tracts
+    </button>
   </div>
 
   <div class="maplegend" aria-live="polite">
@@ -202,8 +186,11 @@
   .vr { min-width: 0; display: flex; align-items: center; gap: 6px; }
   .vr span { width: 52px; flex: none; font-size: 0.7rem; }
   .btn { padding: 7px 12px; font-size: 0.78rem; font-weight: 600; color: var(--text); cursor: pointer; }
-  .seg button { border: 0; background: transparent; padding: 7px 12px; font-size: 0.78rem; font-weight: 600; color: var(--muted); cursor: pointer; }
-  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+  .sw { gap: 8px; padding: 6px 12px 6px 8px; }
+  .track { position: relative; width: 28px; height: 16px; flex: none; border-radius: 99px; background: var(--border); transition: background 0.15s; }
+  .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgb(0 0 0 / 0.35); transition: transform 0.15s; }
+  .sw[aria-checked="true"] .track { background: var(--accent); }
+  .sw[aria-checked="true"] .knob { transform: translateX(12px); }
   .maplegend { position: absolute; left: 10px; bottom: 36px; width: min(250px, calc(100% - 20px)); max-height: calc(100% - 90px); z-index: 3; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; font-size: 0.75rem; color: var(--muted); }
   .title { font-weight: 600; color: var(--text); font-size: 0.78rem; margin-bottom: 6px; line-height: 1.25; }
   .scale { position: relative; padding-top: 9px; }
